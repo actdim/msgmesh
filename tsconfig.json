@@ -1,0 +1,76 @@
+{
+    "compilerOptions": {
+        "declaration": true,
+        "declarationMap": true,
+        "declarationDir": "./dist",
+        "emitDeclarationOnly": false,
+        "sourceMap": true,
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "allowSyntheticDefaultImports": true,
+        "allowImportingTsExtensions": true,
+        "resolveJsonModule": true,
+        "traceResolution": true,
+        "useDefineForClassFields": true,
+        "removeComments": true,
+        "forceConsistentCasingInFileNames": true,
+        "emitDecoratorMetadata": true,
+        "experimentalDecorators": true,
+        "moduleResolution": "Node",
+        // "moduleResolution": "Bundler", // no!
+        // "moduleResolution": "NodeNext", // no!
+        "target": "ESNext",
+        // "target": "ES2017",
+        // "target": "ES2020",
+        "module": "ESNext",
+        // "module": "NodeNext", // no!
+        "lib": [
+            // "ESNext",
+            // "ES2023",
+            "ES2022",
+            // "ES2020",
+            // "ES5",
+            "DOM",
+            "DOM.Iterable"
+            // "ES2015.Core",
+            // "ES2015.Promise",
+            // "ES2015.Symbol",
+            // "ES2015.Iterable"
+            // "ESNext.AsyncIterable"
+        ],
+        "types": [],
+        // "jsx": "react",
+        // "jsx": "react-jsx", // vite-specific
+        "jsx": "preserve",
+        "allowUmdGlobalAccess": true,
+        "incremental": true,
+        "noEmit": true,
+        "noEmitOnError": true,
+        // "newLine": "lf",
+        "isolatedModules": false,
+        // "isolatedModules": true,
+        /* Linting */
+        "strictNullChecks": false,
+        "noImplicitReturns": true,
+        "strict": false,
+        "noImplicitAny": false,
+        // "noUnusedLocals": true,
+        // "noUnusedParameters": true,
+        "noFallthroughCasesInSwitch": true,
+        "baseUrl": ".",
+        "rootDir": ".", // "src"
+        "outDir": "./dist",
+        "paths": {
+            "@/*": ["src/*"]
+        },
+        "composite": true,
+        "importHelpers": true
+        // "preserveSymlinks": false
+        // "preserveSymlinks": true // NO! use "npm pack" or "yalc" (not "npm link") or monorepo (pnpm, yarn workspaces, turborepo)
+    },
+    "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts"],
+    "exclude": ["**/*.stories.tsx", "**/*.fixture.tsx", "dist", "node-modules"],
+    "typeAcquisition": {
+        "enable": true
+    }
+}

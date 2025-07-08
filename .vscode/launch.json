@@ -1,0 +1,22 @@
+{
+    "version": "0.2.0",
+    "configurations": [
+      {
+        "name": "Debug Tests",
+        "type": "node",
+        "request": "launch",
+        "program": "${workspaceFolder}/node_modules/vitest/vitest.mjs",
+        "args": [
+          "run",
+          "--poolOptions.threads.singleThread",
+          "--no-file-parallelism",
+          "--test-timeout=0"
+        ],
+        "autoAttachChildProcesses": true,
+        "smartStep": true,
+        "skipFiles": ["<node_internals>/**"],
+        "cwd": "${workspaceFolder}"
+      }
+    ]
+  }
+  
