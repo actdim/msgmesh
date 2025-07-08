@@ -1,7 +1,7 @@
 {
     "name": "@actdim/msgmesh",
     "version": "0.9.0",
-    "description": "@actdim/msgmesh",
+    "description": "A type-safe, modular message mesh for scalable async communication in TypeScript",
     "author": "Pavel Borodaev",
     "license": "Proprietary",
     "type": "module",
@@ -20,8 +20,7 @@
         "messaging",
         "utility",
         "utils",
-        "IOC",
-        "DI"
+        "communication"
     ],
     "files": [
         "dist",
@@ -59,7 +58,8 @@
     },
     "peerDependencies": {
         "rxjs": "^7.8.1",
-        "uuid": "^9.0.1"
+        "uuid": "^9.0.1",
+        "@actdim/utico": "^0.9.0"
     },
     "devDependencies": {
         "@types/node": "^20.11.30",
@@ -76,8 +76,5 @@
         "vite-plugin-dts": "^4.5.3",
         "vite-tsconfig-paths": "^5.1.4",
         "vitest": "^3.1.2"
-    },
-    "dependencies": {
-        "@actdim/utico": "^0.9.0"
     }
 }
