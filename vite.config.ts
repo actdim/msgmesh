@@ -16,9 +16,9 @@ const rootPath = __dirname;
 const packageName = packageJson.name.split("/").reverse()[0];
 
 export default defineConfig({
-    // resolve: {
-    //     alias: config.resolveAliases()
-    // },
+    resolve: {
+        alias: config.resolveAliases()
+    },
     build: {
         outDir: "dist",
         lib: {
