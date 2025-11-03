@@ -16,8 +16,8 @@ import {
     $C_ERROR
 } from "./msgBusCore";
 import { v4 as uuid } from "uuid";
-import { MonoTypeOperatorFunction, Observable, Subject, Subscription } from "rxjs";
-import { filter as filterOp, take as takeOp } from "rxjs/operators";
+import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject } from "rxjs";
+import { filter, filter as filterOp, take as takeOp } from "rxjs/operators";
 import { Skip } from "@actdim/utico/typeCore";
 
 const getMatchTest = (pattern: string) => {
@@ -41,7 +41,7 @@ const getMatchTest = (pattern: string) => {
 const groupPrefix = ":"; // "/", ":", "::"
 export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(config?: MsgBusConfig<MsgBusStructNormalized<TStruct>>) {
     type TStructN = MsgBusStructNormalized<TStruct>;
-    type MsgSrcData = Skip<Msg<TStructN>, "id" | "timestamp">;
+    type MsgSrcData = Skip<Msg<TStructN>, "timestamp">;
     type MsgInfo = Skip<Msg<TStructN>, "payload">;
     const errTopic = "msgbus";
 
@@ -95,11 +95,23 @@ export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(co
 
     function getOrCreateSubject(channel: string, group: string): Subject<Msg<TStructN>> {
         const routingKey = createRoutingKey(channel, group);
-        // TODO: support BehaviorSubject, ReplaySubject, AsyncSubject
+        // TODO: support BehaviorSubject
         if (!subjects.has(routingKey)) {
-            subjects.set(routingKey, new Subject<Msg<TStructN>>());
+            let subject: Subject<Msg<TStructN>> = null;
+            const channelConfig = config[channel];
+            if (channelConfig) {                
+                if (channelConfig.replayBufferSize != undefined || channelConfig.replayWindowTime != undefined) {
+                    subject = new ReplaySubject<Msg<TStructN>>(channelConfig.replayBufferSize == undefined ? Infinity : channelConfig.replayBufferSize, channelConfig.replayWindowTime == undefined ? Infinity : channelConfig.replayWindowTime);
+                }
+            }
+            if (!subject) {
+                subject = new Subject<Msg<TStructN>>();
+            }
+            subjects.set(routingKey,
+                subject
+            );
         }
-        return subjects.get(routingKey) as Subject<Msg<TStructN>>;
+        return subjects.get(routingKey);
     }
 
     function subscribe(params: MsgBusSubscriberParams<TStructN>) {
@@ -170,9 +182,11 @@ export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(co
     function publish(msgData: MsgSrcData) {
         const msg: Msg<TStructN, any, any> = {
             ...msgData,
-            id: uuid(),
             timestamp: now()
         };
+        if (msg.id == undefined) {
+            msg.id = uuid();
+        }
         // !msg.traceId
         if (msg.traceId == undefined) {
             msg.traceId = uuid();
@@ -251,6 +265,7 @@ export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(co
 
     function dispatch(params: MsgBusDispatcherParams<TStructN>) {
         let msgIn: Msg<TStructN>;
+        const msgId = uuid();
         if (params.callback) {
             const subParams: MsgBusSubscriberParams<TStructN, keyof TStructN, typeof $CG_OUT> = {
                 channel: params.channel,
@@ -266,7 +281,9 @@ export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(co
                     // sub.unsubscribe();
                     params.callback(msgOut);
                 },
-                filter: (msgOut) => msgOut.requestId === msgIn.id && (!params.filter || params.filter(msgOut)) // TODO: match topic?
+                filter: (msgOut) => {
+                    return msgOut.requestId === msgId && (!params.filter || params.filter(msgOut)) // TODO: match topic?
+                }
             };
             subscribe(subParams);
         }
@@ -287,7 +304,8 @@ export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(co
             payload: payload,
             traceId: params.traceId,
             persistent: params.persistent,
-            priority: params.priority
+            priority: params.priority,
+            id: msgId
         });
     }
 
@@ -323,8 +341,10 @@ export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(co
         },
         provide: (params) => provide(params as MsgBusProviderParams<TStructN>),
         dispatch: (params) => dispatch(params as MsgBusDispatcherParams<TStructN>),
-        dispatchAsync: (params) => dispatchAsync(params as MsgBusAsyncDispatcherParams<TStructN>)
+        dispatchAsync: (params) => dispatchAsync(params as MsgBusAsyncDispatcherParams<TStructN>),
     };
+
+    msgBus["#subjects"] = subjects;
 
     return msgBus;
 }

@@ -2,8 +2,13 @@
     "extends": "./tsconfig.json",
     "compilerOptions": {
         "composite": true,
-        "outDir": "out",
-        "types": ["node"],
+        "declaration": false,
+        "declarationMap": false,
+        "noEmit": true,
+        "sourceMap": true,
+        // "outDir": "./.vitest", // tsc --noEmit false
+        // "inlineSources": false
+        "types": ["node", "vitest/globals", "vite/client"],
         "paths": {
             "@/*": ["src/*"]
         }

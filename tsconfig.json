@@ -5,6 +5,7 @@
         "declarationDir": "./dist",
         "emitDeclarationOnly": false,
         "sourceMap": true,
+        "inlineSources": true,
         "esModuleInterop": true,
         "skipLibCheck": true,
         "allowSyntheticDefaultImports": true,
@@ -20,7 +21,6 @@
         // "moduleResolution": "Bundler", // no!
         // "moduleResolution": "NodeNext", // no!
         "target": "ESNext",
-        // "target": "ES2017",
         // "target": "ES2020",
         "module": "ESNext",
         // "module": "NodeNext", // no!
@@ -38,7 +38,7 @@
             // "ES2015.Iterable"
             // "ESNext.AsyncIterable"
         ],
-        "types": [],
+        "types": ["mocha", "chai"],
         // "jsx": "react",
         // "jsx": "react-jsx", // vite-specific
         "jsx": "preserve",
@@ -58,7 +58,7 @@
         // "noUnusedParameters": true,
         "noFallthroughCasesInSwitch": true,
         "baseUrl": ".",
-        "rootDir": ".", // "src"
+        "rootDir": ".",
         "outDir": "./dist",
         "paths": {
             "@/*": ["src/*"]

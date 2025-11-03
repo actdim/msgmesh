@@ -113,6 +113,8 @@ export type MsgChannelConfig<TChannel> = {
     // prefetchCount?: number; // for manual acknowledgment
     // this can be used for some consumer or for all consumers of the channel
     maxConcurrentConsumers?: number; // Parallel? Processes? Handlers?
+    replayBufferSize?: number;
+    replayWindowTime?: number;
 };
 
 export type MsgDispatchConfig = {
@@ -150,7 +152,7 @@ export type Msg<
     requestId?: string;
     // correlationId
     traceId?: string;
-    id: string;
+    id?: string;
     timestamp: number; // Date
     priority?: number;
     persistent?: boolean; // durable? (for durable queue)

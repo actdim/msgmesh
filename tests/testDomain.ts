@@ -1,23 +1,23 @@
-import { MsgBusStruct, MsgBusStructBase } from "src/msgBusCore";
-import { createMsgBus } from "src/msgBusFactory";
+import { MsgBusStruct, MsgBusStructBase } from "@/msgBusCore";
+import { createMsgBus } from "@/msgBusFactory";
 import { RequireExtends } from "@actdim/utico/typeCore";
 
 export type TestBusStruct = RequireExtends<
-        {
-            "Test.ComputeSum": {
-                in: { a: number; b: number };                
-                out: number;
-            };
-            "Test.DoSomeWork": {
-                in: void;                
-                out: void;
-            };
-            
-        },
-        MsgBusStruct
-    > & MsgBusStructBase;
+    {
+        "Test.ComputeSum": {
+            in: { a: number; b: number };
+            out: number;
+        };
+        "Test.DoSomeWork": {
+            in: void;
+            out: void;
+        };
 
-export const bus = createMsgBus<TestBusStruct>({
+    },
+    MsgBusStruct
+> & MsgBusStructBase;
+
+export const createTestMsgBus = () => createMsgBus<TestBusStruct>({
     "Test.ComputeSum": {
         initialValues: {
             in: {
@@ -25,6 +25,10 @@ export const bus = createMsgBus<TestBusStruct>({
                 b: 0
             },
             out: 0
-        }
-    }    
+        },
+        replayBufferSize: Infinity,
+        replayWindowTime: 60000
+    }
 });
+
+export const sharedMsgBus = createTestMsgBus();

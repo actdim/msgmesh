@@ -1,12 +1,14 @@
 import { describe, it, expect, vi } from "vitest";
-import { TestBusStruct, bus } from "./testDomain";
+import { TestBusStruct, createTestMsgBus, sharedMsgBus } from "./testDomain";
+import "@/msgBusFactory";
 import { delayAsync, delayErrorAsync, withTimeoutAsync } from "@actdim/utico/utils";
+import { v4 as uuid } from "uuid";
 
 describe("msgBus", () => {
-    process.on("unhandledRejection", (reason, promise) => {
-        console.error("Unhandled Rejection at:", promise, "reason:", reason);
-        process.exit(1);
-    });
+    // process.on("unhandledRejection", (reason, promise) => {
+    //     console.error("Unhandled Rejection at:", promise, "reason:", reason);
+    //     process.exit(1);
+    // });
 
     // window.onerror = (message, source, lineno, colno, error) => {
     //     console.error("Caught error:", error);
@@ -49,7 +51,7 @@ describe("msgBus", () => {
             // Task.Yield:
             // await Promise.resolve();
             await new Promise((resolve) => setTimeout(resolve, 0));
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: {
                     a: Math.floor(Math.random() * 100),
@@ -60,7 +62,7 @@ describe("msgBus", () => {
         }
     };
 
-    bus.provide({
+    sharedMsgBus.provide({
         channel: "Test.ComputeSum",
         topic: "/.*/",
         callback: (msg) => {
@@ -70,7 +72,7 @@ describe("msgBus", () => {
 
     it("can dispatchAsync", async () => {
         let done = false;
-        bus.provide({
+        sharedMsgBus.provide({
             channel: "Test.DoSomeWork",
             // topic: "/.*/",
             group: "in",
@@ -85,7 +87,7 @@ describe("msgBus", () => {
         });
 
         let test = (async () => {
-            const msg = await bus.dispatchAsync({
+            const msg = await sharedMsgBus.dispatchAsync({
                 channel: "Test.DoSomeWork"
             });
             expect(done).toBe(true);
@@ -98,7 +100,7 @@ describe("msgBus", () => {
         const data = testData[0];
         let result: number; // Msg<TestBusStruct, "Test.ComputeSum", "out">
         let test = (async () => {
-            const msg = await bus.dispatchAsync({
+            const msg = await sharedMsgBus.dispatchAsync({
                 channel: "Test.ComputeSum",
                 payload: data
             });
@@ -114,7 +116,7 @@ describe("msgBus", () => {
         let result: number;
         const test = new Promise<number>((res, rej) => {
             let c = 0;
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: data,
                 traceId: data.id,
@@ -128,7 +130,7 @@ describe("msgBus", () => {
                 }
             });
 
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[3],
                 traceId: testData[3].id
@@ -145,7 +147,7 @@ describe("msgBus", () => {
 
         const test = new Promise<number>((res, rej) => {
             let c = 0;
-            bus.on({
+            sharedMsgBus.on({
                 channel: "Test.ComputeSum",
                 callback: (msg) => {
                     c++;
@@ -155,7 +157,7 @@ describe("msgBus", () => {
                 }
             });
 
-            bus.on({
+            sharedMsgBus.on({
                 channel: "Test.ComputeSum",
                 group: "out",
                 callback: (msg) => {
@@ -166,17 +168,17 @@ describe("msgBus", () => {
                 }
             });
 
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[0],
                 traceId: testData[0].id
             });
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[1],
                 traceId: testData[1].id
             });
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[2],
                 traceId: testData[2].id
@@ -194,7 +196,7 @@ describe("msgBus", () => {
 
         let c = 0;
         const test = new Promise<number>((res, rej) => {
-            bus.on({
+            sharedMsgBus.on({
                 channel: "Test.ComputeSum",
                 topic: "test",
                 callback: (msg) => {
@@ -202,7 +204,7 @@ describe("msgBus", () => {
                 }
             });
 
-            bus.on({
+            sharedMsgBus.on({
                 channel: "Test.ComputeSum",
                 topic: "test",
                 group: "out",
@@ -211,35 +213,35 @@ describe("msgBus", () => {
                 }
             });
 
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[0],
                 traceId: testData[0].id
             });
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[1],
                 traceId: testData[1].id
             });
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[2],
                 traceId: testData[2].id
             });
 
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 topic: "test",
                 payload: testData[0],
                 traceId: testData[0].id
             });
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 topic: "test",
                 payload: testData[1],
                 traceId: testData[1].id
             });
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 topic: "test",
                 payload: testData[2],
@@ -256,7 +258,7 @@ describe("msgBus", () => {
         let cIn = 0;
         let cOut = 0;
         const test = new Promise<void>((res, rej) => {
-            bus.on({
+            sharedMsgBus.on({
                 channel: "Test.ComputeSum",
                 callback: (msg) => {
                     cIn++;
@@ -267,7 +269,7 @@ describe("msgBus", () => {
                 config: { fetchCount: 1 }
             });
 
-            bus.on({
+            sharedMsgBus.on({
                 channel: "Test.ComputeSum",
                 group: "out",
                 callback: (msg) => {
@@ -283,17 +285,17 @@ describe("msgBus", () => {
                 config: { fetchCount: 1 }
             });
 
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[0],
                 traceId: testData[0].id
             });
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[1],
                 traceId: testData[1].id
             });
-            bus.dispatch({
+            sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[2],
                 traceId: testData[2].id
@@ -307,7 +309,7 @@ describe("msgBus", () => {
     it("can subscribe using 'onceAsync'", async (ctx) => {
         let data = testData[0];
         const test = async () => {
-            const msgIn = await bus.onceAsync({
+            const msgIn = await sharedMsgBus.onceAsync({
                 channel: "Test.ComputeSum"
             });
 
@@ -316,7 +318,7 @@ describe("msgBus", () => {
             expect(msgIn.payload.a).toBe(data.a);
             expect(msgIn.payload.b).toBe(data.b);
 
-            const msgOut = await bus.onceAsync({
+            const msgOut = await sharedMsgBus.onceAsync({
                 channel: "Test.ComputeSum",
                 group: "out"
             });
@@ -326,7 +328,7 @@ describe("msgBus", () => {
             expect(msgOut.payload).toBe(computeSum(data));
         };
 
-        bus.dispatch({
+        sharedMsgBus.dispatch({
             channel: "Test.ComputeSum",
             payload: data,
             traceId: data.id
@@ -339,26 +341,34 @@ describe("msgBus", () => {
         let data = testData[0];
         let c = 0;
         const abortController = new AbortController();
-        bus.on({
+        // const msgBus = createTestMsgBus();
+        const msgBus = sharedMsgBus;
+
+        const cutoff = Date.now();
+        const traceId = uuid();
+        msgBus.on({
             channel: "Test.ComputeSum",
-            callback: () => {
-                c++;
+            callback: (msg) => {
+                // msg.timestamp >= cutoff
+                if (msg.traceId === traceId) {
+                    c++;
+                }
             },
             signal: abortController.signal
         });
 
-        bus.dispatch({
+        msgBus.dispatch({
             channel: "Test.ComputeSum",
             payload: data,
-            traceId: data.id
+            traceId: traceId
         });
 
         abortController.abort();
 
-        bus.dispatch({
+        msgBus.dispatch({
             channel: "Test.ComputeSum",
             payload: data,
-            traceId: data.id
+            traceId: traceId
         });
 
         expect(c).toBe(1);
@@ -370,9 +380,12 @@ describe("msgBus", () => {
         const abortController = new AbortController();
         let err = undefined;
         const reason = "cancelled";
+        const msgBus = createTestMsgBus();
+        // const msgBus = sharedMsgBus;
+        const traceId = uuid();
         const listen = (async () => {
             try {
-                await bus.onceAsync({
+                await msgBus.onceAsync({
                     channel: "Test.ComputeSum",
                     signal: abortController.signal
                 });
@@ -384,17 +397,16 @@ describe("msgBus", () => {
 
         await delayAsync(100);
         abortController.abort(reason);
-
         const emit = (async () => {
-            bus.dispatch({
+            msgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: data,
-                traceId: data.id
+                traceId: traceId
             });
-            bus.dispatch({
+            msgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: data,
-                traceId: data.id
+                traceId: traceId
             });
         })();
         await Promise.race([Promise.all([listen, emit]), delayAsync(timeout)]);

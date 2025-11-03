@@ -1,15 +1,10 @@
 import { Alias, AliasOptions, defineConfig } from "vite";
 import * as path from "path";
 import config from "./config";
-import react from "@vitejs/plugin-react-swc";
-// import react from "@vitejs/plugin-react";
 import dts from "vite-plugin-dts";
 import * as fs from "fs";
-import { JsxEmit } from "typescript";
 import tsConfigPaths from "vite-tsconfig-paths";
 import * as packageJson from "./package.json";
-
-// https://www.dev-notes.ru/articles/typescript/tsconfig-cheat-sheet/
 
 const rootPath = __dirname;
 
@@ -32,11 +27,6 @@ export default defineConfig({
             input: config.srcFiles(),
             external: config.externals,
             output: {
-                globals: {
-                    react: "React",
-                    "react-dom": "ReactDOM",
-                    lodash: "_"
-                },
                 exports: "named",
                 preserveModules: true,
                 preserveModulesRoot: "src",
@@ -49,28 +39,44 @@ export default defineConfig({
         sourcemap: true
         // emptyOutDir: true
     },
+    server: {
+        port: 5173,
+        open: "/tests/browser/index.html",
+        fs: {
+            strict: false
+        }
+    },
+    esbuild: {
+        // sourcemap: "inline",
+        // target: "es2020",
+    },
     plugins: [
-        react({}),
         tsConfigPaths(),
         dts({
             outDir: "dist",
             entryRoot: "src",
-            // include: ["./src/**/*.ts"]
-            include: ["src"],
+            include: ["src/**/*.ts"],
             // many modules
             rollupTypes: false,
             insertTypesEntry: false
             // one module
             // rollupTypes: true,
-            // insertTypesEntry: true // ?
-
-            // compilerOptions: {
-            //     jsx: JsxEmit.ReactJSX
-            // }
+            // insertTypesEntry: true
+            // staticImport: true
         }),
+
         {
             name: "postBuild",
             closeBundle() {
+                const excluded: string[] = [];
+                for (let filePath of excluded) {
+                    filePath = path.resolve(__dirname, filePath);
+                    if (fs.existsSync(filePath)) {
+                        fs.unlinkSync(filePath);
+                        console.log('Removed excluded:', filePath);
+                    }
+                }
+
                 console.log("Use vite dedupe:", config.packages.join(", "));
                 // const oldPath = path.resolve(__dirname, "dist", `${packageName}.d.ts`);
                 // const newPath = path.resolve(__dirname, "dist", `index.d.ts`);

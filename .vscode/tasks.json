@@ -1,0 +1,25 @@
+{
+    "version": "2.0.0",
+    "tasks": [
+        {
+            "label": "Vitest Debug Current File",
+            "type": "shell",
+            "command": "npx",
+            "args": [
+                "vitest",
+                "run",
+                "--config=vitest.node.config.ts",
+                "--inspect-brk",
+                "--no-cache",
+                "--no-file-parallelism",
+                "--pool=forks",
+                "${file}"
+            ],
+            "problemMatcher": [],
+            "group": {
+                "kind": "test",
+                "isDefault": true
+            }
+        }
+    ]
+}
