@@ -1,7 +1,6 @@
 import * as path from "path";
 import * as url from "url";
 import * as fs from "fs";
-import { Alias } from "vite";
 import * as packageJson from "./package.json";
 
 // const __filename = url.fileURLToPath(import.meta.url)
@@ -32,14 +31,6 @@ export default {
     packages,
     resolveAliases: () => {
         return Object.fromEntries(Object.entries(aliases).map(([key, value]) => [key, path.resolve(rootPath, value)]));
-        // return Object.entries(aliases).map(
-        //     ([key, value]) =>
-        //         ({
-        //             find: key,
-        //             replacement: path.resolve(rootPath, value)
-        //             // replacement: url.fileURLToPath(new URL(value, import.meta.url))
-        //         } as Alias)
-        // );
     },
     srcFiles: () => getSrcFiles(path.resolve(__dirname, "src")),
     externals: (id: string) => {
