@@ -2,7 +2,7 @@
     "version": "2.0.0",
     "tasks": [
         {
-            "label": "Vitest Debug Current File",
+            "label": "Debug Vitest Using Dev Tools (Current Test File)",
             "type": "shell",
             "command": "npx",
             "args": [

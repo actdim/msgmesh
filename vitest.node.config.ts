@@ -10,7 +10,6 @@ export default defineConfig({
         name: "node",
         globals: true,
         setupFiles: [
-            // './vitest.setup.ts'
             resolve('./vitest.setup.ts')
         ],
         // In watch mode you can keep the debugger open during test re-runs by using the --isolate false options.

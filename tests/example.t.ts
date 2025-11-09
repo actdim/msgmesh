@@ -6,7 +6,7 @@ import "./mocha"
 
 import { expect } from "chai";
 
-describe("example", () => {
+describe("Mocha example", () => {
     it("should work", async () => {
         expect({}).to.exist;
         // expect({}}).to.undefined;
