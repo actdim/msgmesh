@@ -1,5 +1,5 @@
 import { defineConfig } from "vite";
-import config from "./config";
+import config from "./packageConfig";
 import dts from "vite-plugin-dts";
 import tsConfigPaths from "vite-tsconfig-paths";
 import * as packageJson from "./package.json";

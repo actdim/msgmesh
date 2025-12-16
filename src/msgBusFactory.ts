@@ -12,7 +12,6 @@ import {
     MsgBusAsyncDispatcherParams,
     MsgBusStructNormalized,
     $CG_ERROR,
-    MsgBusStructBase,
     $C_ERROR
 } from "./msgBusCore";
 import { v4 as uuid } from "uuid";
@@ -39,7 +38,7 @@ const getMatchTest = (pattern: string) => {
 
 // createServiceBus
 const groupPrefix = ":"; // "/", ":", "::"
-export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(config?: MsgBusConfig<MsgBusStructNormalized<TStruct>>) {
+export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig<MsgBusStructNormalized<TStruct>>) {
     type TStructN = MsgBusStructNormalized<TStruct>;
     type MsgSrcData = Skip<Msg<TStructN>, "timestamp">;
     type MsgInfo = Skip<Msg<TStructN>, "payload">;
@@ -99,7 +98,7 @@ export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(co
         if (!subjects.has(routingKey)) {
             let subject: Subject<Msg<TStructN>> = null;
             const channelConfig = config[channel];
-            if (channelConfig) {                
+            if (channelConfig) {
                 if (channelConfig.replayBufferSize != undefined || channelConfig.replayWindowTime != undefined) {
                     subject = new ReplaySubject<Msg<TStructN>>(channelConfig.replayBufferSize == undefined ? Infinity : channelConfig.replayBufferSize, channelConfig.replayWindowTime == undefined ? Infinity : channelConfig.replayWindowTime);
                 }
@@ -170,10 +169,11 @@ export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(co
             }
         });
 
-        params.signal?.addEventListener("abort", () => {
+        const abortSignal = params.config?.abortSignal;
+        abortSignal?.addEventListener("abort", (e) => {
             // TODO: publish debug (internal) message
             console.log(
-                `Listening aborted for channel: ${channel}, group: ${group}, topic: ${params.topic}. Reason: ${params.signal.reason}`
+                `Listening aborted for channel: ${channel}, group: ${group}, topic: ${params.topic}. Reason: ${abortSignal.reason}` // e.target
             );
             sub.unsubscribe();
         });
@@ -208,8 +208,9 @@ export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(co
     function onceAsync(params: MsgBusAsyncSubscriberParams<TStructN>) {
         return new Promise<any>((res, rej) => {
             try {
-                params.signal?.addEventListener("abort", () => {
-                    rej(new Error("Cancelled", { cause: params.signal.reason }));
+                const abortSignal = params.config?.abortSignal;
+                abortSignal?.addEventListener("abort", (e) => {
+                    rej(new Error("Cancelled", { cause: abortSignal.reason })); // e.target
                 });
                 const subParams: MsgBusSubscriberParams<TStructN> = {
                     ...params,
@@ -312,8 +313,9 @@ export function createMsgBus<TStruct extends MsgBusStruct & MsgBusStructBase>(co
     async function dispatchAsync(params: MsgBusAsyncDispatcherParams<TStructN>): Promise<any> {
         return new Promise((res, rej) => {
             try {
-                params.signal?.addEventListener("abort", () => {
-                    rej(new Error("Cancelled", { cause: params.signal.reason }));
+                const abortSignal = params.config?.abortSignal;
+                abortSignal?.addEventListener("abort", (e) => {
+                    rej(new Error("Cancelled", { cause: abortSignal.reason })); // e.target
                 });
                 const dispatchParams: MsgBusDispatcherParams<TStructN> = {
                     ...params,

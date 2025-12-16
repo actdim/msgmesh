@@ -354,7 +354,9 @@ describe("msgBus", () => {
                     c++;
                 }
             },
-            signal: abortController.signal
+            config: {
+                abortSignal: abortController.signal
+            }
         });
 
         msgBus.dispatch({
@@ -387,7 +389,9 @@ describe("msgBus", () => {
             try {
                 await msgBus.onceAsync({
                     channel: "Test.ComputeSum",
-                    signal: abortController.signal
+                    config: {
+                        abortSignal: abortController.signal
+                    }
                 });
                 c++;
             } catch (e) {

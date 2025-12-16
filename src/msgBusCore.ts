@@ -57,13 +57,9 @@ export type MsgChannelStruct = Partial<{ [group: string]: any } & InParam & OutP
 //   | (InParam & OutParam)
 // );
 
-export type MsgBusStruct = {
-    [channel: string]: MsgChannelStruct;
-};
-
 // SystemMsgBusStruct
 export type MsgBusStructBase = {
-    [$C_ERROR]: {
+    [$C_ERROR]?: {
         [$CG_IN]: ErrorPayload;
     };
     // "*": {
@@ -71,13 +67,17 @@ export type MsgBusStructBase = {
     // };
 };
 
+export type MsgBusStruct = {
+    [channel: string]: MsgChannelStruct;
+} & MsgBusStructBase;
+
 // MsgBusStructBuilder
 export type MsgBusStructFactory<
     TStruct extends TStructBase,
-    TStructBase extends MsgBusStruct = MsgBusStruct // & MsgBusStructBase
+    TStructBase extends MsgBusStruct = MsgBusStruct
 > = {
-    [C in keyof TStruct]: TStruct[C] & ErrorParam;
-};
+        [C in keyof TStruct]: TStruct[C] & ErrorParam;
+    };
 
 // export type MsgBusStruct = Record<string, MsgChannelStruct>;
 
@@ -121,6 +121,7 @@ export type MsgDispatchConfig = {
     // MsgConfig
     priority?: number;
     fetchCount?: number;
+    abortSignal?: AbortSignal;
 };
 
 export type MsgBusConfig<TStruct extends MsgBusStruct> = {
@@ -135,7 +136,7 @@ export type MsgAddress<
     channel: TChannel;
     group?: TGroup; // typeGroup
     // supports wildcard matching (https://docs.nats.io/nats-concepts/subjects#wildcards)
-    topic?: string;    
+    topic?: string;
     version?: string;
 };
 
@@ -169,8 +170,7 @@ export type MsgBusSubscriberParams<
     // topicSelector?: string | ((channel: string) => boolean);
     callback?: (msg: Msg<TStruct, TChannel, TGroup>) => void;
     config?: MsgDispatchConfig;
-    filter?: (msg: Msg<TStruct, TChannel, TGroup>) => boolean;
-    signal?: AbortSignal;
+    filter?: (msg: Msg<TStruct, TChannel, TGroup>) => boolean;    
 };
 
 // MsgBusSubscriberFn
@@ -243,8 +243,8 @@ export type MsgBusDispatcherParams<
     {
         payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
         payloadFn?: IsTuple<TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]> extends true
-            ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
-            : never;
+        ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
+        : never;
         traceId?: string;
         priority?: number;
         persistent?: boolean;

@@ -69,7 +69,7 @@
         // "preserveSymlinks": true // NO! use "npm pack" or "yalc" (not "npm link") or monorepo (pnpm, yarn workspaces, turborepo)
     },
     "include": ["src/**/*.ts", "src/**/*.tsx", "tests/**/*.ts"],
-    "exclude": ["**/*.stories.tsx", "**/*.fixture.tsx", "dist", "node-modules"],
+    "exclude": ["dist", "node-modules"],
     "typeAcquisition": {
         "enable": true
     }
