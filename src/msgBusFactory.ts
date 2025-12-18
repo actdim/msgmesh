@@ -38,9 +38,8 @@ const getMatchTest = (pattern: string) => {
 
 // createServiceBus
 const groupPrefix = ":"; // "/", ":", "::"
-export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig<MsgBusStructNormalized<TStruct>>) {
+export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(config?: MsgBusConfig<MsgBusStructNormalized<TStruct>>) {
     type TStructN = MsgBusStructNormalized<TStruct>;
-    type MsgSrcData = Skip<Msg<TStructN>, "timestamp">;
     type MsgInfo = Skip<Msg<TStructN>, "payload">;
     const errTopic = "msgbus";
 
@@ -56,7 +55,8 @@ export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig
             id: msg.id,
             timestamp: msg.timestamp,
             priority: msg.priority,
-            persistent: msg.persistent
+            persistent: msg.persistent,
+            headers: msg.headers
         } as MsgInfo;
     }
 
@@ -64,8 +64,8 @@ export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig
         const errPayload = {
             error: err,
             source: getMsgInfo(srcMsg)
-        } as MsgSrcData["payload"];
-        let errMsg: MsgSrcData;
+        } as Msg<TStructN>["payload"];
+        let errMsg: Msg<TStructN>;
         errMsg = {
             address: {
                 channel: srcMsg.address.channel,
@@ -179,15 +179,13 @@ export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig
         });
     }
 
-    function publish(msgData: MsgSrcData) {
-        const msg: Msg<TStructN, any, any> = {
-            ...msgData,
-            timestamp: now()
-        };
+    function publish(msg: Msg<TStructN>) {
+        if (msg.timestamp == undefined) {
+            msg.timestamp = now()
+        }
         if (msg.id == undefined) {
             msg.id = uuid();
         }
-        // !msg.traceId
         if (msg.traceId == undefined) {
             msg.traceId = uuid();
         }
@@ -240,7 +238,7 @@ export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig
             ...{
                 callback: async (msgIn) => {
                     try {
-                        const msgOut: MsgSrcData = {
+                        const msgOut: Msg<TStructN, keyof TStructN, typeof $CG_OUT> = {
                             address: {
                                 channel: msgIn.address.channel,
                                 group: $CG_OUT,
@@ -249,9 +247,10 @@ export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig
                             traceId: msgIn.traceId,
                             requestId: msgIn.id,
                             persistent: msgIn.persistent,
-                            priority: msgIn.priority
+                            priority: msgIn.priority,
+                            headers: msgIn.headers
                         };
-                        const payload = (await Promise.resolve(params.callback(msgIn))) as MsgSrcData["payload"];
+                        const payload = (await Promise.resolve(params.callback(msgIn, msgOut)));
                         msgOut.payload = payload;
                         publish(msgOut);
                     } catch (err) {
@@ -265,7 +264,6 @@ export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig
     }
 
     function dispatch(params: MsgBusDispatcherParams<TStructN>) {
-        let msgIn: Msg<TStructN>;
         const msgId = uuid();
         if (params.callback) {
             const subParams: MsgBusSubscriberParams<TStructN, keyof TStructN, typeof $CG_OUT> = {
@@ -296,7 +294,7 @@ export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig
         } else {
             payload = params.payload;
         }
-        msgIn = publish({
+        const msgIn = publish({
             address: {
                 channel: params.channel,
                 group: params.group,
@@ -306,7 +304,8 @@ export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig
             traceId: params.traceId,
             persistent: params.persistent,
             priority: params.priority,
-            id: msgId
+            id: msgId,
+            headers: params.ext
         });
     }
 
@@ -334,7 +333,7 @@ export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig
         });
     }
 
-    const msgBus: MsgBus<TStruct> = {
+    const msgBus: MsgBus<TStruct, THeaders> = {
         config: config,
         on: (params) => on(params as MsgBusSubscriberParams<TStructN>),
         onceAsync: (params) => onceAsync(params as MsgBusAsyncSubscriberParams<TStructN>),
@@ -346,7 +345,7 @@ export function createMsgBus<TStruct extends MsgBusStruct>(config?: MsgBusConfig
         dispatchAsync: (params) => dispatchAsync(params as MsgBusAsyncDispatcherParams<TStructN>),
     };
 
-    msgBus["#subjects"] = subjects;
+    // msgBus["#subjects"] = subjects;
 
     return msgBus;
 }

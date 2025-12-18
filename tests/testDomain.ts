@@ -16,7 +16,12 @@ export type TestBusStruct = RequireExtends<
     MsgBusStruct
 >;
 
-export const createTestMsgBus = () => createMsgBus<TestBusStruct>({
+export type MsgExt = {
+    source?: string;
+    target?: string;
+}
+
+export const createTestMsgBus = () => createMsgBus<TestBusStruct, MsgExt>({
     "Test.ComputeSum": {
         initialValues: {
             in: {
