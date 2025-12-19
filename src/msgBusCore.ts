@@ -257,7 +257,7 @@ export type MsgBusDispatcherParams<
         priority?: number;
         persistent?: boolean;
         callback?: (msg: Msg<TStruct, TChannel, typeof $CG_OUT, THeaders>) => void;
-        ext?: THeaders;
+        headers?: THeaders;
     }
 >;
 
@@ -292,6 +292,9 @@ export type MsgBusStructNormalized<TStruct extends MsgBusStruct> = {
     [C in keyof TStruct]: MsgChannelStructNormalized<TStruct[C]>;
 };
 
+export const $TypeArgStruct = Symbol("__<TStruct>");
+export const $TypeArgHeaders = Symbol("__<THeaders>");
+
 // export interface
 export type MsgBus<TStruct extends MsgBusStruct, THeaders = any> = {
     readonly config: MsgBusConfig<MsgBusStructNormalized<TStruct>>;
@@ -306,4 +309,14 @@ export type MsgBus<TStruct extends MsgBusStruct, THeaders = any> = {
     // dispatch (emit/publish + subscribe)
     readonly dispatch: MsgBusDispatcher<MsgBusStructNormalized<TStruct>, THeaders>;
     readonly dispatchAsync: MsgBusAsyncDispatcher<MsgBusStructNormalized<TStruct>, THeaders>;
+    /**
+     * @internal
+     * Type-level only. Do not access at runtime.
+     */
+    readonly [$TypeArgStruct]?: TStruct;
+    /**
+     * @internal
+     * Type-level only. Do not access at runtime.
+     */
+    readonly [$TypeArgHeaders]?: THeaders;
 };

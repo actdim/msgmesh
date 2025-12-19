@@ -305,7 +305,7 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(confi
             persistent: params.persistent,
             priority: params.priority,
             id: msgId,
-            headers: params.ext
+            headers: params.headers
         });
     }
 
