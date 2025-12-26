@@ -1,4 +1,4 @@
-import { MsgBus, MsgBusStruct } from "@/msgBusCore";
+import { MsgBus, MsgBusStruct, MsgHeaders } from "@/msgBusCore";
 import { createMsgBus } from "@/msgBusFactory";
 import { RequireExtends } from "@actdim/utico/typeCore";
 
@@ -16,14 +16,9 @@ export type TestBusStruct = RequireExtends<
     MsgBusStruct
 >;
 
-export type MsgHeaders = {
-    source?: string;
-    target?: string;
-}
+type TestMsgBus = MsgBus<TestBusStruct>;
 
-type TestMsgBus = MsgBus<TestBusStruct, MsgHeaders>;
-
-export const createTestMsgBus = () => createMsgBus<TestBusStruct, MsgHeaders>({
+export const createTestMsgBus = () => createMsgBus<TestBusStruct>({
     "Test.ComputeSum": {
         initialValues: {
             in: {

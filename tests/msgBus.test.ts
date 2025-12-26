@@ -56,8 +56,7 @@ describe("msgBus", () => {
                 payload: {
                     a: Math.floor(Math.random() * 100),
                     b: Math.floor(Math.random() * 100)
-                },
-                traceId: "" + Math.floor(Math.random() * 100)
+                }
             });
         }
     };
@@ -119,7 +118,6 @@ describe("msgBus", () => {
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: data,
-                traceId: data.id,
                 callback: (msg) => {
                     c++;
                     if (c > 1) {
@@ -133,7 +131,6 @@ describe("msgBus", () => {
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[3],
-                traceId: testData[3].id
             });
         });
 
@@ -170,18 +167,15 @@ describe("msgBus", () => {
 
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
-                payload: testData[0],
-                traceId: testData[0].id
+                payload: testData[0]
             });
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
-                payload: testData[1],
-                traceId: testData[1].id
+                payload: testData[1]
             });
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
-                payload: testData[2],
-                traceId: testData[2].id
+                payload: testData[2]
             });
         });
 
@@ -215,37 +209,31 @@ describe("msgBus", () => {
 
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
-                payload: testData[0],
-                traceId: testData[0].id
+                payload: testData[0]
             });
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
-                payload: testData[1],
-                traceId: testData[1].id
+                payload: testData[1]
             });
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
-                payload: testData[2],
-                traceId: testData[2].id
+                payload: testData[2]
             });
 
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 topic: "test",
                 payload: testData[0],
-                traceId: testData[0].id
             });
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 topic: "test",
                 payload: testData[1],
-                traceId: testData[1].id
             });
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 topic: "test",
-                payload: testData[2],
-                traceId: testData[2].id
+                payload: testData[2]
             });
         });
 
@@ -277,7 +265,7 @@ describe("msgBus", () => {
                     if (cOut > 1) {
                         rej("On 'Out': extra calls");
                     }
-                    const data = testData.filter((item) => item.id == msg.traceId)[0];
+                    const data = testData.filter((item) => item.id == msg.headers.correlationId)[0];
                     if (msg.payload != computeSum(data)) {
                         rej("On 'Out': wrong payload");
                     }
@@ -288,17 +276,23 @@ describe("msgBus", () => {
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[0],
-                traceId: testData[0].id
+                headers: {
+                    correlationId: testData[0].id
+                }
             });
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[1],
-                traceId: testData[1].id
+                headers: {
+                    correlationId: testData[1].id
+                }
             });
             sharedMsgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: testData[2],
-                traceId: testData[2].id
+                headers: {
+                    correlationId: testData[2].id
+                }
             });
         });
 
@@ -314,7 +308,7 @@ describe("msgBus", () => {
             });
 
             const msgId = msgIn.id;
-            expect(msgIn.traceId).toBe(data.id);
+            expect(msgIn.headers.correlationId).toBe(data.id);
             expect(msgIn.payload.a).toBe(data.a);
             expect(msgIn.payload.b).toBe(data.b);
 
@@ -323,21 +317,23 @@ describe("msgBus", () => {
                 group: "out"
             });
 
-            expect(msgOut.requestId).toBe(msgId);
-            expect(msgOut.traceId).toBe(data.id);
+            expect(msgOut.headers.requestId).toBe(msgId);
+            expect(msgOut.headers.correlationId).toBe(data.id);
             expect(msgOut.payload).toBe(computeSum(data));
         };
 
         sharedMsgBus.dispatch({
             channel: "Test.ComputeSum",
             payload: data,
-            traceId: data.id
+            headers: {
+                correlationId: data.id
+            }
         });
 
         const result = await Promise.race([delayAsync(timeout), test]);
     });
 
-    it("can cancel sub", (ctx) => {
+    it("can cancel sub", async (ctx) => {
         let data = testData[0];
         let c = 0;
         const abortController = new AbortController();
@@ -345,12 +341,12 @@ describe("msgBus", () => {
         const msgBus = sharedMsgBus;
 
         const cutoff = Date.now();
-        const traceId = uuid();
+        const correlationId = uuid();
         msgBus.on({
             channel: "Test.ComputeSum",
             callback: (msg) => {
-                // msg.timestamp >= cutoff
-                if (msg.traceId === traceId) {
+                // msg.headers.publishedAt >= cutoff
+                if (msg.headers.correlationId === correlationId) {
                     c++;
                 }
             },
@@ -362,15 +358,20 @@ describe("msgBus", () => {
         msgBus.dispatch({
             channel: "Test.ComputeSum",
             payload: data,
-            traceId: traceId
+            headers: {
+                correlationId
+            }
         });
 
-        abortController.abort();
+        await delayAsync(timeout);
+        abortController.abort();        
 
         msgBus.dispatch({
             channel: "Test.ComputeSum",
             payload: data,
-            traceId: traceId
+            headers: {
+                correlationId
+            }
         });
 
         expect(c).toBe(1);
@@ -384,7 +385,6 @@ describe("msgBus", () => {
         const reason = "cancelled";
         const msgBus = createTestMsgBus();
         // const msgBus = sharedMsgBus;
-        const traceId = uuid();
         const listen = (async () => {
             try {
                 await msgBus.onceAsync({
@@ -405,12 +405,10 @@ describe("msgBus", () => {
             msgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: data,
-                traceId: traceId
             });
             msgBus.dispatch({
                 channel: "Test.ComputeSum",
                 payload: data,
-                traceId: traceId
             });
         })();
         await Promise.race([Promise.all([listen, emit]), delayAsync(timeout)]);

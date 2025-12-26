@@ -99,22 +99,36 @@ export type OutStruct<TStruct extends MsgBusStruct, TChannel extends keyof TStru
 //   TChannel extends keyof TStruct
 // > = TStruct[TChannel] extends OutParam ? TStruct[TChannel]["out"] : never;
 
+export type AckMode = 'atLeastOne' | 'all';
+
+export type MsgDeliveryType =
+    | 'async'  // default via independent microtasks, each subscriber gets its own async queue (isolated order)
+    | 'queue'  // FIFO queue for all subscribers of this channel, synchronous, protects against reentrancy
+    | 'inline'; // direct synchronous call, reentrancy possible, subscribers block each other
+
 // Options/Settings
 export type MsgChannelConfig<TChannel> = {
     // (channel) message queue distribution and processing strategy
     replayCount?: number;
     initialValues?: { [TGroup in keyof TChannel]: TChannel[TGroup] };
-    persistent?: boolean; // durable? (for durable queue)
-    secure?: boolean; // encrypted
-    federated?: boolean; // broadcasting
-    autoDeleteTimeout?: number;
-    noAck?: boolean; // noAutoAck
+    // persistent?: boolean; // durable? (for durable queue)
+    // secure?: boolean; // encrypted
+    // federated?: boolean; // broadcasting
+    // autoDeleteTimeout?: number;
+    // ackMode: AckMode;
+    // requireAck: boolean;
+    // noAck?: boolean; // noAutoAck
     // manualAck?: boolean;
     // prefetchCount?: number; // for manual acknowledgment
     // this can be used for some consumer or for all consumers of the channel
-    maxConcurrentConsumers?: number; // Parallel? Processes? Handlers?
+    // maxConcurrentConsumers?: number; // Parallel? Processes? Handlers?
     replayBufferSize?: number;
     replayWindowTime?: number;
+
+    deliveryType: MsgDeliveryType;
+    delay?: number;
+    throttleTime?: number; // { leading: boolean; trailing: boolean; })
+    auditTime?: number;
 };
 
 export type MsgDispatchConfig = {
@@ -140,26 +154,70 @@ export type MsgAddress<
     version?: string;
 };
 
+export type MsgHeaders = {
+
+    // similar to inReplyToId
+    inResponseToId?: string;
+    version?: string; // schemaVersion
+
+    requestId?: string;
+
+    // routing hints
+    sourceId?: string; // senderId/producerId
+    targetId?: string; // receiverId/recipientId
+
+    originId?: string;
+
+    correlationId?: string; // activityId
+    traceId?: string;
+
+    // timestamps (unix epoch, ms):
+    publishedAt?: number;
+
+    priority?: number;
+    persistent?: boolean; // durable? (for durable queue)
+
+    tags?: string | string[];
+
+    auth?: {
+        userId?: string;
+        token?: string;
+    }
+
+    absoluteExpiration?: number;
+    ttl?: number;
+    slidingExpiration?: number;
+
+    // ack/nack policy
+    // requireAck: boolean;
+    // ackMode: AckMode;
+
+    // retryCount?: number;
+    // deliveryAttempt?: number;
+
+    // audience
+    // intent    
+    // subject
+    // group
+    // schema
+    // scope        
+};
+
+// TODO: support MsgStatus
+// export type MsgStatus = "pending" | "sent" | "delivered" | "processed" | "failed" | "expired";
+
+// TODO: support ack/nack
 // MsgEnvelope
 export type Msg<
     TStruct extends MsgBusStruct = MsgBusStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders = any // Record<string, string>
+    THeaders extends MsgHeaders = MsgHeaders // Record<string, string>
 > = {
+    // transportId
+    id?: string;
     address: MsgAddress<TStruct, TChannel, TGroup>;
     payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
-    // status: MsgStatus;
-    // inResponseToId
-    requestId?: string;
-    // correlationId
-    traceId?: string;
-    id?: string;
-    timestamp?: number; // Date
-    priority?: number;
-    persistent?: boolean; // durable? (for durable queue)
-    version?: string; // schemaVersion
-    tags?: string[];
     headers?: THeaders;
 };
 
@@ -169,7 +227,7 @@ export type MsgBusSubscriberParams<
     TStruct extends MsgBusStruct = MsgBusStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
-    THeaders = any
+    THeaders extends MsgHeaders = MsgHeaders
 > = MsgAddress<TStruct, TChannel, TGroup> & {
     channelSelector?: string | ((channel: string) => boolean);
     // topicSelector?: string | ((channel: string) => boolean);
@@ -179,7 +237,7 @@ export type MsgBusSubscriberParams<
 };
 
 // MsgBusSubscriberFn
-export type MsgBusSubscriber<TStruct extends MsgBusStruct, THeaders = any> = <
+export type MsgBusSubscriber<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
@@ -187,7 +245,7 @@ export type MsgBusSubscriber<TStruct extends MsgBusStruct, THeaders = any> = <
 ) => void;
 
 // MsgBusAsyncSubIterator(Fn)
-export type MsgBusStreamer<TStruct extends MsgBusStruct, THeaders = any> = <
+export type MsgBusStreamer<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
@@ -198,11 +256,11 @@ export type MsgBusAsyncSubscriberParams<
     TStruct extends MsgBusStruct = MsgBusStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
-    THeaders = any
+    THeaders extends MsgHeaders = MsgHeaders
 > = Skip<MsgBusSubscriberParams<TStruct, TChannel, TGroup, THeaders>, "callback" | "filter">;
 
 // MsgBusAsyncSubscriberFn
-export type MsgBusAsyncSubscriber<TStruct extends MsgBusStruct, THeaders = any> = <
+export type MsgBusAsyncSubscriber<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
@@ -213,7 +271,7 @@ export type MsgBusProviderParams<
     TStruct extends MsgBusStruct = MsgBusStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
-    THeaders = any
+    THeaders extends MsgHeaders = MsgHeaders
 > = Overwrite<
     MsgBusSubscriberParams<TStruct, TChannel, TGroup, THeaders>,
     {
@@ -223,7 +281,7 @@ export type MsgBusProviderParams<
 >;
 
 // MsgBusProviderFn
-export type MsgBusProvider<TStruct extends MsgBusStruct, THeaders = any> = <
+export type MsgBusProvider<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
@@ -245,7 +303,7 @@ export type MsgBusDispatcherParams<
     TStruct extends MsgBusStruct = MsgBusStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
-    THeaders = any
+    THeaders extends MsgHeaders = MsgHeaders
 > = Overwrite<
     MsgBusSubscriberParams<TStruct, TChannel, TGroup>,
     {
@@ -253,9 +311,6 @@ export type MsgBusDispatcherParams<
         payloadFn?: IsTuple<TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]> extends true
         ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
         : never;
-        traceId?: string;
-        priority?: number;
-        persistent?: boolean;
         callback?: (msg: Msg<TStruct, TChannel, typeof $CG_OUT, THeaders>) => void;
         headers?: THeaders;
     }
@@ -265,11 +320,11 @@ export type MsgBusAsyncDispatcherParams<
     TStruct extends MsgBusStruct = MsgBusStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
-    THeaders = any
+    THeaders extends MsgHeaders = MsgHeaders
 > = Skip<MsgBusDispatcherParams<TStruct, TChannel, TGroup, THeaders>, "callback">;
 
 // MsgBusDispatcherFn
-export type MsgBusDispatcher<TStruct extends MsgBusStruct, THeaders = any> = <
+export type MsgBusDispatcher<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
@@ -277,7 +332,7 @@ export type MsgBusDispatcher<TStruct extends MsgBusStruct, THeaders = any> = <
 ) => void;
 
 // MsgBusAsyncDispatcherFn
-export type MsgBusAsyncDispatcher<TStruct extends MsgBusStruct, THeaders = any> = <
+export type MsgBusAsyncDispatcher<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
@@ -296,7 +351,7 @@ export const $TypeArgStruct = Symbol("__<TStruct>");
 export const $TypeArgHeaders = Symbol("__<THeaders>");
 
 // export interface
-export type MsgBus<TStruct extends MsgBusStruct, THeaders = any> = {
+export type MsgBus<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = {
     readonly config: MsgBusConfig<MsgBusStructNormalized<TStruct>>;
     // subscribe, listen
     readonly on: MsgBusSubscriber<MsgBusStructNormalized<TStruct>, THeaders>;
@@ -309,6 +364,7 @@ export type MsgBus<TStruct extends MsgBusStruct, THeaders = any> = {
     // dispatch (emit/publish + subscribe)
     readonly dispatch: MsgBusDispatcher<MsgBusStructNormalized<TStruct>, THeaders>;
     readonly dispatchAsync: MsgBusAsyncDispatcher<MsgBusStructNormalized<TStruct>, THeaders>;
+    // TODO: support suspend/resume methods
     /**
      * @internal
      * Type-level only. Do not access at runtime.

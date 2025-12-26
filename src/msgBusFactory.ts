@@ -12,12 +12,32 @@ import {
     MsgBusAsyncDispatcherParams,
     MsgBusStructNormalized,
     $CG_ERROR,
-    $C_ERROR
+    $C_ERROR,
+    MsgHeaders
 } from "./msgBusCore";
 import { v4 as uuid } from "uuid";
-import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject } from "rxjs";
-import { filter, filter as filterOp, take as takeOp } from "rxjs/operators";
+import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, queueScheduler, OperatorFunction, UnaryFunction, timer } from "rxjs";
+import { filter as filterOp, take as takeOp, retry as retryOp, observeOn as observeOnOp, delay as delayOp, throttle as throttleOp, auditTime as auditTimeOp, switchMap as switchMapOp, concatMap as concatMapOp, mergeMap as mergeMapOp, groupBy as groupByOp, timeout as timeoutOp, takeUntil as takeUntilOp } from "rxjs/operators";
+
 import { Skip } from "@actdim/utico/typeCore";
+
+export function identity<T>(x: T): T {
+    return x;
+}
+
+export function pipeFromArray<T, R>(fns: Array<UnaryFunction<T, R>>): UnaryFunction<T, R> {
+    if (fns.length === 0) {
+        return identity as UnaryFunction<any, any>;
+    }
+
+    if (fns.length === 1) {
+        return fns[0];
+    }
+
+    return function piped(input: T): R {
+        return fns.reduce((prev: any, fn: UnaryFunction<T, R>) => fn(prev), input as any);
+    };
+}
 
 const getMatchTest = (pattern: string) => {
     if (pattern == undefined) {
@@ -38,7 +58,7 @@ const getMatchTest = (pattern: string) => {
 
 // createServiceBus
 const groupPrefix = ":"; // "/", ":", "::"
-export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(config?: MsgBusConfig<MsgBusStructNormalized<TStruct>>) {
+export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders>(config?: MsgBusConfig<MsgBusStructNormalized<TStruct>>) {
     type TStructN = MsgBusStructNormalized<TStruct>;
     type MsgInfo = Skip<Msg<TStructN>, "payload">;
     const errTopic = "msgbus";
@@ -49,13 +69,8 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(confi
 
     function getMsgInfo(msg: Msg<TStructN>) {
         return {
-            address: msg.address,
-            requestId: msg.requestId,
-            traceId: msg.traceId,
             id: msg.id,
-            timestamp: msg.timestamp,
-            priority: msg.priority,
-            persistent: msg.persistent,
+            address: msg.address,
             headers: msg.headers
         } as MsgInfo;
     }
@@ -84,6 +99,7 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(confi
             payload: errPayload
         };
         publish(errMsg);
+        // + nack?
     }
     // observables
     const subjects: Map<string, Subject<Msg<TStructN>>> = new Map();
@@ -132,15 +148,31 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(confi
         );
 
         let observable: Observable<Msg<TStructN>>;
-        // groupBy?
-        // mergeMap?
-        // timeout, takeUntil, time?
-        if (params.config?.fetchCount) {
-            observable = subject.pipe(fOp, takeOp(params.config.fetchCount));
-        } else {
-            observable = subject.pipe(fOp);
+
+        const ops: OperatorFunction<any, any>[] = [];
+
+        ops.push(fOp);
+
+        const channelConfig = config[channel];
+        switch (channelConfig?.deliveryType || "async") {
+            case "async":
+                ops.push(observeOnOp(asyncScheduler));
+                break;
+            case "queue":
+                ops.push(observeOnOp(queueScheduler));
+                break;
+            case "inline":
+                break;
         }
 
+        if (params.config?.fetchCount) {
+            ops.push(takeOp(params.config.fetchCount));
+        }
+
+        observable = pipeFromArray(ops)(subject);
+
+        // TODO: support retryOp
+        // TODO: observeOnOp(asyncScheduler)
         const sub = observable.subscribe({
             next: (msg: Msg<TStructN>) => {
                 try {
@@ -157,9 +189,7 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(confi
                             channel: channel,
                             group: group,
                             topic: params.topic
-                        },
-                        id: undefined, // not a real message
-                        timestamp: now()
+                        }
                     },
                     err
                 );
@@ -180,15 +210,14 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(confi
     }
 
     function publish(msg: Msg<TStructN>) {
-        if (msg.timestamp == undefined) {
-            msg.timestamp = now()
-        }
         if (msg.id == undefined) {
             msg.id = uuid();
         }
-        if (msg.traceId == undefined) {
-            msg.traceId = uuid();
+        if (msg.headers == undefined) {
+            msg.headers = {};
         }
+        const headers = msg.headers;
+        headers.publishedAt = now()
         const channel = String(msg.address.channel);
         if (msg.address.group == undefined) {
             msg.address.group = $CG_IN;
@@ -244,11 +273,10 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(confi
                                 group: $CG_OUT,
                                 topic: msgIn.address.topic
                             },
-                            traceId: msgIn.traceId,
-                            requestId: msgIn.id,
-                            persistent: msgIn.persistent,
-                            priority: msgIn.priority,
-                            headers: msgIn.headers
+                            headers: {
+                                ...msgIn.headers,
+                                requestId: msgIn.id,
+                            }
                         };
                         const payload = (await Promise.resolve(params.callback(msgIn, msgOut)));
                         msgOut.payload = payload;
@@ -281,7 +309,7 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(confi
                     params.callback(msgOut);
                 },
                 filter: (msgOut) => {
-                    return msgOut.requestId === msgId && (!params.filter || params.filter(msgOut)) // TODO: match topic?
+                    return msgOut.headers?.requestId === msgId && (!params.filter || params.filter(msgOut)) // TODO: match topic?
                 }
             };
             subscribe(subParams);
@@ -295,17 +323,16 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders = any>(confi
             payload = params.payload;
         }
         const msgIn = publish({
+            id: msgId,
             address: {
                 channel: params.channel,
                 group: params.group,
                 topic: params.topic
             },
-            payload: payload,
-            traceId: params.traceId,
-            persistent: params.persistent,
-            priority: params.priority,
-            id: msgId,
-            headers: params.headers
+            headers: {
+                ...params.headers
+            },
+            payload: payload
         });
     }
 
