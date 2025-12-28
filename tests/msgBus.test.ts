@@ -95,6 +95,40 @@ describe("msgBus", () => {
         await Promise.race([delayErrorAsync(timeout), Promise.all([stream, test])]);
     });
 
+    it("can use throttling", async () => {
+        let c = 0;
+
+        const msgBus = createTestMsgBus();
+                
+        msgBus.on({
+            channel: "Test.DoSomeWork",
+            // topic: "/.*/",
+            group: "in",
+            callback: async (msg) => {
+                c++;
+            }, 
+            config: {
+                throttle: {
+                    duration: 10,
+                    leading: true,
+                    trailing: true,
+                }
+            }
+        });
+
+        let test = (async () => {
+            for (let i = 0; i < 100; i++) {
+                msgBus.dispatch({
+                    channel: "Test.DoSomeWork"                    
+                })
+            }
+        })();
+
+        await test;
+        await delayAsync(timeout);
+        expect(c).toBe(2);
+    });
+
     it("can dispatchAsync with result", async () => {
         const data = testData[0];
         let result: number; // Msg<TestBusStruct, "Test.ComputeSum", "out">
@@ -364,7 +398,7 @@ describe("msgBus", () => {
         });
 
         await delayAsync(timeout);
-        abortController.abort();        
+        abortController.abort();
 
         msgBus.dispatch({
             channel: "Test.ComputeSum",

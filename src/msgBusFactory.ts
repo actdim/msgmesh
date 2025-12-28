@@ -16,30 +16,13 @@ import {
     MsgHeaders
 } from "./msgBusCore";
 import { v4 as uuid } from "uuid";
-import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, queueScheduler, OperatorFunction, UnaryFunction, timer } from "rxjs";
-import { filter as filterOp, take as takeOp, retry as retryOp, observeOn as observeOnOp, delay as delayOp, throttle as throttleOp, auditTime as auditTimeOp, switchMap as switchMapOp, concatMap as concatMapOp, mergeMap as mergeMapOp, groupBy as groupByOp, timeout as timeoutOp, takeUntil as takeUntilOp } from "rxjs/operators";
+import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, queueScheduler, OperatorFunction, UnaryFunction, timer, SchedulerLike } from "rxjs";
+import { filter as filterOp, take as takeOp, retry as retryOp, observeOn, delay as delayOp, timeout as timeoutOp, takeUntil as takeUntilOp, debounceTime as debounceOp } from "rxjs/operators";
 
 import { Skip } from "@actdim/utico/typeCore";
+import { pipeFromArray, throttleOp, ThrottleOptions } from "./util";
 
-export function identity<T>(x: T): T {
-    return x;
-}
-
-export function pipeFromArray<T, R>(fns: Array<UnaryFunction<T, R>>): UnaryFunction<T, R> {
-    if (fns.length === 0) {
-        return identity as UnaryFunction<any, any>;
-    }
-
-    if (fns.length === 1) {
-        return fns[0];
-    }
-
-    return function piped(input: T): R {
-        return fns.reduce((prev: any, fn: UnaryFunction<T, R>) => fn(prev), input as any);
-    };
-}
-
-const getMatchTest = (pattern: string) => {
+export const getMatchTest = (pattern: string) => {
     if (pattern == undefined) {
         // return (value: string) => true;
         return (value: string) => value == pattern;
@@ -62,6 +45,8 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
     type TStructN = MsgBusStructNormalized<TStruct>;
     type MsgInfo = Skip<Msg<TStructN>, "payload">;
     const errTopic = "msgbus";
+
+    let scheduler: SchedulerLike = asyncScheduler;
 
     function now() {
         return Date.now(); // new Date().getTime() or +new Date()
@@ -129,6 +114,27 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
         return subjects.get(routingKey);
     }
 
+    function applyThrottle(ops: OperatorFunction<any, any>[], throttle?: number | (ThrottleOptions & { duration: number; }), scheduler?: SchedulerLike) {
+        if (throttle != undefined) {
+            let duration: number;
+            let options: ThrottleOptions = { leading: true, trailing: true };
+            if (typeof throttle === "number") {
+                duration = throttle;
+            } else {
+                duration = throttle.duration;
+                options.leading = throttle.leading;
+                options.trailing = throttle.trailing;
+            }
+            ops.push(throttleOp(duration, options, scheduler));
+        }
+    }
+
+    function applyDebounce(ops: OperatorFunction<any, any>[], duration?: number, scheduler?: SchedulerLike) {
+        if (duration != undefined) {
+            ops.push(debounceOp(duration, scheduler));
+        }
+    }
+
     function subscribe(params: MsgBusSubscriberParams<TStructN>) {
         // TODO: use [channel, group] as key?
 
@@ -154,15 +160,17 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
         ops.push(fOp);
 
         const channelConfig = config[channel];
-        switch (channelConfig?.deliveryType || "async") {
-            case "async":
-                ops.push(observeOnOp(asyncScheduler));
-                break;
-            case "queue":
-                ops.push(observeOnOp(queueScheduler));
-                break;
-            case "inline":
-                break;
+
+        applyThrottle(ops, channelConfig.throttle, scheduler);
+
+        applyThrottle(ops, params.config?.throttle, scheduler);
+
+        applyDebounce(ops, channelConfig.debounce, scheduler);
+
+        applyDebounce(ops, params.config?.debounce, scheduler);
+
+        if (scheduler) {
+            ops.push(observeOn(scheduler));
         }
 
         if (params.config?.fetchCount) {

@@ -3,6 +3,7 @@
 //##############################################################################
 // SafeBus
 import { IsTuple, MaybePromise, Overwrite, Skip } from "@actdim/utico/typeCore";
+import { ThrottleOptions } from "./util";
 
 export const $CG_IN = "in";
 
@@ -101,11 +102,6 @@ export type OutStruct<TStruct extends MsgBusStruct, TChannel extends keyof TStru
 
 export type AckMode = 'atLeastOne' | 'all';
 
-export type MsgDeliveryType =
-    | 'async'  // default via independent microtasks, each subscriber gets its own async queue (isolated order)
-    | 'queue'  // FIFO queue for all subscribers of this channel, synchronous, protects against reentrancy
-    | 'inline'; // direct synchronous call, reentrancy possible, subscribers block each other
-
 // Options/Settings
 export type MsgChannelConfig<TChannel> = {
     // (channel) message queue distribution and processing strategy
@@ -125,17 +121,23 @@ export type MsgChannelConfig<TChannel> = {
     replayBufferSize?: number;
     replayWindowTime?: number;
 
-    deliveryType: MsgDeliveryType;
     delay?: number;
-    throttleTime?: number; // { leading: boolean; trailing: boolean; })
-    auditTime?: number;
+    throttle?: number | (ThrottleOptions & { duration: number; });
+    debounce?: number;
 };
 
 export type MsgDispatchConfig = {
-    // MsgConfig
     priority?: number;
+    // fetchCount?: number;
+    abortSignal?: AbortSignal;
+};
+
+export type MsgSubscriberConfig = {
     fetchCount?: number;
     abortSignal?: AbortSignal;
+
+    throttle?: number | (ThrottleOptions & { duration: number; });
+    debounce?: number;
 };
 
 export type MsgBusConfig<TStruct extends MsgBusStruct> = {
@@ -232,7 +234,7 @@ export type MsgBusSubscriberParams<
     channelSelector?: string | ((channel: string) => boolean);
     // topicSelector?: string | ((channel: string) => boolean);
     callback?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => void;
-    config?: MsgDispatchConfig;
+    config?: MsgSubscriberConfig;
     filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
 };
 
@@ -304,17 +306,18 @@ export type MsgBusDispatcherParams<
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
     THeaders extends MsgHeaders = MsgHeaders
-> = Overwrite<
-    MsgBusSubscriberParams<TStruct, TChannel, TGroup>,
-    {
-        payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
-        payloadFn?: IsTuple<TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]> extends true
-        ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
-        : never;
-        callback?: (msg: Msg<TStruct, TChannel, typeof $CG_OUT, THeaders>) => void;
-        headers?: THeaders;
-    }
->;
+> = MsgAddress<TStruct, TChannel, TGroup> & {
+    channelSelector?: string | ((channel: string) => boolean);
+    // topicSelector?: string | ((channel: string) => boolean);
+    payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
+    payloadFn?: IsTuple<TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]> extends true
+    ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
+    : never;
+    callback?: (msg: Msg<TStruct, TChannel, typeof $CG_OUT, THeaders>) => void;
+    config?: MsgDispatchConfig;
+    filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
+    headers?: THeaders;
+};
 
 export type MsgBusAsyncDispatcherParams<
     TStruct extends MsgBusStruct = MsgBusStruct,
