@@ -165,11 +165,11 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
 
         const channelConfig = config[channel];
 
-        applyThrottle(ops, channelConfig.throttle, scheduler);
+        applyThrottle(ops, channelConfig?.throttle, scheduler);
 
         applyThrottle(ops, params.config?.throttle, scheduler);
 
-        applyDebounce(ops, channelConfig.debounce, scheduler);
+        applyDebounce(ops, channelConfig?.debounce, scheduler);
 
         applyDebounce(ops, params.config?.debounce, scheduler);
 
