@@ -3,6 +3,7 @@ import { TestBusStruct, createTestMsgBus, sharedMsgBus } from "./testDomain";
 import "@/msgBusFactory";
 import { delayAsync, delayErrorAsync, withTimeoutAsync } from "@actdim/utico/utils";
 import { v4 as uuid } from "uuid";
+import { TimeoutError } from "@/msgBusCore";
 
 describe("msgBus", () => {
     // process.on("unhandledRejection", (reason, promise) => {
@@ -98,15 +99,16 @@ describe("msgBus", () => {
     it("can use throttling", async () => {
         let c = 0;
 
-        const msgBus = createTestMsgBus();
-                
+        // const msgBus = createTestMsgBus();
+        const msgBus = sharedMsgBus;
+
         msgBus.on({
             channel: "Test.DoSomeWork",
             // topic: "/.*/",
             group: "in",
             callback: async (msg) => {
                 c++;
-            }, 
+            },
             config: {
                 throttle: {
                     duration: 10,
@@ -119,7 +121,7 @@ describe("msgBus", () => {
         let test = (async () => {
             for (let i = 0; i < 100; i++) {
                 msgBus.dispatch({
-                    channel: "Test.DoSomeWork"                    
+                    channel: "Test.DoSomeWork"
                 })
             }
         })();
@@ -127,6 +129,29 @@ describe("msgBus", () => {
         await test;
         await delayAsync(timeout);
         expect(c).toBe(2);
+    });
+
+    it("can use timeout", async () => {
+        let c = 0;
+
+        const msgBus = createTestMsgBus();
+
+        let test = (async () => {
+            await msgBus.dispatchAsync({
+                channel: "Test.DoSomeWork",
+                config: {
+                    timeout: 50
+                }
+            });
+        });
+
+        // expect(() => {
+        // }).toThrow();
+
+        // +toThrow
+        // +toMatchObject
+        // +toHaveProperty
+        await expect(test).rejects.toBeInstanceOf(TimeoutError);
     });
 
     it("can dispatchAsync with result", async () => {

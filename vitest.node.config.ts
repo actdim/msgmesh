@@ -14,7 +14,9 @@ export default defineConfig({
         ],
         // In watch mode you can keep the debugger open during test re-runs by using the --isolate false options.
         isolate: false,
-        // pool: "threads"
+        // maxConcurrency: 1,
+        // maxWorkers: 1,
+        // pool: "threads",
         pool: "forks", // for debug
         environment: 'node',
         include: ["tests/**/*.{test,spec}.ts"],

@@ -34,6 +34,36 @@ export type ErrorParam<T extends ErrorPayload = ErrorPayload> = {
     [$CG_ERROR]: T;
 };
 
+export class BaseError extends Error {
+    readonly name: string = 'BaseError';
+
+    constructor(
+        message: string,
+        options?: {
+            cause?: unknown;
+        }
+    ) {
+        super(message, options);
+        Object.setPrototypeOf(this, new.target.prototype);
+    }
+}
+export class TimeoutError extends BaseError {
+    readonly name: string = 'TimeoutError';
+
+    constructor(message?: string, cause?: unknown) {
+        // Operation
+        super(message || "Timeout exceeded", { cause });
+    }
+}
+
+export class AbortError extends BaseError {
+    readonly name: string = 'AbortError';
+
+    constructor(message?: string, cause?: unknown) {
+        super(message || "Operation aborted", { cause });
+    }
+}
+
 // ReservedChannelGroup
 export type SystemChannelGroup = `${keyof InParam | keyof OutParam | keyof OutParam}`;
 
@@ -49,7 +79,6 @@ export type SystemChannelGroup = `${keyof InParam | keyof OutParam | keyof OutPa
 // LocalStorage
 // https://github.com/GoogleChromeLabs/comlink
 
-// MsgBusChannelStruct
 export type MsgChannelStruct = Partial<{ [group: string]: any } & InParam & OutParam & ErrorParam>;
 
 // type MsgChannelStruct = { [group: string]: any } & (
@@ -58,8 +87,8 @@ export type MsgChannelStruct = Partial<{ [group: string]: any } & InParam & OutP
 //   | (InParam & OutParam)
 // );
 
-// SystemMsgBusStruct
-export type MsgBusStructBase = {
+// SystemMsgtruct
+export type MsgStructBase = {
     [$C_ERROR]?: {
         [$CG_IN]: ErrorPayload;
     };
@@ -68,35 +97,35 @@ export type MsgBusStructBase = {
     // };
 };
 
-export type MsgBusStruct = {
+export type MsgStruct = {
     [channel: string]: MsgChannelStruct;
-} & MsgBusStructBase;
+} & MsgStructBase;
 
-// MsgBusStructBuilder
-export type MsgBusStructFactory<
+// MsgStructBuilder
+export type MsgStructFactory<
     TStruct extends TStructBase,
-    TStructBase extends MsgBusStruct = MsgBusStruct
+    TStructBase extends MsgStruct = MsgStruct
 > = {
         [C in keyof TStruct]: TStruct[C] & ErrorParam;
     };
 
-// export type MsgBusStruct = Record<string, MsgChannelStruct>;
+// export type MsgStruct = Record<string, MsgChannelStruct>;
 
-export type InStruct<TStruct extends MsgBusStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends InParam
+export type InStruct<TStruct extends MsgStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends InParam
     ? TStruct[TChannel]["in"] // keyof InParam or typeof $CG_IN
     : undefined; // never
 
 // export type InStruct<
-//   TStruct extends MsgBusStruct,
+//   TStruct extends MsgStruct,
 //   TChannel extends keyof TStruct
 // > = TStruct[TChannel] extends InParam ? TStruct[TChannel]["in"] : never;
 
-export type OutStruct<TStruct extends MsgBusStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends OutParam
+export type OutStruct<TStruct extends MsgStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends OutParam
     ? TStruct[TChannel][keyof OutParam]
     : undefined;
 
 // export type OutStruct<
-//   TStruct extends MsgBusStruct,
+//   TStruct extends MsgStruct,
 //   TChannel extends keyof TStruct
 // > = TStruct[TChannel] extends OutParam ? TStruct[TChannel]["out"] : never;
 
@@ -126,12 +155,6 @@ export type MsgChannelConfig<TChannel> = {
     debounce?: number;
 };
 
-export type MsgDispatchConfig = {
-    priority?: number;
-    // fetchCount?: number;
-    abortSignal?: AbortSignal;
-};
-
 export type MsgSubscriberConfig = {
     fetchCount?: number;
     abortSignal?: AbortSignal;
@@ -140,12 +163,25 @@ export type MsgSubscriberConfig = {
     debounce?: number;
 };
 
-export type MsgBusConfig<TStruct extends MsgBusStruct> = {
+export type MsgDispatcherConfig = MsgSubscriberConfig & {
+    priority?: number;
+};
+
+export type MsgAsyncSubscriberConfig = {
+    abortSignal?: AbortSignal;
+    timeout?: number;
+};
+
+export type MsgAsyncDispatcherConfig = MsgAsyncSubscriberConfig & {
+    priority?: number;
+};
+
+export type MsgBusConfig<TStruct extends MsgStruct> = {
     [TChannel in keyof TStruct]?: MsgChannelConfig<TStruct[TChannel]>;
 }; // Record<string, MsgChannelConfig>
 
 export type MsgAddress<
-    TStruct extends MsgBusStruct = MsgBusStruct,
+    TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel] // typeof $CG_IN
 > = {
@@ -209,9 +245,10 @@ export type MsgHeaders = {
 // export type MsgStatus = "pending" | "sent" | "delivered" | "processed" | "failed" | "expired";
 
 // TODO: support ack/nack
+// TODO: integrate with https://github.com/connor4312/cockatiel 
 // MsgEnvelope
 export type Msg<
-    TStruct extends MsgBusStruct = MsgBusStruct,
+    TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders // Record<string, string>
@@ -223,10 +260,8 @@ export type Msg<
     headers?: THeaders;
 };
 
-// TODO: support un(subscribing) via Deferred<bool>
-
-export type MsgBusSubscriberParams<
-    TStruct extends MsgBusStruct = MsgBusStruct,
+export type MsgSubscriberParams<
+    TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
     THeaders extends MsgHeaders = MsgHeaders
@@ -238,71 +273,73 @@ export type MsgBusSubscriberParams<
     filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
 };
 
-// MsgBusSubscriberFn
-export type MsgBusSubscriber<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
+// MsgSubscriberFn
+export type MsgSubscriber<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
-    params: MsgBusSubscriberParams<TStruct, TChannel, TGroup, THeaders>
+    params: MsgSubscriberParams<TStruct, TChannel, TGroup, THeaders>
 ) => void;
 
-// MsgBusAsyncSubIterator(Fn)
-export type MsgBusStreamer<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
+// MsgAsyncSubIterator(Fn)
+export type MsgStreamer<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
-    params: MsgBusSubscriberParams<TStruct, TChannel, TGroup>
+    params: MsgSubscriberParams<TStruct, TChannel, TGroup>
 ) => AsyncIterableIterator<Msg<TStruct, TChannel, TGroup, THeaders>>; // TGroup extends undefined ? typeof $CG_IN : TGroup
 
-export type MsgBusAsyncSubscriberParams<
-    TStruct extends MsgBusStruct = MsgBusStruct,
+export type MsgAsyncSubscriberParams<
+    TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
     THeaders extends MsgHeaders = MsgHeaders
-> = Skip<MsgBusSubscriberParams<TStruct, TChannel, TGroup, THeaders>, "callback" | "filter">;
+> = Overwrite<Skip<MsgSubscriberParams<TStruct, TChannel, TGroup, THeaders>, "callback">, {
+    config?: MsgAsyncSubscriberConfig
+}>;
 
-// MsgBusAsyncSubscriberFn
-export type MsgBusAsyncSubscriber<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
+// MsgAsyncSubscriberFn
+export type MsgAsyncSubscriber<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
-    params: MsgBusAsyncSubscriberParams<TStruct, TChannel, TGroup>
+    params: MsgAsyncSubscriberParams<TStruct, TChannel, TGroup>
 ) => Promise<Msg<TStruct, TChannel, TGroup, THeaders>>; // TGroup extends undefined ? typeof $CG_IN : TGroup
 
-export type MsgBusProviderParams<
-    TStruct extends MsgBusStruct = MsgBusStruct,
+export type MsgProviderParams<
+    TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
     THeaders extends MsgHeaders = MsgHeaders
 > = Overwrite<
-    MsgBusSubscriberParams<TStruct, TChannel, TGroup, THeaders>,
+    MsgSubscriberParams<TStruct, TChannel, TGroup, THeaders>,
     {
         // resolve
         callback?: (msgIn: Msg<TStruct, TChannel, TGroup, THeaders>, msgOut: Msg<TStruct, TChannel, typeof $CG_OUT, THeaders>) => MaybePromise<OutStruct<TStruct, TChannel>>;
     }
 >;
 
-// MsgBusProviderFn
-export type MsgBusProvider<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
+// MsgProviderFn
+export type MsgProvider<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
-    params: MsgBusProviderParams<TStruct, TChannel, TGroup, THeaders>
+    params: MsgProviderParams<TStruct, TChannel, TGroup, THeaders>
 ) => void;
 
-// MsgBusBinderFn
-export type MsgBusBinder<TStruct extends MsgBusStruct> = <
+// MsgBinderFn
+export type MsgBinder<TStruct extends MsgStruct> = <
     TSourceChannel extends keyof TStruct,
     TTargetChannel extends keyof TStruct,
     TSourceGroup extends keyof TStruct[TSourceChannel] = typeof $CG_IN,
     TTargetGroup extends keyof TStruct[TTargetChannel] = typeof $CG_IN
 >(
-    source: MsgBusSubscriberParams<TStruct, TSourceChannel, TSourceGroup>,
+    source: MsgSubscriberParams<TStruct, TSourceChannel, TSourceGroup>,
     target: MsgAddress<TStruct, TTargetChannel, TTargetGroup>
 ) => void;
 
-export type MsgBusDispatcherParams<
-    TStruct extends MsgBusStruct = MsgBusStruct,
+export type MsgDispatcherParams<
+    TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
     THeaders extends MsgHeaders = MsgHeaders
@@ -314,39 +351,42 @@ export type MsgBusDispatcherParams<
     ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
     : never;
     callback?: (msg: Msg<TStruct, TChannel, typeof $CG_OUT, THeaders>) => void;
-    config?: MsgDispatchConfig;
+    config?: MsgDispatcherConfig;
     filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
     headers?: THeaders;
 };
 
-export type MsgBusAsyncDispatcherParams<
-    TStruct extends MsgBusStruct = MsgBusStruct,
+export type MsgAsyncDispatcherParams<
+    TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
     THeaders extends MsgHeaders = MsgHeaders
-> = Skip<MsgBusDispatcherParams<TStruct, TChannel, TGroup, THeaders>, "callback">;
+> = Overwrite<Skip<MsgDispatcherParams<TStruct, TChannel, TGroup, THeaders>, "callback">,
+    {
+        config?: MsgAsyncDispatcherConfig
+    }>;
 
-// MsgBusDispatcherFn
-export type MsgBusDispatcher<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
+// MsgDispatcherFn
+export type MsgDispatcher<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
-    params: MsgBusDispatcherParams<TStruct, TChannel, TGroup, THeaders>
+    params: MsgDispatcherParams<TStruct, TChannel, TGroup, THeaders>
 ) => void;
 
-// MsgBusAsyncDispatcherFn
-export type MsgBusAsyncDispatcher<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = <
+// MsgAsyncDispatcherFn
+export type MsgAsyncDispatcher<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
     TChannel extends keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
-    params: MsgBusAsyncDispatcherParams<TStruct, TChannel, TGroup, THeaders>
+    params: MsgAsyncDispatcherParams<TStruct, TChannel, TGroup, THeaders>
 ) => Promise<Msg<TStruct, TChannel, typeof $CG_OUT>>;
 
 export type MsgChannelStructNormalized<TStruct extends MsgChannelStruct> = {
     [G in keyof TStruct]: Awaited<TStruct[G]>;
 };
 
-export type MsgBusStructNormalized<TStruct extends MsgBusStruct> = {
+export type MsgStructNormalized<TStruct extends MsgStruct> = {
     [C in keyof TStruct]: MsgChannelStructNormalized<TStruct[C]>;
 };
 
@@ -354,19 +394,19 @@ export const $TypeArgStruct = Symbol("__<TStruct>");
 export const $TypeArgHeaders = Symbol("__<THeaders>");
 
 // export interface
-export type MsgBus<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders> = {
-    readonly config: MsgBusConfig<MsgBusStructNormalized<TStruct>>;
+export type MsgBus<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = {
+    readonly config: MsgBusConfig<MsgStructNormalized<TStruct>>;
     // subscribe, listen
-    readonly on: MsgBusSubscriber<MsgBusStructNormalized<TStruct>, THeaders>;
-    readonly onceAsync: MsgBusAsyncSubscriber<MsgBusStructNormalized<TStruct>, THeaders>;
+    readonly on: MsgSubscriber<MsgStructNormalized<TStruct>, THeaders>;
+    readonly onceAsync: MsgAsyncSubscriber<MsgStructNormalized<TStruct>, THeaders>;
     // listenStream, consume, receive
-    readonly stream: MsgBusStreamer<MsgBusStructNormalized<TStruct>, THeaders>;
+    readonly stream: MsgStreamer<MsgStructNormalized<TStruct>, THeaders>;
     // handle, resolve
-    readonly provide: MsgBusProvider<MsgBusStructNormalized<TStruct>, THeaders>;
+    readonly provide: MsgProvider<MsgStructNormalized<TStruct>, THeaders>;
     // link, connect
     // dispatch (emit/publish + subscribe)
-    readonly dispatch: MsgBusDispatcher<MsgBusStructNormalized<TStruct>, THeaders>;
-    readonly dispatchAsync: MsgBusAsyncDispatcher<MsgBusStructNormalized<TStruct>, THeaders>;
+    readonly dispatch: MsgDispatcher<MsgStructNormalized<TStruct>, THeaders>;
+    readonly dispatchAsync: MsgAsyncDispatcher<MsgStructNormalized<TStruct>, THeaders>;
     // TODO: support suspend/resume methods
     /**
      * @internal

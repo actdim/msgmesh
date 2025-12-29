@@ -1,26 +1,28 @@
 import {
     MsgBus,
-    MsgBusStruct,
+    MsgStruct,
     Msg,
     $CG_IN,
     $CG_OUT,
     MsgBusConfig,
-    MsgBusSubscriberParams,
-    MsgBusAsyncSubscriberParams,
-    MsgBusProviderParams,
-    MsgBusDispatcherParams,
-    MsgBusAsyncDispatcherParams,
-    MsgBusStructNormalized,
+    MsgSubscriberParams,
+    MsgAsyncSubscriberParams,
+    MsgProviderParams,
+    MsgDispatcherParams,
+    MsgAsyncDispatcherParams,
+    MsgStructNormalized,
     $CG_ERROR,
     $C_ERROR,
-    MsgHeaders
+    MsgHeaders,
+    TimeoutError
 } from "./msgBusCore";
 import { v4 as uuid } from "uuid";
-import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, queueScheduler, OperatorFunction, UnaryFunction, timer, SchedulerLike } from "rxjs";
-import { filter as filterOp, take as takeOp, retry as retryOp, observeOn, delay as delayOp, timeout as timeoutOp, takeUntil as takeUntilOp, debounceTime as debounceOp } from "rxjs/operators";
+import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, OperatorFunction, SchedulerLike } from "rxjs";
+import { filter as filterOp, take as takeOp, observeOn, delay as delayOp, debounceTime as debounceOp } from "rxjs/operators";
 
 import { Skip } from "@actdim/utico/typeCore";
 import { pipeFromArray, throttleOp, ThrottleOptions } from "./util";
+import { delayErrorAsync } from "@actdim/utico/utils";
 
 export const getMatchTest = (pattern: string) => {
     if (pattern == undefined) {
@@ -36,21 +38,23 @@ export const getMatchTest = (pattern: string) => {
     }
 };
 
+const DEFAULT_PROMISE_TIMEOUT = 1000 * 60 * 2; // 2 minutes
+
 // see also https://www.npmjs.com/package/p-queue
 // https://github.com/postaljs/postal.js
 
+function now() {
+    return Date.now(); // new Date().getTime() or +new Date()
+}
+
 // createServiceBus
 const groupPrefix = ":"; // "/", ":", "::"
-export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgHeaders = MsgHeaders>(config?: MsgBusConfig<MsgBusStructNormalized<TStruct>>) {
-    type TStructN = MsgBusStructNormalized<TStruct>;
+export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders>(config?: MsgBusConfig<MsgStructNormalized<TStruct>>) {
+    type TStructN = MsgStructNormalized<TStruct>;
     type MsgInfo = Skip<Msg<TStructN>, "payload">;
+
     const errTopic = "msgbus";
-
-    let scheduler: SchedulerLike = asyncScheduler;
-
-    function now() {
-        return Date.now(); // new Date().getTime() or +new Date()
-    }
+    const scheduler: SchedulerLike = asyncScheduler;
 
     function getMsgInfo(msg: Msg<TStructN>) {
         return {
@@ -135,7 +139,7 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
         }
     }
 
-    function subscribe(params: MsgBusSubscriberParams<TStructN>) {
+    function subscribe(params: MsgSubscriberParams<TStructN>) {
         // TODO: use [channel, group] as key?
 
         const channel = String(params.channel);
@@ -169,6 +173,10 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
 
         applyDebounce(ops, params.config?.debounce, scheduler);
 
+        if (channelConfig.delay) {
+            ops.push(delayOp(channelConfig.delay, scheduler));
+        }
+
         if (scheduler) {
             ops.push(observeOn(scheduler));
         }
@@ -180,7 +188,7 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
         observable = pipeFromArray(ops)(subject);
 
         // TODO: support retryOp
-        // TODO: observeOnOp(asyncScheduler)
+        // TODO: support timeout
         const sub = observable.subscribe({
             next: (msg: Msg<TStructN>) => {
                 try {
@@ -210,7 +218,7 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
         const abortSignal = params.config?.abortSignal;
         abortSignal?.addEventListener("abort", (e) => {
             // TODO: publish debug (internal) message
-            console.log(
+            console.debug(
                 `Listening aborted for channel: ${channel}, group: ${group}, topic: ${params.topic}. Reason: ${abortSignal.reason}` // e.target
             );
             sub.unsubscribe();
@@ -236,18 +244,35 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
         return msg;
     }
 
-    function on(params: MsgBusSubscriberParams<TStructN>) {
+    function on(params: MsgSubscriberParams<TStructN>) {
         subscribe(params);
     }
 
-    function onceAsync(params: MsgBusAsyncSubscriberParams<TStructN>) {
-        return new Promise<any>((res, rej) => {
+    function onceAsync(params: MsgAsyncSubscriberParams<TStructN>) {
+        const timeout = params.config?.timeout == undefined ? DEFAULT_PROMISE_TIMEOUT : params.config?.timeout;
+        let settled = false;
+        return Promise.race([delayErrorAsync(timeout, () => new TimeoutError()), new Promise<any>((res, rej) => {
             try {
                 const abortSignal = params.config?.abortSignal;
-                abortSignal?.addEventListener("abort", (e) => {
-                    rej(new Error("Cancelled", { cause: abortSignal.reason })); // e.target
-                });
-                const subParams: MsgBusSubscriberParams<TStructN> = {
+                let cleanup: () => void = null;
+
+                if (abortSignal) {
+                    let onAbort: () => void = null;
+                    cleanup = () => {
+                        abortSignal.removeEventListener("abort", onAbort);
+                    };
+                    onAbort = () => {
+                        if (settled) {
+                            return
+                        };
+                        settled = true;
+                        cleanup();
+                        rej(new Error("Cancelled", { cause: abortSignal.reason })); // e.target
+                    };
+                    abortSignal.addEventListener("abort", onAbort);
+                }
+
+                const subParams: MsgSubscriberParams<TStructN> = {
                     ...params,
                     ...{
                         config: {
@@ -257,8 +282,22 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
                             }
                         },
                         callback: (msg) => {
-                            // sub.unsubscribe();
-                            res(msg);
+                            try {
+                                if (settled) {
+                                    return;
+                                }
+                                settled = true;
+                                cleanup?.();
+                                // sub.unsubscribe();
+                                res(msg);
+                            } catch (err) {
+                                if (settled) {
+                                    return;
+                                }
+                                settled = true;
+                                cleanup?.();
+                                rej(err);
+                            }
                         }
                     }
                 };
@@ -266,11 +305,11 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
             } catch (e) {
                 rej(e);
             }
-        });
+        })]);
     }
 
-    function provide(params: MsgBusProviderParams<TStructN>) {
-        const subParams: MsgBusSubscriberParams<TStructN> = {
+    function provide(params: MsgProviderParams<TStructN>) {
+        const subParams: MsgSubscriberParams<TStructN> = {
             ...params,
             ...{
                 callback: async (msgIn) => {
@@ -299,10 +338,10 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
         subscribe(subParams);
     }
 
-    function dispatch(params: MsgBusDispatcherParams<TStructN>) {
+    function dispatch(params: MsgDispatcherParams<TStructN>) {
         const msgId = uuid();
         if (params.callback) {
-            const subParams: MsgBusSubscriberParams<TStructN, keyof TStructN, typeof $CG_OUT> = {
+            const subParams: MsgSubscriberParams<TStructN, keyof TStructN, typeof $CG_OUT> = {
                 channel: params.channel,
                 group: $CG_OUT,
                 topic: params.topic,
@@ -344,19 +383,46 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
         });
     }
 
-    async function dispatchAsync(params: MsgBusAsyncDispatcherParams<TStructN>): Promise<any> {
-        return new Promise((res, rej) => {
+    async function dispatchAsync(params: MsgAsyncDispatcherParams<TStructN>): Promise<any> {
+        const timeout = params.config?.timeout == undefined ? DEFAULT_PROMISE_TIMEOUT : params.config?.timeout;
+        let settled = false;
+        return Promise.race([delayErrorAsync(timeout, () => new TimeoutError()), new Promise((res, rej) => {
             try {
                 const abortSignal = params.config?.abortSignal;
-                abortSignal?.addEventListener("abort", (e) => {
-                    rej(new Error("Cancelled", { cause: abortSignal.reason })); // e.target
-                });
-                const dispatchParams: MsgBusDispatcherParams<TStructN> = {
+                let cleanup: () => void = null;
+
+                if (abortSignal) {
+                    let onAbort: () => void = null;
+                    const cleanup = () => {
+                        abortSignal.removeEventListener("abort", onAbort);
+                    };
+                    onAbort = () => {
+                        if (settled) {
+                            return
+                        };
+                        settled = true;
+                        cleanup();
+                        rej(new Error("Cancelled", { cause: abortSignal.reason })); // e.target
+                    };
+                    abortSignal.addEventListener("abort", onAbort);
+                }
+
+                const dispatchParams: MsgDispatcherParams<TStructN> = {
                     ...params,
                     callback: (msg) => {
                         try {
+                            if (settled) {
+                                return;
+                            }
+                            settled = true;
+                            cleanup?.();
                             res(msg);
                         } catch (err) {
+                            if (settled) {
+                                return;
+                            }
+                            settled = true;
+                            cleanup?.();
                             rej(err);
                         }
                     }
@@ -365,19 +431,19 @@ export function createMsgBus<TStruct extends MsgBusStruct, THeaders extends MsgH
             } catch (err) {
                 rej(err);
             }
-        });
+        })]);
     }
 
     const msgBus: MsgBus<TStruct, THeaders> = {
         config: config,
-        on: (params) => on(params as MsgBusSubscriberParams<TStructN>),
-        onceAsync: (params) => onceAsync(params as MsgBusAsyncSubscriberParams<TStructN>),
+        on: (params) => on(params as MsgSubscriberParams<TStructN>),
+        onceAsync: (params) => onceAsync(params as MsgAsyncSubscriberParams<TStructN>),
         stream: (params) => {
             throw new Error("Not implemented");
         },
-        provide: (params) => provide(params as MsgBusProviderParams<TStructN>),
-        dispatch: (params) => dispatch(params as MsgBusDispatcherParams<TStructN>),
-        dispatchAsync: (params) => dispatchAsync(params as MsgBusAsyncDispatcherParams<TStructN>),
+        provide: (params) => provide(params as MsgProviderParams<TStructN>),
+        dispatch: (params) => dispatch(params as MsgDispatcherParams<TStructN>),
+        dispatchAsync: (params) => dispatchAsync(params as MsgAsyncDispatcherParams<TStructN>),
     };
 
     // msgBus["#subjects"] = subjects;

@@ -1,4 +1,4 @@
-import { MsgBus, MsgBusConfig, MsgBusStruct, MsgBusStructNormalized, MsgHeaders } from "@/msgBusCore";
+import { MsgBus, MsgBusConfig, MsgStruct, MsgStructNormalized, MsgHeaders } from "@/msgBusCore";
 import { createMsgBus } from "@/msgBusFactory";
 import { RequireExtends } from "@actdim/utico/typeCore";
 
@@ -9,16 +9,16 @@ export type TestBusStruct = RequireExtends<
             out: number;
         };
         "Test.DoSomeWork": {
-            in: void;
+            in: string;
             out: void;
         }
     },
-    MsgBusStruct
+    MsgStruct
 >;
 
 export type TestMsgBus = MsgBus<TestBusStruct>;
 
-export const createTestMsgBus = (config?: MsgBusConfig<MsgBusConfig<MsgBusStructNormalized<TestBusStruct>>>) => createMsgBus<TestBusStruct>({
+export const createTestMsgBus = (config?: MsgBusConfig<MsgBusConfig<MsgStructNormalized<TestBusStruct>>>) => createMsgBus<TestBusStruct>({
     "Test.ComputeSum": {
         initialValues: {
             in: {
@@ -27,16 +27,14 @@ export const createTestMsgBus = (config?: MsgBusConfig<MsgBusConfig<MsgBusStruct
             },
             out: 0
         },
-        replayBufferSize: Infinity,
-        replayWindowTime: 60000
     },
     "Test.DoSomeWork": {
         initialValues: {
             in: undefined,
             out: undefined
         },
-        replayBufferSize: Infinity,
-        replayWindowTime: 60000
+        // replayBufferSize: Infinity,
+        // replayWindowTime: 60000
     }
 });
 
