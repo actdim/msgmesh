@@ -173,7 +173,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
 
         applyDebounce(ops, params.config?.debounce, scheduler);
 
-        if (channelConfig.delay) {
+        if (channelConfig?.delay) {
             ops.push(delayOp(channelConfig.delay, scheduler));
         }
 
@@ -314,19 +314,22 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
             ...{
                 callback: async (msgIn) => {
                     try {
+                        const headers = {
+                            ...msgIn.headers,
+                            ...params.headers,
+                            requestId: msgIn.id,
+                        }
+
+                        const payload = (await Promise.resolve(params.callback(msgIn, headers)));
                         const msgOut: Msg<TStructN, keyof TStructN, typeof $CG_OUT> = {
                             address: {
                                 channel: msgIn.address.channel,
                                 group: $CG_OUT,
                                 topic: msgIn.address.topic
                             },
-                            headers: {
-                                ...msgIn.headers,
-                                requestId: msgIn.id,
-                            }
+                            headers: headers,
+                            payload: payload
                         };
-                        const payload = (await Promise.resolve(params.callback(msgIn, msgOut)));
-                        msgOut.payload = payload;
                         publish(msgOut);
                     } catch (err) {
                         handleError(msgIn, err);

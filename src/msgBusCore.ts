@@ -315,7 +315,8 @@ export type MsgProviderParams<
     MsgSubscriberParams<TStruct, TChannel, TGroup, THeaders>,
     {
         // resolve
-        callback?: (msgIn: Msg<TStruct, TChannel, TGroup, THeaders>, msgOut: Msg<TStruct, TChannel, typeof $CG_OUT, THeaders>) => MaybePromise<OutStruct<TStruct, TChannel>>;
+        callback?: (msgIn: Msg<TStruct, TChannel, TGroup, THeaders>, headers?: THeaders) => MaybePromise<OutStruct<TStruct, TChannel>>;
+        headers?: THeaders;
     }
 >;
 
