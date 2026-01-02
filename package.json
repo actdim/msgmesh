@@ -1,6 +1,6 @@
 {
     "name": "@actdim/msgmesh",
-    "version": "1.1.6",
+    "version": "1.1.7",
     "description": "A type-safe, modular message mesh for scalable async communication in TypeScript",
     "author": "Pavel Borodaev",
     "license": "Proprietary",
@@ -67,7 +67,7 @@
         "format:check": "prettier --check ."
     },
     "peerDependencies": {
-        "@actdim/utico": "^1.0.5",
+        "@actdim/utico": "^1.0.6",
         "rxjs": "^7.8.2",
         "uuid": "^13.0.0"
     },

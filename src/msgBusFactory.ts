@@ -366,7 +366,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         }
         let payload: any;
         if (params.payloadFn) {
-            params.payloadFn((args) => {
+            params.payloadFn((...args) => {
                 payload = args;
             });
         } else {
