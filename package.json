@@ -20,7 +20,8 @@
         "messaging",
         "utility",
         "utils",
-        "communication"
+        "communication",
+        "architecture"
     ],
     "files": [
         "dist",
