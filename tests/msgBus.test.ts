@@ -475,4 +475,199 @@ describe("msgBus", () => {
         expect(err).toBeDefined();
         expect((err as Error).cause).toBe(reason);
     });
+
+    it("can repeat messages", async (ctx) => {
+
+        const replayBufferSize = 5;
+        const msgBus = createTestMsgBus({
+            "Test.TestTaskWithRepeat": {
+                replayBufferSize,
+                replayWindowTime: Infinity
+
+            }
+        });
+        // const msgBus = sharedMsgBus;
+        let c = 0;
+        for (let i = 0; i < replayBufferSize * 2; i++) {
+            msgBus.dispatch({
+                channel: "Test.TestTaskWithRepeat",
+                payload: i.toString()
+            });
+        }
+        await delayAsync(timeout);
+        const listen = new Promise<void>((res, rej) => {
+            msgBus.on({
+                channel: "Test.TestTaskWithRepeat",
+                callback: () => {
+                    c++;
+                }
+            });
+        });
+
+        await Promise.race([listen, delayAsync(timeout)]);
+        expect(c).toBe(replayBufferSize);
+    });
+
+    it("can limit fetch count", async (ctx) => {
+
+        const msgBus = createTestMsgBus();
+        let c = 0;
+        let n = 10;
+        let fetchCount = 5;
+        const listen = new Promise<void>((res, rej) => {
+            msgBus.on({
+                channel: "Test.TestTaskWithRepeat",
+                callback: () => {
+                    c++;
+                },
+                config: {
+                    fetchCount
+                }
+            });
+        });
+
+        for (let i = 0; i < n; i++) {
+            msgBus.dispatch({
+                channel: "Test.TestTaskWithRepeat",
+                payload: i.toString()
+            });
+        }
+
+        await Promise.race([listen, delayAsync(timeout)]);
+        expect(c).toBe(fetchCount);
+    });
+
+    it("can use topics", async (ctx) => {
+
+        const msgBus = createTestMsgBus();
+        let i1 = Math.round(Math.random() * 100);
+        let i2 = Math.round(Math.random() * 100);
+        let o1 = 0;
+        let o2 = 0;
+        let o = 0;
+
+        const listenAll = new Promise<void>((res, rej) => {
+            msgBus.on({
+                channel: "Test.DoSomeWork",
+                topic: "/foo|bar/",
+                callback: () => {
+                    o++;
+                },
+
+            });
+        });
+
+        const listen1 = new Promise<void>((res, rej) => {
+            msgBus.on({
+                channel: "Test.DoSomeWork",
+                topic: "/^foo.*$/",
+                callback: () => {
+                    o1++;
+                },
+
+            });
+        });
+        const listen2 = new Promise<void>((res, rej) => {
+            msgBus.on({
+                channel: "Test.DoSomeWork",
+                topic: "/^bar.*$/",
+                callback: () => {
+                    o2++;
+                },
+
+            });
+        });
+
+        const emit1 = new Promise<void>((res, rej) => {
+            for (let i = 0; i < i1; i++) {
+                msgBus.dispatch({
+                    channel: "Test.DoSomeWork",
+                    topic: "foo" + i,
+                    payload: i.toString()
+                });
+            }
+        });
+
+        const emit2 = new Promise<void>((res, rej) => {
+            for (let i = 0; i < i2; i++) {
+                msgBus.dispatch({
+                    channel: "Test.DoSomeWork",
+                    topic: "bar" + i,
+                    payload: i.toString()
+                });
+            }
+        });
+
+        await Promise.race([Promise.all([listenAll, listen1, listen2, emit1, emit2]), delayAsync(timeout)]);
+        expect(o1).toBe(i1);
+        expect(o2).toBe(i2);
+        expect(o).toBe(i1 + i2);
+    });
+
+    it("can multiplex", async (ctx) => {
+
+        const msgBus = createTestMsgBus();
+
+        let m = 0
+        let i1 = Math.round(Math.random() * 100);
+        let i2 = Math.round(Math.random() * 100);
+        let o1 = 0;
+        let o2 = 0;
+
+        const multiplex = new Promise<void>((res, rej) => {
+            msgBus.on({
+                channel: "Test.Multiplexer",
+                group: "out",
+                callback: () => {
+                    m++;
+                }
+            });
+        });
+
+
+        const provide1 = new Promise<void>((res, rej) => {
+            msgBus.provide({
+                channel: "Test.Multiplexer",
+                group: "in1",
+                callback: () => {
+                    return o1++;
+                }
+            });
+        });
+
+        const provide2 = new Promise<void>((res, rej) => {
+            msgBus.provide({
+                channel: "Test.Multiplexer",
+                group: "in2",
+                callback: () => {
+                    return o2++;
+                }
+            });
+        });
+
+        const emit1 = new Promise<void>((res, rej) => {
+            for (let i = 0; i < i1; i++) {
+                msgBus.dispatch({
+                    channel: "Test.Multiplexer",
+                    group: "in1",
+                    payload: i.toString()
+                });
+            }
+        });
+
+        const emit2 = new Promise<void>((res, rej) => {
+            for (let i = 0; i < i2; i++) {
+                msgBus.dispatch({
+                    channel: "Test.Multiplexer",
+                    group: "in2",
+                    payload: i
+                });
+            }
+        });
+
+        await Promise.race([Promise.all([multiplex, provide1, provide2, emit1, emit2]), delayAsync(timeout)]);
+        expect(o1).toBe(i1);
+        expect(o2).toBe(i2);
+        expect(m).toBe(i1 + i2);
+    });
 });

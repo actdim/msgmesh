@@ -102,7 +102,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         // TODO: support BehaviorSubject
         if (!subjects.has(routingKey)) {
             let subject: Subject<Msg<TStructN>> = null;
-            const channelConfig = config[channel];
+            const channelConfig = config?.[channel];
             if (channelConfig) {
                 if (channelConfig.replayBufferSize != undefined || channelConfig.replayWindowTime != undefined) {
                     subject = new ReplaySubject<Msg<TStructN>>(channelConfig.replayBufferSize == undefined ? Infinity : channelConfig.replayBufferSize, channelConfig.replayWindowTime == undefined ? Infinity : channelConfig.replayWindowTime);
@@ -163,7 +163,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
 
         ops.push(fOp);
 
-        const channelConfig = config[channel];
+        const channelConfig = config?.[channel];
 
         applyThrottle(ops, channelConfig?.throttle, scheduler);
 
@@ -319,7 +319,6 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
                             ...params.headers,
                             requestId: msgIn.id,
                         }
-
                         const payload = (await Promise.resolve(params.callback(msgIn, headers)));
                         const msgOut: Msg<TStructN, keyof TStructN, typeof $CG_OUT> = {
                             address: {

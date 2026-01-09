@@ -394,7 +394,6 @@ export type MsgStructNormalized<TStruct extends MsgStruct> = {
 export const $TypeArgStruct = Symbol("__<TStruct>");
 export const $TypeArgHeaders = Symbol("__<THeaders>");
 
-// export interface
 export type MsgBus<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = {
     readonly config: MsgBusConfig<MsgStructNormalized<TStruct>>;
     // subscribe, listen
@@ -420,3 +419,5 @@ export type MsgBus<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgH
      */
     readonly [$TypeArgHeaders]?: THeaders;
 };
+
+// TODO: add unsubscribe (abort) alias, move types to 'contracts' module 
