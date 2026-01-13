@@ -5,24 +5,26 @@ import {
     $CG_IN,
     $CG_OUT,
     MsgBusConfig,
-    MsgSubscriberParams,
-    MsgAsyncSubscriberParams,
+    MsgSubParams,
+    AwaitableMsgSubParams,
     MsgProviderParams,
-    MsgDispatcherParams,
-    MsgAsyncDispatcherParams,
     MsgStructNormalized,
     $CG_ERROR,
     $C_ERROR,
     MsgHeaders,
-    TimeoutError
-} from "./msgBusCore";
+    TimeoutError,
+    MsgAddress,
+    InStruct,
+    MsgSenderOptions,
+    MsgRequestDispatcherParams
+} from "./contracts";
 import { v4 as uuid } from "uuid";
 import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, OperatorFunction, SchedulerLike } from "rxjs";
 import { filter as filterOp, take as takeOp, observeOn, delay as delayOp, debounceTime as debounceOp } from "rxjs/operators";
 
-import { Skip } from "@actdim/utico/typeCore";
+import { IsTuple, Skip } from "@actdim/utico/typeCore";
 import { pipeFromArray, throttleOp, ThrottleOptions } from "./util";
-import { delayErrorAsync } from "@actdim/utico/utils";
+import { delayError } from "@actdim/utico/utils";
 
 export const getMatchTest = (pattern: string) => {
     if (pattern == undefined) {
@@ -97,6 +99,13 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         return `${channel}${groupPrefix}${group}`;
     }
 
+    type MsgRecord = {
+        msg: Msg<TStructN>;
+        acked: boolean;
+        // ackTimestamp
+        ackedAt?: number;
+    }
+
     function getOrCreateSubject(channel: string, group: string): Subject<Msg<TStructN>> {
         const routingKey = createRoutingKey(channel, group);
         // TODO: support BehaviorSubject
@@ -139,7 +148,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         }
     }
 
-    function subscribe(params: MsgSubscriberParams<TStructN>) {
+    function subscribe(params: MsgSubParams<TStructN>) {
         // TODO: use [channel, group] as key?
 
         const channel = String(params.channel);
@@ -167,11 +176,11 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
 
         applyThrottle(ops, channelConfig?.throttle, scheduler);
 
-        applyThrottle(ops, params.config?.throttle, scheduler);
+        applyThrottle(ops, params.options?.throttle, scheduler);
 
         applyDebounce(ops, channelConfig?.debounce, scheduler);
 
-        applyDebounce(ops, params.config?.debounce, scheduler);
+        applyDebounce(ops, params.options?.debounce, scheduler);
 
         if (channelConfig?.delay) {
             ops.push(delayOp(channelConfig.delay, scheduler));
@@ -181,8 +190,8 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
             ops.push(observeOn(scheduler));
         }
 
-        if (params.config?.fetchCount) {
-            ops.push(takeOp(params.config.fetchCount));
+        if (params.options?.fetchCount) {
+            ops.push(takeOp(params.options.fetchCount));
         }
 
         observable = pipeFromArray(ops)(subject);
@@ -215,7 +224,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
             }
         });
 
-        const abortSignal = params.config?.abortSignal;
+        const abortSignal = params.options?.abortSignal;
         abortSignal?.addEventListener("abort", (e) => {
             // TODO: publish debug (internal) message
             console.debug(
@@ -241,19 +250,20 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         const group = String(msg.address.group);
         const subject = getOrCreateSubject(channel, group);
         subject.next(msg);
-        return msg;
+        // TODO: implement backpressure via signal after 'ack' or msg from out signal
+        return Promise.resolve(msg);
     }
 
-    function on(params: MsgSubscriberParams<TStructN>) {
+    function on(params: MsgSubParams<TStructN>) {
         subscribe(params);
     }
 
-    function onceAsync(params: MsgAsyncSubscriberParams<TStructN>) {
-        const timeout = params.config?.timeout == undefined ? DEFAULT_PROMISE_TIMEOUT : params.config?.timeout;
+    function once(params: AwaitableMsgSubParams<TStructN>) {
+        const timeout = params.options?.timeout == undefined ? DEFAULT_PROMISE_TIMEOUT : params.options?.timeout;
         let settled = false;
-        return Promise.race([delayErrorAsync(timeout, () => new TimeoutError()), new Promise<any>((res, rej) => {
+        return Promise.race([delayError(timeout, () => new TimeoutError()), new Promise<any>((res, rej) => {
             try {
-                const abortSignal = params.config?.abortSignal;
+                const abortSignal = params.options?.abortSignal;
                 let cleanup: () => void = null;
 
                 if (abortSignal) {
@@ -272,11 +282,11 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
                     abortSignal.addEventListener("abort", onAbort);
                 }
 
-                const subParams: MsgSubscriberParams<TStructN> = {
+                const subParams: MsgSubParams<TStructN> = {
                     ...params,
                     ...{
-                        config: {
-                            ...params.config,
+                        options: {
+                            ...params.options,
                             ...{
                                 fetchCount: 1
                             }
@@ -309,7 +319,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
     }
 
     function provide(params: MsgProviderParams<TStructN>) {
-        const subParams: MsgSubscriberParams<TStructN> = {
+        const subParams: MsgSubParams<TStructN> = {
             ...params,
             ...{
                 callback: async (msgIn) => {
@@ -340,15 +350,33 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         subscribe(subParams);
     }
 
-    function dispatch(params: MsgDispatcherParams<TStructN>) {
+    type MsgDispatcherParams<
+        TStruct extends MsgStruct = MsgStruct,
+        TChannel extends keyof TStruct = keyof TStruct,
+        TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
+        THeaders extends MsgHeaders = MsgHeaders
+    > = MsgAddress<TStruct, TChannel, TGroup> & {
+        channelSelector?: string | ((channel: string) => boolean);
+        // topicSelector?: string | ((channel: string) => boolean);
+        payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
+        payloadFn?: IsTuple<TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]> extends true
+        ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
+        : never;
+        options?: MsgSenderOptions;
+        filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
+        headers?: THeaders;
+        callback?: (msg: Msg<TStruct, TChannel, typeof $CG_OUT, THeaders>) => void;
+    };
+
+    async function dispatch(params: MsgDispatcherParams<TStructN>) {
         const msgId = uuid();
         if (params.callback) {
-            const subParams: MsgSubscriberParams<TStructN, keyof TStructN, typeof $CG_OUT> = {
+            const subParams: MsgSubParams<TStructN, keyof TStructN, typeof $CG_OUT> = {
                 channel: params.channel,
                 group: $CG_OUT,
                 topic: params.topic,
-                config: {
-                    ...params.config,
+                options: {
+                    ...params.options,
                     ...{
                         fetchCount: 1
                     }
@@ -371,7 +399,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         } else {
             payload = params.payload;
         }
-        const msgIn = publish({
+        await publish({
             id: msgId,
             address: {
                 channel: params.channel,
@@ -385,12 +413,12 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         });
     }
 
-    async function dispatchAsync(params: MsgAsyncDispatcherParams<TStructN>): Promise<any> {
-        const timeout = params.config?.timeout == undefined ? DEFAULT_PROMISE_TIMEOUT : params.config?.timeout;
+    async function request(params: MsgRequestDispatcherParams<TStructN>): Promise<any> {
+        const timeout = params.options?.timeout == undefined ? DEFAULT_PROMISE_TIMEOUT : params.options?.timeout;
         let settled = false;
-        return Promise.race([delayErrorAsync(timeout, () => new TimeoutError()), new Promise((res, rej) => {
+        return Promise.race([delayError(timeout, () => new TimeoutError()), new Promise((res, rej) => {
             try {
-                const abortSignal = params.config?.abortSignal;
+                const abortSignal = params.options?.abortSignal;
                 let cleanup: () => void = null;
 
                 if (abortSignal) {
@@ -438,14 +466,14 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
 
     const msgBus: MsgBus<TStruct, THeaders> = {
         config: config,
-        on: (params) => on(params as MsgSubscriberParams<TStructN>),
-        onceAsync: (params) => onceAsync(params as MsgAsyncSubscriberParams<TStructN>),
+        on: (params) => on(params as MsgSubParams<TStructN>),
+        once: (params) => once(params as AwaitableMsgSubParams<TStructN>),
         stream: (params) => {
             throw new Error("Not implemented");
         },
         provide: (params) => provide(params as MsgProviderParams<TStructN>),
-        dispatch: (params) => dispatch(params as MsgDispatcherParams<TStructN>),
-        dispatchAsync: (params) => dispatchAsync(params as MsgAsyncDispatcherParams<TStructN>),
+        send: (params) => dispatch(params as MsgDispatcherParams<TStructN>),
+        request: (params) => request(params as MsgRequestDispatcherParams<TStructN>),
     };
 
     // msgBus["#subjects"] = subjects;
@@ -453,9 +481,26 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
     return msgBus;
 }
 
-// class MessageBus<TStruct extends MsgBusStruct>
-//     implements IMsgBus<TStruct>
-// {
-//     constructor() {}
-//     // ...
-// }
+// TODO: add unsubscribe (abort) alias (like in hooks)
+// TODO: implement ack via custom RepeatSubject and MsgRecord (do not repeat acked messages, add auto ack on publish to "out" channel)
+/*
+// TODO: implement TTL, maxBufferLength support
+class RepeatSubject<T> {
+  private buffer: Msg<T>[] = [];
+  private subject = new Subject<Msg<T>>();
+
+  next(msg: Msg<T>) {
+    this.buffer.push(msg);
+    this.subject.next(msg);
+  }
+
+  subscribe(
+    observer: (msg: Msg<T>) => void,
+    filterFn?: (msg: Msg<T>) => boolean
+  ) { 
+    this.buffer.filter(filterFn ?? (() => true)).forEach(observer);
+    
+    return this.subject.subscribe(observer);
+  }
+}
+*/

@@ -1,6 +1,6 @@
 {
     "name": "@actdim/msgmesh",
-    "version": "1.2.2",
+    "version": "1.2.3",
     "description": "A type-safe, modular message mesh for scalable async communication in TypeScript",
     "author": "Pavel Borodaev",
     "license": "Proprietary",
@@ -55,8 +55,8 @@
         "test": "npx vitest --config=vitest.node.config.ts --no-cache",
         "test:w": "npx vitest --config=vitest.node.config.ts --watch",
         "test:v8": "npx vite",
-        "lint": "eslint . -f visualstudio --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",
-        "build": "tsc -b && vite build",
+        "lint": "eslint \"./**/*.{ts,tsx}\" -f visualstudio --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",
+        "build": "tsc -b tsconfig.json --noEmit && vite build",
         "pnpm:u": "pnpm update",
         "pnpm:ou": "pnpm outdated",
         "ncu:l": "ncu",
@@ -65,14 +65,16 @@
         "nvm:la": "nvm list available",
         "nvm:il": "nvm install lts",
         "format": "prettier --write .",
-        "format:check": "prettier --check ."
+        "format:check": "prettier --check .",
+        "typecheck": "tsc -p tsconfig.json --noEmit"
     },
     "peerDependencies": {
-        "@actdim/utico": "^1.1.1",
+        "@actdim/utico": "^1.1.2",
         "rxjs": "^7.8.2",
         "uuid": "^13.0.0"
     },
     "devDependencies": {
+        "@eslint/js": "^9.39.2",
         "@types/chai": "^5.2.3",
         "@types/mocha": "^10.0.10",
         "@types/node": "^24.10.0",

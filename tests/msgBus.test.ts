@@ -1,9 +1,9 @@
 import { describe, it, expect, vi } from "vitest";
 import { TestBusStruct, createTestMsgBus, sharedMsgBus } from "./testDomain";
-import "@/msgBusFactory";
-import { delayAsync, delayErrorAsync, withTimeoutAsync } from "@actdim/utico/utils";
+import "@/core";
+import { delay, delayError, withTimeout } from "@actdim/utico/utils";
 import { v4 as uuid } from "uuid";
-import { TimeoutError } from "@/msgBusCore";
+import { MsgHeaders, TimeoutError } from "@/contracts";
 
 describe("msgBus", () => {
     // process.on("unhandledRejection", (reason, promise) => {
@@ -52,7 +52,7 @@ describe("msgBus", () => {
             // Task.Yield:
             // await Promise.resolve();
             await new Promise((resolve) => setTimeout(resolve, 0));
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 payload: {
                     a: Math.floor(Math.random() * 100),
@@ -70,30 +70,34 @@ describe("msgBus", () => {
         }
     });
 
-    it("can dispatchAsync", async () => {
+    it("can request without result", async () => {
         let done = false;
         sharedMsgBus.provide({
             channel: "Test.DoSomeWork",
             // topic: "/.*/",
             group: "in",
             callback: async (msg) => {
-                await delayAsync(30);
+                await delay(30);
                 // done = true;
                 await (async () => {
-                    await delayAsync(30);
+                    await delay(30);
                     done = true;
                 })();
             }
         });
 
         let test = (async () => {
-            const msg = await sharedMsgBus.dispatchAsync({
-                channel: "Test.DoSomeWork"
+            const requestId = uuid();
+            const msg = await sharedMsgBus.request({
+                channel: "Test.DoSomeWork",
+                headers: {
+                    sourceId: requestId
+                }
             });
             expect(done).toBe(true);
         })();
 
-        await Promise.race([delayErrorAsync(timeout), Promise.all([stream, test])]);
+        await Promise.race([delayError(timeout), Promise.all([stream, test])]);
     });
 
     it("can use throttling", async () => {
@@ -109,7 +113,7 @@ describe("msgBus", () => {
             callback: async (msg) => {
                 c++;
             },
-            config: {
+            options: {
                 throttle: {
                     duration: 10,
                     leading: true,
@@ -120,14 +124,14 @@ describe("msgBus", () => {
 
         let test = (async () => {
             for (let i = 0; i < 100; i++) {
-                msgBus.dispatch({
+                msgBus.send({
                     channel: "Test.DoSomeWork"
                 })
             }
         })();
 
         await test;
-        await delayAsync(timeout);
+        await delay(timeout);
         expect(c).toBe(2);
     });
 
@@ -137,10 +141,14 @@ describe("msgBus", () => {
         const msgBus = createTestMsgBus();
 
         let test = (async () => {
-            await msgBus.dispatchAsync({
+            const requestId = uuid();
+            await msgBus.request({
                 channel: "Test.DoSomeWork",
-                config: {
+                options: {
                     timeout: 50
+                },
+                headers: {
+                    sourceId: requestId
                 }
             });
         });
@@ -154,47 +162,27 @@ describe("msgBus", () => {
         await expect(test).rejects.toBeInstanceOf(TimeoutError);
     });
 
-    it("can dispatchAsync with result", async () => {
-        const data = testData[0];
-        let result: number; // Msg<TestBusStruct, "Test.ComputeSum", "out">
-        let test = (async () => {
-            const msg = await sharedMsgBus.dispatchAsync({
-                channel: "Test.ComputeSum",
-                payload: data
-            });
-            result = msg.payload;
-        })();
-
-        await Promise.race([delayErrorAsync(timeout), Promise.all([stream, test])]);
-        expect(result).toBe(computeSum(data));
-    });
-
-    it("can dispatch", async () => {
-        const data = testData[0];
+    it("can request", async () => {
+        const data = testData[3];
         let result: number;
-        const test = new Promise<number>((res, rej) => {
-            let c = 0;
-            sharedMsgBus.dispatch({
+        let responseMsgHeaders: MsgHeaders;
+        const requestId = uuid();
+        let request = (async () => {            
+            const msg = await sharedMsgBus.request({
                 channel: "Test.ComputeSum",
+                group: "in",
                 payload: data,
-                callback: (msg) => {
-                    c++;
-                    if (c > 1) {
-                        rej("Unexpected call");
-                    }
-                    // res(msg.payload);
-                    result = msg.payload;
+                headers: {
+                    sourceId: requestId
                 }
             });
+            result = msg.payload;
+            responseMsgHeaders = msg.headers;
+        })();
 
-            sharedMsgBus.dispatch({
-                channel: "Test.ComputeSum",
-                payload: testData[3],
-            });
-        });
-
-        await Promise.race([delayAsync(timeout), Promise.all([stream, test])]);
+        await Promise.race([delayError(timeout), Promise.all([stream, request])]);        
         expect(result).toBe(computeSum(data));
+        expect(responseMsgHeaders.sourceId).toBe(requestId);
     });
 
     it("can subscribe using 'on'", async (ctx) => {
@@ -224,22 +212,22 @@ describe("msgBus", () => {
                 }
             });
 
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 payload: testData[0]
             });
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 payload: testData[1]
             });
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 payload: testData[2]
             });
         });
 
-        // const result = await withTimeoutAsync(test, timeout);
-        const result = await Promise.race([delayErrorAsync(timeout), test]);
+        // const result = await withTimeout(test, timeout);
+        const result = await Promise.race([delayError(timeout), test]);
         expect(result).toBe(6);
     });
 
@@ -266,38 +254,38 @@ describe("msgBus", () => {
                 }
             });
 
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 payload: testData[0]
             });
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 payload: testData[1]
             });
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 payload: testData[2]
             });
 
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 topic: "test",
                 payload: testData[0],
             });
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 topic: "test",
                 payload: testData[1],
             });
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 topic: "test",
                 payload: testData[2]
             });
         });
 
-        // const result = await withTimeoutAsync(test, timeout);
-        const result = await Promise.race([delayAsync(timeout * 10), test]);
+        // const result = await withTimeout(test, timeout);
+        const result = await Promise.race([delay(timeout * 10), test]);
         expect(c).toBe(6);
     });
 
@@ -313,7 +301,7 @@ describe("msgBus", () => {
                         rej("On 'In': extra calls");
                     }
                 },
-                config: { fetchCount: 1 }
+                options: { fetchCount: 1 }
             });
 
             sharedMsgBus.on({
@@ -329,24 +317,24 @@ describe("msgBus", () => {
                         rej("On 'Out': wrong payload");
                     }
                 },
-                config: { fetchCount: 1 }
+                options: { fetchCount: 1 }
             });
 
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 payload: testData[0],
                 headers: {
                     correlationId: testData[0].id
                 }
             });
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 payload: testData[1],
                 headers: {
                     correlationId: testData[1].id
                 }
             });
-            sharedMsgBus.dispatch({
+            sharedMsgBus.send({
                 channel: "Test.ComputeSum",
                 payload: testData[2],
                 headers: {
@@ -355,14 +343,14 @@ describe("msgBus", () => {
             });
         });
 
-        const result = await Promise.race([delayAsync(timeout), test]);
+        const result = await Promise.race([delay(timeout), test]);
         expect(cIn + cOut).toBe(2);
     });
 
     it("can subscribe using 'onceAsync'", async (ctx) => {
         let data = testData[0];
         const test = async () => {
-            const msgIn = await sharedMsgBus.onceAsync({
+            const msgIn = await sharedMsgBus.once({
                 channel: "Test.ComputeSum"
             });
 
@@ -371,7 +359,7 @@ describe("msgBus", () => {
             expect(msgIn.payload.a).toBe(data.a);
             expect(msgIn.payload.b).toBe(data.b);
 
-            const msgOut = await sharedMsgBus.onceAsync({
+            const msgOut = await sharedMsgBus.once({
                 channel: "Test.ComputeSum",
                 group: "out"
             });
@@ -381,7 +369,7 @@ describe("msgBus", () => {
             expect(msgOut.payload).toBe(computeSum(data));
         };
 
-        sharedMsgBus.dispatch({
+        sharedMsgBus.send({
             channel: "Test.ComputeSum",
             payload: data,
             headers: {
@@ -389,7 +377,7 @@ describe("msgBus", () => {
             }
         });
 
-        const result = await Promise.race([delayAsync(timeout), test]);
+        const result = await Promise.race([delay(timeout), test]);
     });
 
     it("can cancel sub", async (ctx) => {
@@ -409,12 +397,12 @@ describe("msgBus", () => {
                     c++;
                 }
             },
-            config: {
+            options: {
                 abortSignal: abortController.signal
             }
         });
 
-        msgBus.dispatch({
+        msgBus.send({
             channel: "Test.ComputeSum",
             payload: data,
             headers: {
@@ -422,10 +410,10 @@ describe("msgBus", () => {
             }
         });
 
-        await delayAsync(timeout);
+        await delay(timeout);
         abortController.abort();
 
-        msgBus.dispatch({
+        msgBus.send({
             channel: "Test.ComputeSum",
             payload: data,
             headers: {
@@ -446,9 +434,9 @@ describe("msgBus", () => {
         // const msgBus = sharedMsgBus;
         const listen = (async () => {
             try {
-                await msgBus.onceAsync({
+                await msgBus.once({
                     channel: "Test.ComputeSum",
-                    config: {
+                    options: {
                         abortSignal: abortController.signal
                     }
                 });
@@ -458,19 +446,19 @@ describe("msgBus", () => {
             }
         })();
 
-        await delayAsync(100);
+        await delay(100);
         abortController.abort(reason);
         const emit = (async () => {
-            msgBus.dispatch({
+            msgBus.send({
                 channel: "Test.ComputeSum",
                 payload: data,
             });
-            msgBus.dispatch({
+            msgBus.send({
                 channel: "Test.ComputeSum",
                 payload: data,
             });
         })();
-        await Promise.race([Promise.all([listen, emit]), delayAsync(timeout)]);
+        await Promise.race([Promise.all([listen, emit]), delay(timeout)]);
         expect(c).toBe(0);
         expect(err).toBeDefined();
         expect((err as Error).cause).toBe(reason);
@@ -489,12 +477,12 @@ describe("msgBus", () => {
         // const msgBus = sharedMsgBus;
         let c = 0;
         for (let i = 0; i < replayBufferSize * 2; i++) {
-            msgBus.dispatch({
+            msgBus.send({
                 channel: "Test.TestTaskWithRepeat",
                 payload: i.toString()
             });
         }
-        await delayAsync(timeout);
+        await delay(timeout);
         const listen = new Promise<void>((res, rej) => {
             msgBus.on({
                 channel: "Test.TestTaskWithRepeat",
@@ -504,7 +492,7 @@ describe("msgBus", () => {
             });
         });
 
-        await Promise.race([listen, delayAsync(timeout)]);
+        await Promise.race([listen, delay(timeout)]);
         expect(c).toBe(replayBufferSize);
     });
 
@@ -520,20 +508,20 @@ describe("msgBus", () => {
                 callback: () => {
                     c++;
                 },
-                config: {
+                options: {
                     fetchCount
                 }
             });
         });
 
         for (let i = 0; i < n; i++) {
-            msgBus.dispatch({
+            msgBus.send({
                 channel: "Test.TestTaskWithRepeat",
                 payload: i.toString()
             });
         }
 
-        await Promise.race([listen, delayAsync(timeout)]);
+        await Promise.race([listen, delay(timeout)]);
         expect(c).toBe(fetchCount);
     });
 
@@ -580,7 +568,7 @@ describe("msgBus", () => {
 
         const emit1 = new Promise<void>((res, rej) => {
             for (let i = 0; i < i1; i++) {
-                msgBus.dispatch({
+                msgBus.send({
                     channel: "Test.DoSomeWork",
                     topic: "foo" + i,
                     payload: i.toString()
@@ -590,7 +578,7 @@ describe("msgBus", () => {
 
         const emit2 = new Promise<void>((res, rej) => {
             for (let i = 0; i < i2; i++) {
-                msgBus.dispatch({
+                msgBus.send({
                     channel: "Test.DoSomeWork",
                     topic: "bar" + i,
                     payload: i.toString()
@@ -598,7 +586,7 @@ describe("msgBus", () => {
             }
         });
 
-        await Promise.race([Promise.all([listenAll, listen1, listen2, emit1, emit2]), delayAsync(timeout)]);
+        await Promise.race([Promise.all([listenAll, listen1, listen2, emit1, emit2]), delay(timeout)]);
         expect(o1).toBe(i1);
         expect(o2).toBe(i2);
         expect(o).toBe(i1 + i2);
@@ -647,7 +635,7 @@ describe("msgBus", () => {
 
         const emit1 = new Promise<void>((res, rej) => {
             for (let i = 0; i < i1; i++) {
-                msgBus.dispatch({
+                msgBus.send({
                     channel: "Test.Multiplexer",
                     group: "in1",
                     payload: i.toString()
@@ -657,7 +645,7 @@ describe("msgBus", () => {
 
         const emit2 = new Promise<void>((res, rej) => {
             for (let i = 0; i < i2; i++) {
-                msgBus.dispatch({
+                msgBus.send({
                     channel: "Test.Multiplexer",
                     group: "in2",
                     payload: i
@@ -665,7 +653,7 @@ describe("msgBus", () => {
             }
         });
 
-        await Promise.race([Promise.all([multiplex, provide1, provide2, emit1, emit2]), delayAsync(timeout)]);
+        await Promise.race([Promise.all([multiplex, provide1, provide2, emit1, emit2]), delay(timeout)]);
         expect(o1).toBe(i1);
         expect(o2).toBe(i2);
         expect(m).toBe(i1 + i2);

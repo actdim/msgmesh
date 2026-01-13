@@ -1,5 +1,5 @@
-import { MsgBus, MsgBusConfig, MsgStruct, MsgStructNormalized, MsgHeaders } from "@/msgBusCore";
-import { createMsgBus } from "@/msgBusFactory";
+import { MsgBus, MsgBusConfig, MsgStruct, MsgStructNormalized, MsgHeaders } from "@/contracts";
+import { createMsgBus } from "@/core";
 import { RequireExtends } from "@actdim/utico/typeCore";
 
 export type TestBusStruct = RequireExtends<
