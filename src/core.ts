@@ -481,10 +481,11 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
     return msgBus;
 }
 
-// TODO: add unsubscribe (abort) alias (like in hooks)
-// TODO: implement ack via custom RepeatSubject and MsgRecord (do not repeat acked messages, add auto ack on publish to "out" channel)
+// TODO: support persistence
+// TODO: support unsubscribe (abort) alias (like in hooks)
+// TODO: support msg ack via custom RepeatSubject and MsgRecord: (no acked messages in queue, auto ack on publish to "out" channel)
+// TODO: support TTL, maxBufferLength support with backpressure (real send promise)
 /*
-// TODO: implement TTL, maxBufferLength support
 class RepeatSubject<T> {
   private buffer: Msg<T>[] = [];
   private subject = new Subject<Msg<T>>();
