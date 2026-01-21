@@ -11,7 +11,7 @@ export const $CG_OUT = "out" as const;
 
 export const $CG_ERROR = "error" as const;
 
-export const $C_ERROR = "error" as const;
+export const $C_ERROR = "MSGBUS.ERROR" as const;
 
 export type InParam = {
     // [key in typeof $CG_IN]: any;

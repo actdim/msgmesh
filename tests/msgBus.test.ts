@@ -4,6 +4,7 @@ import "@/core";
 import { delay, delayError, withTimeout } from "@actdim/utico/utils";
 import { v4 as uuid } from "uuid";
 import { MsgHeaders, TimeoutError } from "@/contracts";
+import { createMsgBus } from "@/core";
 
 describe("msgBus", () => {
     // process.on("unhandledRejection", (reason, promise) => {
@@ -68,6 +69,25 @@ describe("msgBus", () => {
         callback: (msg) => {
             return computeSum(msg.payload);
         }
+    });
+
+    it("can subscribe", async () => {
+        let c = 0;
+        const msgBus = createMsgBus();
+        msgBus.on({
+            channel: "Test.DoSomeWork",
+            group: "in",
+            callback: async (msg) => {
+                c++;
+            }
+        });
+
+        msgBus.send({
+            channel: "Test.DoSomeWork",
+            group: 'in'
+        })
+        await delay(timeout);
+        expect(c).toBe(1);        
     });
 
     it("can request without result", async () => {
@@ -167,7 +187,7 @@ describe("msgBus", () => {
         let result: number;
         let responseMsgHeaders: MsgHeaders;
         const requestId = uuid();
-        let request = (async () => {            
+        let request = (async () => {
             const msg = await sharedMsgBus.request({
                 channel: "Test.ComputeSum",
                 group: "in",
@@ -180,7 +200,7 @@ describe("msgBus", () => {
             responseMsgHeaders = msg.headers;
         })();
 
-        await Promise.race([delayError(timeout), Promise.all([stream, request])]);        
+        await Promise.race([delayError(timeout), Promise.all([stream, request])]);
         expect(result).toBe(computeSum(data));
         expect(responseMsgHeaders.sourceId).toBe(requestId);
     });
