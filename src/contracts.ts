@@ -13,6 +13,8 @@ export const $CG_ERROR = "error" as const;
 
 export const $C_ERROR = "MSGBUS.ERROR" as const;
 
+export const $SYSTEM_TOPIC = "msgbus" as const;
+
 export type InParam = {
     // [key in typeof $CG_IN]: any;
     [$CG_IN]: any;
@@ -24,7 +26,7 @@ export type OutParam = {
 };
 
 export type ErrorPayload = {
-    error: any; // reason
+    error: any;
     source?: any;
     handled?: boolean;
 };
@@ -131,7 +133,6 @@ export type OutStruct<TStruct extends MsgStruct, TChannel extends keyof TStruct>
 
 export type MsgChannelConfig<TChannel> = {
     // (channel) message queue distribution and processing strategy
-    replayCount?: number;
     initialValues?: { [TGroup in keyof TChannel]: TChannel[TGroup] };
     // persistent?: boolean; // durable? (for durable queue)
     // secure?: boolean; // encrypted

@@ -16,7 +16,9 @@ import {
     MsgAddress,
     InStruct,
     MsgSenderOptions,
-    MsgRequestDispatcherParams
+    MsgRequestDispatcherParams,
+    ErrorPayload,
+    $SYSTEM_TOPIC
 } from "./contracts";
 import { v4 as uuid } from "uuid";
 import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, OperatorFunction, SchedulerLike } from "rxjs";
@@ -55,7 +57,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
     type TStructN = MsgStructNormalized<TStruct>;
     type MsgInfo = Skip<Msg<TStructN>, "payload">;
 
-    const errTopic = "msgbus";
+    const errTopic = $SYSTEM_TOPIC;
     const scheduler: SchedulerLike = asyncScheduler;
 
     function getMsgInfo(msg: Msg<TStructN>) {
@@ -67,10 +69,19 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
     }
 
     function handleError(srcMsg: Msg<TStructN>, err: any) {
-        const errPayload = {
+        // TODO: keep original error only in debug mode
+        // if (err instanceof Error) {
+        //     err = {
+        //         name: err.name,
+        //         message: err.message,
+        //         stack: err.stack,
+        //         cause: err.cause
+        //     };
+        // }
+        const errPayload = ({
             error: err,
             source: getMsgInfo(srcMsg)
-        } as Msg<TStructN>["payload"];
+        } satisfies ErrorPayload) as Msg<TStructN>["payload"];
         let errMsg: Msg<TStructN>;
         errMsg = {
             address: {
@@ -92,6 +103,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         publish(errMsg);
         // + nack?
     }
+    
     // observables
     const subjects: Map<string, Subject<Msg<TStructN>>> = new Map();
 
@@ -99,12 +111,13 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         return `${channel}${groupPrefix}${group}`;
     }
 
-    type MsgRecord = {
-        msg: Msg<TStructN>;
-        acked: boolean;
-        // ackTimestamp
-        ackedAt?: number;
-    }
+    // TODO: use for subjects
+    // type MsgRecord = {
+    //     msg: Msg<TStructN>;
+    //     acked: boolean;
+    //     // ackTimestamp
+    //     ackedAt?: number;
+    // }
 
     function getOrCreateSubject(channel: string, group: string): Subject<Msg<TStructN>> {
         const routingKey = createRoutingKey(channel, group);
@@ -196,8 +209,6 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
 
         observable = pipeFromArray(ops)(subject);
 
-        // TODO: support retryOp
-        // TODO: support timeout
         const sub = observable.subscribe({
             next: (msg: Msg<TStructN>) => {
                 try {
