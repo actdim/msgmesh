@@ -72,6 +72,18 @@ When examining popular messaging systems in the frontend ecosystem, particularly
 - **Simple to understand**: Clear mental model and API
 - **Local in impact**: Doesn't permeate every aspect of your codebase
 
+### Implementation Foundation
+
+@actdim/msgmesh is built on top of **RxJS**, leveraging the power and quality of this battle-tested library while hiding its complexity and architectural influence (see the comparison section above). This approach provides the best of both worlds: robust reactive stream processing under the hood with a simple, intuitive API on the surface.
+
+**Key RxJS components utilized:**
+
+- **Subjects/Observables**: Power the queue management system and state control, implementing the publish-subscribe (pub/sub) pattern efficiently
+- **Async Scheduler**: Ensures the message bus operates independently from individual message handlers, preventing blocking and maintaining system responsiveness
+- **Pipe Operators**: Enable flexible message flow behaviors within channels (throttling, debouncing, filtering, etc.) without exposing reactive programming complexity
+
+By abstracting RxJS behind a clean API, @actdim/msgmesh delivers enterprise-grade stream processing capabilities without requiring developers to adopt reactive programming paradigms or deal with the steep learning curve typically associated with RxJS.
+
 ### Key Design Goals
 
 #### Observability
