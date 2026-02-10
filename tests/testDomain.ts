@@ -1,6 +1,6 @@
 import { MsgBus, MsgBusConfig, MsgStruct, MsgStructNormalized, MsgHeaders } from "@/contracts";
 import { createMsgBus } from "@/core";
-import { RequireExtends } from "@actdim/utico/typeCore";
+import { KeysOf, RequireExtends } from "@actdim/utico/typeCore";
 
 export type TestBusStruct = RequireExtends<
     {
@@ -28,5 +28,13 @@ export type TestBusStruct = RequireExtends<
 export type TestMsgBus = MsgBus<TestBusStruct>;
 
 export const createTestMsgBus = (config?: MsgBusConfig<MsgStructNormalized<TestBusStruct>>) => createMsgBus<TestBusStruct>(config);
+
+export type TestMsgChannels<
+    TChannel extends keyof TestBusStruct | Array<keyof TestBusStruct>,
+> = KeysOf<TestBusStruct, TChannel>;
+
+// export type Behavior = {
+//     messages: TestMsgChannels<"Test.ComputeSum" | "Test.DoSomeWork">;
+// }
 
 export const sharedMsgBus = createTestMsgBus();

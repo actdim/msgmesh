@@ -26,7 +26,8 @@ export default defineConfig({
                 preserveModules: true,
                 preserveModulesRoot: "src",
                 format: "esm",
-                entryFileNames: "[name].es.js" // mjs                
+                entryFileNames: "[name].es.js", // mjs
+                sourcemapExcludeSources: true
             }
         },
         sourcemap: true

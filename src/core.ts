@@ -261,7 +261,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         const group = String(msg.address.group);
         const subject = getOrCreateSubject(channel, group);
         subject.next(msg);
-        // TODO: implement backpressure via signal after 'ack' or msg from out signal
+        // TODO: implement backpressure using signal after auto-'ack' or "out" msg signal
         return Promise.resolve(msg);
     }
 
@@ -496,7 +496,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
 // TODO: support persistence
 // TODO: support unsubscribe (abort) alias (like in hooks)
 // TODO: support msg ack via custom RepeatSubject and MsgRecord: (no acked messages in queue, auto ack on publish to "out" channel)
-// TODO: support rate limiting (single channel) and backpressure (for "in" and "out" channel pair), real send promise
+// TODO: support rate limiting (for single channel) and backpressure (for "in" and "out" channel pair), real send promise
 // TODO: support TTL, maxBufferLength
 /*
 class RepeatSubject<T> {
