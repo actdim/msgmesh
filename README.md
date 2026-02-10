@@ -1,5 +1,17 @@
 # @actdim/msgmesh - A type-safe, modular message mesh for scalable async communication in TypeScript
 
+## Quick Start
+
+Try @actdim/msgmesh instantly in your browser without any installation:
+
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/~/github.com/actdim/msgmesh)
+
+Once the project loads, run the tests to see the message bus in action:
+
+```bash
+pnpm run test
+```
+
 ## Overview
 
 ### The Challenge
