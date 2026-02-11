@@ -36,6 +36,13 @@ export type ErrorParam<T extends ErrorPayload = ErrorPayload> = {
     [$CG_ERROR]: T;
 };
 
+export const TIMEOUT_ERROR_NAME = "TimeoutError" as const;
+export const ABORT_ERROR_NAME = "AbortError" as const;
+export const OPERATION_CANCELED_ERROR_NAME = "OperationCanceledError" as const;
+export const $isTimeoutError = Symbol("isTimeoutError");
+export const $isAbortError = Symbol("isAbortError");
+export const $isOperationCanceledError = Symbol("isOperationCanceledError");
+
 export class BaseError extends Error {
     readonly name: string = 'BaseError';
 
@@ -50,7 +57,8 @@ export class BaseError extends Error {
     }
 }
 export class TimeoutError extends BaseError {
-    readonly name: string = 'TimeoutError';
+    readonly name: string = TIMEOUT_ERROR_NAME;
+    readonly [$isTimeoutError] = true as const;
 
     constructor(message?: string, cause?: unknown) {
         // Operation
@@ -59,11 +67,33 @@ export class TimeoutError extends BaseError {
 }
 
 export class AbortError extends BaseError {
-    readonly name: string = 'AbortError';
+    readonly name: string = ABORT_ERROR_NAME;
+    readonly [$isAbortError] = true as const;
 
     constructor(message?: string, cause?: unknown) {
         super(message || "Operation aborted", { cause });
     }
+}
+
+export class OperationCanceledError extends BaseError {
+    readonly name: string = OPERATION_CANCELED_ERROR_NAME;
+    readonly [$isOperationCanceledError] = true as const;
+
+    constructor(message?: string, cause?: unknown) {
+        super(message || "Operation cancelled", { cause });
+    }
+}
+
+export function isTimeoutError(error: unknown): error is TimeoutError {
+    return typeof error === "object" && error !== null && $isTimeoutError in error;
+}
+
+export function isAbortError(error: unknown): error is AbortError {
+    return typeof error === "object" && error !== null && $isAbortError in error;
+}
+
+export function isOperationCanceledError(error: unknown): error is OperationCanceledError {
+    return typeof error === "object" && error !== null && $isOperationCanceledError in error;
 }
 
 // ReservedChannelGroup

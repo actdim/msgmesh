@@ -817,7 +817,6 @@ The message bus serves as a solid foundation for the @actdim/dynstruct architect
 ## TODO
 
 - rate limiting (for single channel, using signal after auto-'ack') and backpressure (for "in" and "out" channel pair), real send promise
-- async stream
 
 ## Further Reading
 

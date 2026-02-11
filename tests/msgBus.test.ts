@@ -87,7 +87,7 @@ describe("msgBus", () => {
             group: 'in'
         })
         await delay(timeout);
-        expect(c).toBe(1);        
+        expect(c).toBe(1);
     });
 
     it("can request without result", async () => {
@@ -677,5 +677,176 @@ describe("msgBus", () => {
         expect(o1).toBe(i1);
         expect(o2).toBe(i2);
         expect(m).toBe(i1 + i2);
+    });
+
+    it("can stream messages", async () => {
+        const msgBus = createTestMsgBus();
+        const receivedMessages: number[] = [];
+        const messageCount = 10;
+
+        // Start streaming in background
+        const streamTask = (async () => {
+            const messageStream = msgBus.stream({
+                channel: "Test.ComputeSum",
+                group: "out",
+                options: {
+                    fetchCount: messageCount
+                }
+            });
+
+            for await (const msg of messageStream) {
+                receivedMessages.push(msg.payload);
+            }
+        })();
+
+        // Set up provider
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: (msg) => {
+                return msg.payload.a + msg.payload.b;
+            }
+        });
+
+        // Send messages
+        await delay(10);
+        for (let i = 0; i < messageCount; i++) {
+            msgBus.send({
+                channel: "Test.ComputeSum",
+                payload: { a: i, b: i }
+            });
+        }
+
+        await Promise.race([streamTask, delay(timeout)]);
+
+        expect(receivedMessages.length).toBe(messageCount);
+        for (let i = 0; i < messageCount; i++) {
+            expect(receivedMessages[i]).toBe(i + i);
+        }
+    });
+
+    it("can stream with topic filter", async () => {
+        const msgBus = createTestMsgBus();
+        const receivedMessages: string[] = [];
+        const matchingCount = 5;
+        const totalCount = 10;
+
+        const streamTask = (async () => {
+            const messageStream = msgBus.stream({
+                channel: "Test.DoSomeWork",
+                topic: "/^match-.*$/",
+                options: {
+                    fetchCount: matchingCount
+                }
+            });
+
+            for await (const msg of messageStream) {
+                receivedMessages.push(msg.payload);
+            }
+        })();
+
+        await delay(10);
+
+        // Send mixed messages
+        for (let i = 0; i < totalCount; i++) {
+            msgBus.send({
+                channel: "Test.DoSomeWork",
+                topic: i < matchingCount ? `match-${i}` : `other-${i}`,
+                payload: `message-${i}`
+            });
+        }
+
+        await Promise.race([streamTask, delay(timeout)]);
+
+        expect(receivedMessages.length).toBe(matchingCount);
+    });
+
+    it("can abort stream", async () => {
+        const msgBus = createTestMsgBus();
+        const receivedMessages: number[] = [];
+        const abortController = new AbortController();
+        let streamError: any = undefined;
+        let streamCompleted = false;
+
+        const streamTask = (async () => {
+            try {
+                const messageStream = msgBus.stream({
+                    channel: "Test.ComputeSum",
+                    group: "out",
+                    options: {
+                        abortSignal: abortController.signal
+                    }
+                });
+
+                for await (const msg of messageStream) {
+                    receivedMessages.push(msg.payload);
+                }
+                streamCompleted = true;
+            } catch (err) {
+                streamError = err;
+            }
+        })();
+
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: (msg) => {
+                return msg.payload.a + msg.payload.b;
+            }
+        });
+
+        await delay(10);
+
+        // Send some messages
+        for (let i = 0; i < 3; i++) {
+            msgBus.send({
+                channel: "Test.ComputeSum",
+                payload: { a: i, b: i }
+            });
+        }
+
+        await delay(50);
+
+        // Abort the stream
+        abortController.abort("test abort");
+
+        // Try to send more messages
+        for (let i = 3; i < 6; i++) {
+            msgBus.send({
+                channel: "Test.ComputeSum",
+                payload: { a: i, b: i }
+            });
+        }
+
+        await Promise.race([streamTask, delay(timeout)]);
+
+        expect(receivedMessages.length).toBe(3);
+        expect(streamCompleted).toBe(true);
+        expect(streamError).toBeUndefined();
+    });
+
+    it("can stream with timeout", async () => {
+        const msgBus = createTestMsgBus();
+        let streamError: any = undefined;
+
+        const streamTask = (async () => {
+            try {
+                const messageStream = msgBus.stream({
+                    channel: "Test.ComputeSum",
+                    options: {
+                        timeout: 50
+                    }
+                });
+
+                for await (const msg of messageStream) {
+                    // Process messages
+                }
+            } catch (err) {
+                streamError = err;
+            }
+        })();
+
+        await Promise.race([streamTask, delay(timeout)]);
+
+        expect(streamError).toBeDefined();
+        expect(streamError).toBeInstanceOf(TimeoutError);
     });
 });

@@ -25,17 +25,9 @@
         "module": "ESNext",
         // "module": "NodeNext", // no!
         "lib": [
-            // "ESNext",
-            // "ES2023",
-            "ES2022",
-            // "ES2020",
-            // "ES5",
+            "ESNext",
             "DOM",
-            // "DOM.Iterable"
-            // "ES2015.Core",
-            // "ES2015.Promise",
-            // "ES2015.Symbol",
-            // "ES2015.Iterable"
+            "DOM.Iterable"
             // "ESNext.AsyncIterable"
         ],
         "types": ["mocha", "chai"],
