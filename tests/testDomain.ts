@@ -6,6 +6,7 @@ export type TestBusStruct = RequireExtends<
     {
         "Test.ComputeSum": {
             in: { a: number; b: number };
+            inFn: [a: number, b: number];
             out: number;
         };
         "Test.DoSomeWork": {

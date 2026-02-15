@@ -5,6 +5,7 @@ import { delay, delayError, withTimeout } from "@actdim/utico/utils";
 import { v4 as uuid } from "uuid";
 import { MsgHeaders, OperationCanceledError, TimeoutError } from "@/contracts";
 import { createMsgBus } from "@/core";
+import { BaseServiceSuffix, getMsgChannelSelector, MsgProviderAdapter, registerAdapters, ToMsgChannelPrefix, ToMsgStruct } from "@/adapters";
 
 describe("msgBus", () => {
     // process.on("unhandledRejection", (reason, promise) => {
@@ -925,5 +926,99 @@ describe("msgBus", () => {
         // Should have done some iterations but not all 20
         expect(providerWorkIterations).toBeGreaterThan(0);
         expect(providerWorkIterations).toBeLessThan(20);
+    });
+
+    it("can send with payloadFn (tuple args)", async () => {
+        const msgBus = createTestMsgBus();
+        let receivedA: number | undefined;
+        let receivedB: number | undefined;
+
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            group: "inFn",
+            callback: (msg) => {
+                const [a, b] = msg.payload as [number, number];
+                receivedA = a;
+                receivedB = b;
+                return a + b;
+            }
+        });
+
+        const response = await msgBus.request({
+            channel: "Test.ComputeSum",
+            group: "inFn",
+            payloadFn: fn => fn(10, 20),
+        });
+
+        expect(receivedA).toBe(10);
+        expect(receivedB).toBe(20);
+        expect(response.payload).toBe(30);
+    });
+
+    it("can use service->msgbus adapter", async () => {
+
+        class TestApiClient {
+            static readonly name = 'TestApiClient' as const;
+            readonly name = 'TestApiClient' as const;
+
+
+            computeOnServer(a: number, b: number) {
+                return new Promise<number>((res, rej) => {
+                    setTimeout(() => {
+                        res(
+                            computeSum({
+                                a,
+                                b
+                            })
+                        );
+                    }, 200);
+                });
+            }
+
+            // Internal helper — should not be exposed on the bus
+            extraMethod() {
+
+            }
+        }
+
+        type ServiceSuffix = BaseServiceSuffix;
+        type BaseApiPrefix = 'API';
+        type TestApiChannelPrefix = ToMsgChannelPrefix<
+            typeof TestApiClient.name,
+            BaseApiPrefix,
+            ServiceSuffix
+        >;
+
+        type ApiMsgStruct = ToMsgStruct<
+            TestApiClient,
+            TestApiChannelPrefix,
+            'extraMethod'
+        >;
+
+        const services: Record<TestApiChannelPrefix, any> = {
+            'API.TEST.': new TestApiClient(),
+        };
+
+        const msgProviderAdapters = Object.entries(services).map(
+            (entry) =>
+                ({
+                    service: entry[1],
+                    channelSelector: getMsgChannelSelector(services),
+                }) as MsgProviderAdapter,
+        );
+
+        const msgBus = createMsgBus<ApiMsgStruct>();
+
+        const abortController = new AbortController();
+
+        registerAdapters(msgBus, msgProviderAdapters, abortController.signal);
+
+        const response = await msgBus.request({
+            channel: "API.TEST.COMPUTEONSERVER",
+            payloadFn: fn => fn(10, 20)
+        });
+
+        abortController.abort();
+        expect(response.payload).toBe(30);
     });
 });

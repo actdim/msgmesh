@@ -4,6 +4,39 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
 [![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
 
+## Table of Contents
+
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Overview](#overview)
+  - [The Challenge](#the-challenge)
+  - [Analysis of Existing Solutions](#analysis-of-existing-solutions)
+  - [The Solution](#the-solution-actdimmsgmesh)
+  - [Implementation Foundation](#implementation-foundation)
+  - [Key Design Goals](#key-design-goals)
+- [Architecture](#architecture)
+  - [Message Structure](#message-structure)
+  - [Type Definition Example](#type-definition-example)
+- [Usage Patterns](#usage-patterns)
+  - [Global vs Local Usage](#global-vs-local-usage)
+  - [Creating a Message Bus](#creating-a-message-bus)
+  - [Type Utilities](#type-utilities)
+- [API Reference](#api-reference)
+  - [Configuration](#configuration)
+  - [`send()`](#sending-messages-send)
+  - [`on()`](#subscribing-to-messages-on)
+  - [`once()`](#awaiting-a-single-message-once)
+  - [`stream()`](#streaming-messages-stream)
+  - [`provide()`](#providing-response-handlers-provide)
+  - [`request()`](#request-response-pattern-request)
+- [Advanced Features](#advanced-features)
+  - [Message Replay](#message-replay)
+  - [Throttling and Debouncing](#throttling-and-debouncing)
+  - [Error Handling](#error-handling)
+  - [Headers and Metadata](#headers-and-metadata)
+  - [Service Adapters](#service-adapters)
+- [Comparison](#comparison-with-other-solutions)
+
 ## Quick Start
 
 Try @actdim/msgmesh instantly in your browser without any installation:
@@ -545,14 +578,44 @@ for await (const msg of messageStream) {
 const taskStream = msgBus.stream({
     channel: 'Test.DoSomeWork',
     topic: '/^task-.*/',
-    options: {
-        timeout: 30000, // Stop streaming after 30s of inactivity
-    },
 });
 
 for await (const msg of taskStream) {
     await processTask(msg.payload);
 }
+```
+
+#### Timeout and Cancellation
+
+The `timeout` option is an **inactivity timeout** — the timer resets on each received message. If no message arrives within the timeout window, the stream ends with a `TimeoutError`. This is useful for detecting when the producer has stopped sending.
+
+For a hard time limit on the stream's total duration, use `AbortSignal.timeout()`.
+
+```typescript
+// Inactivity timeout: end stream if no messages for 5s
+const stream1 = msgBus.stream({
+    channel: 'Test.Events',
+    options: {
+        timeout: 5000,
+    },
+});
+
+// Total duration limit: end stream after 60s regardless of activity
+const stream2 = msgBus.stream({
+    channel: 'Test.Events',
+    options: {
+        abortSignal: AbortSignal.timeout(60000),
+    },
+});
+
+// Both: inactivity 5s + hard limit 60s
+const stream3 = msgBus.stream({
+    channel: 'Test.Events',
+    options: {
+        timeout: 5000,
+        abortSignal: AbortSignal.timeout(60000),
+    },
+});
 ```
 
 ### Providing Response Handlers: `provide()`
@@ -895,6 +958,134 @@ await msgBus.send({
     },
 });
 ```
+
+### Service Adapters
+
+Automatically register any service object (e.g. a Swagger-generated API client) as a message bus provider. The adapter system uses TypeScript's type system to map service methods to bus channels at compile time — channel names, payload types, and return types are all derived from the service class. No manual wiring, no runtime errors.
+
+#### How It Works
+
+Given a service class:
+
+```typescript
+class OrderApiClient {
+    static readonly name = 'OrderApiClient' as const;
+    readonly name = 'OrderApiClient' as const;
+
+    createOrder(items: Item[], priority: number): Promise<OrderResult> { /* ... */ }
+    getOrder(id: string): Promise<Order> { /* ... */ }
+
+    // Internal helper — should not be exposed on the bus
+    formatResponse() { /* ... */ }
+}
+```
+
+The type utilities transform it into a bus structure:
+
+```typescript
+import {
+    ToMsgChannelPrefix,
+    ToMsgStruct,
+    BaseServiceSuffix,
+    registerAdapters,
+    getMsgChannelSelector,
+    MsgProviderAdapter
+} from '@actdim/msgmesh/adapters';
+
+// 1. Generate channel prefix from class name
+//    "OrderApiClient" → remove suffix "Client" → uppercase → "API.ORDER."
+type ApiPrefix = 'API';
+type OrderChannelPrefix = ToMsgChannelPrefix<
+    typeof OrderApiClient.name,  // "OrderApiClient"
+    ApiPrefix,                    // "API"
+    BaseServiceSuffix             // removes CLIENT, API, SERVICE, etc.
+>;
+// Result: "API.ORDER."
+
+// 2. Transform service methods into bus struct (skip internal methods)
+type OrderApiStruct = ToMsgStruct<
+    OrderApiClient,
+    OrderChannelPrefix,
+    'formatResponse'  // skip this method
+>;
+// Result type (compile-time):
+// {
+//     "API.ORDER.CREATEORDER": {
+//         in: [items: Item[], priority: number];  // ← tuple from Parameters<>
+//         out: OrderResult;                        // ← from ReturnType<>
+//     };
+//     "API.ORDER.GETORDER": {
+//         in: [id: string];
+//         out: Order;
+//     };
+// }
+```
+
+All channel names, payload types, and return types are verified at compile time. If you rename a method, add a parameter, or change a return type — the compiler catches it immediately.
+
+#### Registering Adapters
+
+```typescript
+const services: Record<OrderChannelPrefix, any> = {
+    'API.ORDER.': new OrderApiClient(),
+};
+
+const adapters = Object.entries(services).map(([_, service]) => ({
+    service,
+    channelSelector: getMsgChannelSelector(services),
+}) as MsgProviderAdapter);
+
+const msgBus = createMsgBus<OrderApiStruct>();
+const abortController = new AbortController();
+
+// Register all methods as providers
+registerAdapters(msgBus, adapters, abortController.signal);
+
+// Clean up when done
+abortController.abort();
+```
+
+`registerAdapters()` iterates over each method of the service prototype, resolves the channel name via `channelSelector`, and calls `msgBus.provide()` for each one. The provider callback spreads `msg.payload` (a tuple) as arguments to the original method: `service[methodName](...msg.payload)`.
+
+#### Calling Adapted Methods
+
+Since method parameters are mapped to tuple types in the bus struct, use `payloadFn` for a natural function-call syntax:
+
+```typescript
+// Type-safe call — fn signature matches createOrder(items, priority)
+const response = await msgBus.request({
+    channel: 'API.ORDER.CREATEORDER',
+    payloadFn: fn => fn([{ id: '1', qty: 2 }], 1),
+});
+
+console.log(response.payload); // OrderResult
+
+// Also works with payload directly (tuple)
+const response2 = await msgBus.request({
+    channel: 'API.ORDER.GETORDER',
+    payload: ['order-123'],
+});
+```
+
+#### Type Transformation Chain
+
+```
+Service class                  ToMsgChannelPrefix              ToMsgStruct
+─────────────                  ──────────────────              ───────────
+OrderApiClient          →      "API.ORDER."              →    Bus struct
+  .createOrder(a, b)              ↑                              ↓
+  .getOrder(id)              removes suffix              "API.ORDER.CREATEORDER"
+  .formatResponse()          from class name               in: [a, b] (Parameters<>)
+                             + uppercases                  out: Result  (ReturnType<>)
+                                                         "API.ORDER.GETORDER"
+                                                           in: [id]
+                                                           out: Order
+                                                         (formatResponse skipped)
+```
+
+#### Supported Service Suffixes
+
+The following suffixes are automatically removed from class names: `CLIENT`, `API`, `SERVICE`, `FETCHER`, `CONTROLLER`, `LOADER`, `REPOSITORY`, `PROVIDER`.
 
 ## Comparison with Other Solutions
 
