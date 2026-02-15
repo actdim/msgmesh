@@ -110,8 +110,11 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         // + nack?
     }
 
-    function createOperationCanceledError(reason: unknown) {
-        return new OperationCanceledError(undefined, reason);
+    function createOperationCanceledError(cause?: unknown, message?: string) {
+        if (!message) {
+            message = "The operation was canceled by the caller";
+        }
+        return new OperationCanceledError(message, cause);
     }
 
     // observables
@@ -283,6 +286,9 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         if (msg.headers == undefined) {
             msg.headers = {};
         }
+        if (msg.headers.status == undefined) {
+            msg.headers.status = 'ok';
+        }
         const headers = msg.headers;
         headers.publishedAt = now()
         const channel = String(msg.address.channel);
@@ -371,12 +377,15 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
             ...{
                 callback: async (msgIn) => {
                     try {
-                        const headers = {
+                        const headers: MsgHeaders = {
                             ...msgIn.headers,
                             ...params.headers,
-                            requestId: msgIn.id,
+                            inResponseToId: msgIn.headers.requestId
                         }
                         const payload = (await Promise.resolve(params.callback(msgIn, headers)));
+                        if (msgIn.headers?.status === 'canceled') {
+                            return;
+                        }
                         const msgOut: Msg<TStructN, keyof TStructN, typeof $CG_OUT> = {
                             address: {
                                 channel: msgIn.address.channel,
@@ -407,7 +416,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
     };
 
     async function dispatch(params: MsgDispatcherParams<TStructN>) {
-        const msgId = uuid();
+        let msg: Msg<TStructN> = null;
         if (params.callback) {
             const subParams: MsgSubParams<TStructN, keyof TStructN, typeof $CG_OUT> = {
                 channel: params.channel,
@@ -424,7 +433,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
                     params.callback(msgOut);
                 },
                 filter: (msgOut) => {
-                    return msgOut.headers?.requestId === msgId && (!params.filter || params.filter(msgOut)) // TODO: match topic?
+                    return msgOut.headers.inResponseToId === msg.headers.requestId && (!params.filter || params.filter(msgOut)) // TODO: match topic?
                 }
             };
             subscribe(subParams);
@@ -437,27 +446,63 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
         } else {
             payload = params.payload;
         }
-        await publish({
-            id: msgId,
+        msg = await publish({
             address: {
                 channel: params.channel,
                 group: params.group,
                 topic: params.topic
             },
             headers: {
+                requestId: params.headers?.requestId || uuid(),
                 ...params.headers
             },
             payload: payload
         });
+        return msg;
+
     }
 
     async function request(params: MsgRequestDispatcherParams<TStructN>): Promise<any> {
         const timeout = params.options?.timeout == undefined ? DEFAULT_PROMISE_TIMEOUT : params.options?.timeout;
         let settled = false;
-        return Promise.race([delayError(timeout, () => new TimeoutError()), new Promise((res, rej) => {
+        return Promise.race([delayError(timeout, () => new TimeoutError()), new Promise(async (res, rej) => {
             try {
                 const abortSignal = params.options?.abortSignal;
                 let cleanup: () => void = null;
+                let msg: Msg<TStructN> = null;
+                const dispatchParams: MsgDispatcherParams<TStructN> = {
+                    ...params,
+                    callback: (msg) => {
+                        try {
+                            if (settled) {
+                                return;
+                            }
+                            settled = true;
+                            cleanup?.();
+                            if (msg.headers?.status === 'canceled') {
+                                rej(createOperationCanceledError(msg, "The request was canceled by the provider"));
+                                return;
+                            } else if (msg.headers?.status === 'error') {
+                                const errHeader = msg.headers.error;
+                                const errMessage = typeof errHeader === "string"
+                                    ? errHeader
+                                    : errHeader?.message ?? "Unknown error";
+                                rej(new Error(errMessage, { cause: msg }));
+                                return;
+                            }
+                            msg.headers.status = 'ok';
+                            res(msg);
+                        } catch (err) {
+                            if (settled) {
+                                return;
+                            }
+                            settled = true;
+                            cleanup?.();
+                            rej(err);
+                        }
+                    }
+                };
+                msg = await dispatch(dispatchParams);
 
                 if (abortSignal) {
                     let onAbort: () => void = null;
@@ -470,32 +515,18 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
                         };
                         settled = true;
                         cleanup();
-                        rej(createOperationCanceledError(abortSignal.reason));
+                        publish({
+                            address: { channel: params.channel, group: $CG_IN, topic: params.topic },
+                            headers: { requestId: msg.headers.requestId, status: 'canceled' }
+                        });
+                        rej(createOperationCanceledError(abortSignal.reason, "The request was canceled by the caller"));
                     };
+                    if (abortSignal.aborted) {
+                        onAbort();
+                        return;
+                    }
                     abortSignal.addEventListener("abort", onAbort);
                 }
-
-                const dispatchParams: MsgDispatcherParams<TStructN> = {
-                    ...params,
-                    callback: (msg) => {
-                        try {
-                            if (settled) {
-                                return;
-                            }
-                            settled = true;
-                            cleanup?.();
-                            res(msg);
-                        } catch (err) {
-                            if (settled) {
-                                return;
-                            }
-                            settled = true;
-                            cleanup?.();
-                            rej(err);
-                        }
-                    }
-                };
-                dispatch(dispatchParams);
             } catch (err) {
                 rej(err);
             }
@@ -598,15 +629,15 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
 
     const msgBus: MsgBus<TStruct, THeaders> = {
         config: config,
-        on: on as MsgSub<MsgStructNormalized<TStruct>, THeaders>,
-        once: once as AwaitableMsgSub<MsgStructNormalized<TStruct>, THeaders>,
-        stream: stream as MsgStream<MsgStructNormalized<TStruct>, THeaders>,
-        provide: provide as MsgProvider<MsgStructNormalized<TStruct>, THeaders>,
-        send: dispatch as MsgSender<MsgStructNormalized<TStruct>, THeaders>,
-        request: request as MsgRequestDispatcher<MsgStructNormalized<TStruct>, THeaders>
+        on: on as MsgSub<TStructN, THeaders>,
+        once: once as AwaitableMsgSub<TStructN, THeaders>,
+        stream: stream as MsgStream<TStructN, THeaders>,
+        provide: provide as MsgProvider<TStructN, THeaders>,
+        send: dispatch as MsgSender<TStructN, THeaders>,
+        request: request as MsgRequestDispatcher<TStructN, THeaders>
     };
 
-    // msgBus["#subjects"] = subjects;
+    // msgBus[$subjects] = subjects;
 
     return msgBus;
 }

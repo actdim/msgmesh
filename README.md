@@ -1,5 +1,9 @@
 # @actdim/msgmesh - A type-safe, modular message mesh for scalable async communication in TypeScript
 
+[![npm version](https://img.shields.io/npm/v/@actdim/msgmesh.svg)](https://www.npmjs.com/package/@actdim/msgmesh)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
+[![License: Proprietary](https://img.shields.io/badge/License-Proprietary-red.svg)](LICENSE)
+
 ## Quick Start
 
 Try @actdim/msgmesh instantly in your browser without any installation:
@@ -10,6 +14,26 @@ Once the project loads, run the tests to see the message bus in action:
 
 ```bash
 pnpm run test
+```
+
+## Installation
+
+```bash
+npm install @actdim/msgmesh
+```
+
+### Peer Dependencies
+
+This package requires the following peer dependencies:
+
+```bash
+npm install @actdim/utico rxjs
+```
+
+Or with pnpm:
+
+```bash
+pnpm add @actdim/utico rxjs
 ```
 
 ## Overview
@@ -224,6 +248,15 @@ type Behavior = {
 
 ## API Reference
 
+| Method | Description |
+|--------|-------------|
+| `send()` | Publish a message to a channel |
+| `on()` | Subscribe to messages on a channel |
+| `once()` | Await a single message (Promise-based) |
+| `stream()` | Consume messages as an async iterable |
+| `provide()` | Register a request handler (auto-responds on `out`) |
+| `request()` | Send a request and await a response |
+
 ### Configuration
 
 You can configure channels with various options:
@@ -248,6 +281,50 @@ const config: MsgBusConfig<MyBusStruct> = {
 
 const msgBus = createMsgBus<MyBusStruct>(config);
 ```
+
+### Sending Messages: `send()`
+
+Send a message to the bus for a specific channel and group (default is `in`). The payload type is enforced according to the bus structure.
+
+```typescript
+// Basic send
+await msgBus.send({
+    channel: 'Test.ComputeSum',
+    payload: { a: 10, b: 20 }, // Typed and validated
+});
+
+// With group specification
+await msgBus.send({
+    channel: 'Test.Multiplexer',
+    group: 'in1',
+    payload: 'hello', // Typed as string for 'in1' group
+});
+
+await msgBus.send({
+    channel: 'Test.Multiplexer',
+    group: 'in2',
+    payload: 42, // Typed as number for 'in2' group
+});
+
+// With topic
+await msgBus.send({
+    channel: 'Test.DoSomeWork',
+    topic: 'priority-high',
+    payload: 'urgent task',
+});
+
+// With custom headers
+await msgBus.send({
+    channel: 'Test.ComputeSum',
+    payload: { a: 5, b: 15 },
+    headers: {
+        correlationId: 'task-123',
+        priority: 1,
+    },
+});
+```
+
+> **Note**: You can specify a topic when sending to enable fine-grained filtering by subscribers.
 
 ### Subscribing to Messages: `on()`
 
@@ -438,7 +515,7 @@ const messagePromise = msgBus.once({
 });
 
 // Can cancel from elsewhere
-setTimeout(() => abortController.abort('User cancelled'), 2000);
+setTimeout(() => abortController.abort('User canceled'), 2000);
 
 try {
     const msg = await messagePromise;
@@ -446,6 +523,35 @@ try {
     if (error instanceof AbortError) {
         console.error('Aborted:', error.cause);
     }
+}
+```
+
+### Streaming Messages: `stream()`
+
+Create an async iterable iterator for consuming messages as a stream.
+
+```typescript
+// Basic streaming
+const messageStream = msgBus.stream({
+    channel: 'Test.ComputeSum',
+});
+
+for await (const msg of messageStream) {
+    console.log('Received:', msg.payload);
+    // Process messages as they arrive
+}
+
+// With topic filtering
+const taskStream = msgBus.stream({
+    channel: 'Test.DoSomeWork',
+    topic: '/^task-.*/',
+    options: {
+        timeout: 30000, // Stop streaming after 30s of inactivity
+    },
+});
+
+for await (const msg of taskStream) {
+    await processTask(msg.payload);
 }
 ```
 
@@ -498,53 +604,54 @@ msgBus.provide({
 });
 ```
 
-### Sending Messages: `send()`
+#### Cancellation Handling
 
-Send a message to the bus for a specific channel and group (default is `in`). The payload type is enforced according to the bus structure.
+The provider callback receives both the message and constructed headers. When a request is canceled by the caller (via `AbortSignal` in [`request()`](#cancellation)), a cancel message with `headers.status === 'canceled'` is delivered to the provider callback. The provider should check `headers.status` and handle cancellation accordingly. The bus will **not** publish an `out` response for cancel messages.
+
+For providers that don't need cancellation support, simply check that `headers.status === 'ok'` before doing work:
 
 ```typescript
-// Basic send
-await msgBus.send({
+msgBus.provide({
     channel: 'Test.ComputeSum',
-    payload: { a: 10, b: 20 }, // Typed and validated
-});
-
-// With group specification
-await msgBus.send({
-    channel: 'Test.Multiplexer',
-    group: 'in1',
-    payload: 'hello', // Typed as string for 'in1' group
-});
-
-await msgBus.send({
-    channel: 'Test.Multiplexer',
-    group: 'in2',
-    payload: 42, // Typed as number for 'in2' group
-});
-
-// With topic
-await msgBus.send({
-    channel: 'Test.DoSomeWork',
-    topic: 'priority-high',
-    payload: 'urgent task',
-});
-
-// With custom headers
-await msgBus.send({
-    channel: 'Test.ComputeSum',
-    payload: { a: 5, b: 15 },
-    headers: {
-        correlationId: 'task-123',
-        priority: 1,
+    callback: (msg, headers) => {
+        if (headers.status !== 'ok') return;
+        return msg.payload.a + msg.payload.b;
     },
 });
 ```
 
-#### Important Notes
+For providers with long-running or cancelable operations (e.g. `fetch`), track active requests by `requestId` and abort them when a cancel message arrives:
 
-1. **Response Handling**: Any message sent to a non-`out` group can receive a response through the bus, which will be routed to the `out` group of the same channel.
+```typescript
+const activeRequests = new Map<string, AbortController>();
 
-2. **Topic Specification**: You can specify a topic when sending to enable fine-grained filtering by subscribers.
+msgBus.provide({
+    channel: 'Api.FetchData',
+    callback: async (msg, headers) => {
+        const { requestId } = headers;
+
+        // Cancel message — abort the in-flight request
+        if (headers.status === 'canceled') {
+            activeRequests.get(requestId)?.abort();
+            activeRequests.delete(requestId);
+            return;
+        }
+
+        // Normal request — create AbortController and track it
+        const controller = new AbortController();
+        activeRequests.set(requestId, controller);
+
+        try {
+            const response = await fetch(msg.payload.url, {
+                signal: controller.signal,
+            });
+            return await response.json();
+        } finally {
+            activeRequests.delete(requestId);
+        }
+    },
+});
+```
 
 ### Request-Response Pattern: `request()`
 
@@ -622,32 +729,33 @@ console.log(response.headers.correlationId); // Preserved correlation ID
 
 3. **Header Propagation**: Headers like `correlationId` are automatically propagated from request to response for tracing.
 
-### Streaming Messages: `stream()`
+4. **Cancellation**: Cancel in-flight requests with `AbortSignal` (see below).
 
-Create an async iterable iterator for consuming messages as a stream.
+#### Cancellation
+
+Cancel an in-flight request by passing an `AbortSignal` via `options.abortSignal`. When aborted, the bus sends a cancel message (with `headers.status === 'canceled'`) to the provider and rejects the returned Promise with an `OperationCanceledError`.
+
+On the provider side, the cancel message is delivered to the callback so it can clean up resources. See [`provide()` — Cancellation Handling](#cancellation-handling) for details.
 
 ```typescript
-// Basic streaming
-const messageStream = msgBus.stream({
-    channel: 'Test.ComputeSum',
-});
+const abortController = new AbortController();
 
-for await (const msg of messageStream) {
-    console.log('Received:', msg.payload);
-    // Process messages as they arrive
-}
-
-// With topic filtering
-const taskStream = msgBus.stream({
-    channel: 'Test.DoSomeWork',
-    topic: '/^task-.*/',
+const responsePromise = msgBus.request({
+    channel: 'Api.FetchData',
+    payload: { url: 'https://api.example.com/data' },
     options: {
-        timeout: 30000, // Stop streaming after 30s of inactivity
+        abortSignal: abortController.signal,
     },
 });
 
-for await (const msg of taskStream) {
-    await processTask(msg.payload);
+// Cancel the request (sends cancel message to provider)
+abortController.abort('user navigated away');
+
+try {
+    await responsePromise;
+} catch (error) {
+    // OperationCanceledError: The request was canceled by the caller
+    console.error(error.message);
 }
 ```
 
@@ -757,8 +865,9 @@ type StandardHeaders = {
     targetId?: string; // Recipient identifier
     correlationId?: string; // Activity/trace identifier
     traceId?: string; // Distributed trace identifier
-    requestId?: string; // Original request identifier
-    inResponseToId?: string; // Reply reference
+    requestId?: string; // Logical request identifier (generated by request/dispatch)
+    inResponseToId?: string; // Reply reference (links response to requestId)
+    status?: ResponseStatus; // Message status ("ok" | "error" | "canceled" | "timeout")
     publishedAt?: number; // Timestamp (Unix epoch, ms)
     priority?: number; // Message priority
     ttl?: number; // Time to live (ms)

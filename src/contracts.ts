@@ -80,7 +80,7 @@ export class OperationCanceledError extends BaseError {
     readonly [$isOperationCanceledError] = true as const;
 
     constructor(message?: string, cause?: unknown) {
-        super(message || "Operation cancelled", { cause });
+        super(message || "Operation canceled", { cause });
     }
 }
 
@@ -213,8 +213,10 @@ export type MsgAddress<
     version?: string;
 };
 
+export type ResponseStatus = "ok" | "error" | "canceled" | "timeout";
 export type MsgHeaders = {
 
+    status?: ResponseStatus;
     // similar to inReplyToId
     inResponseToId?: string;
     version?: string; // schemaVersion
@@ -230,7 +232,7 @@ export type MsgHeaders = {
     correlationId?: string; // activityId
     traceId?: string;
 
-    // timestamps (unix epoch, ms):
+    // timestamp (unix epoch, ms):
     publishedAt?: number;
 
     priority?: number;
@@ -261,7 +263,11 @@ export type MsgHeaders = {
     // subject
     // group
     // schema
-    // scope        
+    // scope
+    error?: string | {
+        code?: string | number;
+        message?: string;
+    }
 };
 
 // TODO: support MsgStatus
@@ -393,7 +399,7 @@ export type MsgSender<TStruct extends MsgStruct, THeaders extends MsgHeaders = M
     TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
 >(
     params: MsgSenderParams<TStruct, TChannel, TGroup, THeaders>
-) => Promise<void>;
+) => Promise<Msg<TStruct, TChannel, TGroup, THeaders>>;
 
 export type MsgRequestOptions = PromiseOptions & {
     sendTimeout?: number;

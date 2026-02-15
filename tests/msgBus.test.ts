@@ -3,7 +3,7 @@ import { TestBusStruct, createTestMsgBus, sharedMsgBus } from "./testDomain";
 import "@/core";
 import { delay, delayError, withTimeout } from "@actdim/utico/utils";
 import { v4 as uuid } from "uuid";
-import { MsgHeaders, TimeoutError } from "@/contracts";
+import { MsgHeaders, OperationCanceledError, TimeoutError } from "@/contracts";
 import { createMsgBus } from "@/core";
 
 describe("msgBus", () => {
@@ -449,7 +449,7 @@ describe("msgBus", () => {
         let c = 0;
         const abortController = new AbortController();
         let err = undefined;
-        const reason = "cancelled";
+        const reason = "canceled";
         const msgBus = createTestMsgBus();
         // const msgBus = sharedMsgBus;
         const listen = (async () => {
@@ -848,5 +848,82 @@ describe("msgBus", () => {
 
         expect(streamError).toBeDefined();
         expect(streamError).toBeInstanceOf(TimeoutError);
+    });
+
+    it("can cancel request in provider", async () => {
+        const msgBus = createTestMsgBus();
+        const abortController = new AbortController();
+        let requestError: any = undefined;
+        let providerWorkIterations = 0;
+        let providerWorkAborted = false;
+
+        // Provider tracks cancellation per request
+        const cancelFlags = new Map<string, boolean>();
+
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: async (msg, headers) => {
+                const requestId = headers.requestId;
+
+                // Cancel message — mark the request as canceled
+                if (headers?.status === 'canceled') {
+                    if (requestId && cancelFlags.has(requestId)) {
+                        cancelFlags.set(requestId, true);
+                    }
+                    return undefined as any;
+                }
+
+                // Normal request — register in cancel tracking
+                cancelFlags.set(requestId, false);
+
+                // Simulate long-running work as a loop with cancellation checks
+                for (let i = 0; i < 20; i++) {
+                    await delay(25);
+                    providerWorkIterations++;
+
+                    if (cancelFlags.get(requestId)) {
+                        providerWorkAborted = true;
+                        cancelFlags.delete(requestId);
+                        return undefined as any;
+                    }
+                }
+
+                cancelFlags.delete(requestId);
+                return msg.payload.a + msg.payload.b;
+            }
+        });
+
+        const requestTask = (async () => {
+            try {
+                await msgBus.request({
+                    channel: "Test.ComputeSum",
+                    payload: { a: 1, b: 2 },
+                    options: {
+                        abortSignal: abortController.signal
+                    }
+                });
+            } catch (err) {
+                requestError = err;
+            }
+        })();
+
+        // Wait for provider to start working, then abort
+        await delay(100);
+        abortController.abort("user canceled");
+
+        // Wait for provider loop to detect cancellation
+        await delay(150);
+        await Promise.race([requestTask, delay(timeout * 3)]);
+
+        // Requester side: got OperationCanceledError
+        expect(requestError).toBeDefined();
+        expect(requestError).toBeInstanceOf(OperationCanceledError);
+        expect(requestError.cause).toBe("user canceled");
+
+        // Provider side: work was actually aborted mid-loop
+        expect(providerWorkAborted).toBe(true);
+        // Should have done some iterations but not all 20
+        expect(providerWorkIterations).toBeGreaterThan(0);
+        expect(providerWorkIterations).toBeLessThan(20);
     });
 });

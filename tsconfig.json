@@ -20,15 +20,12 @@
         "moduleResolution": "Node",
         // "moduleResolution": "Bundler", // no!
         // "moduleResolution": "NodeNext", // no!
-        "target": "ESNext",
-        // "target": "ES2020",
+        "target": "ESNext",        
         "module": "ESNext",
         // "module": "NodeNext", // no!
         "lib": [
             "ESNext",
             "DOM",
-            "DOM.Iterable"
-            // "ESNext.AsyncIterable"
         ],
         "types": ["mocha", "chai"],
         // "jsx": "react",
