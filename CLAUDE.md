@@ -42,15 +42,15 @@ Every message has an address: `{ channel, group, topic }`.
 
 ### Type Structure
 
-Bus is defined by `MsgStruct` — a map of channels to their group payload types:
+Bus should be defined via `MsgStructFactory` — it augments your structure with system channel groups (for example, `error`) and keeps contracts aligned with runtime behavior:
 
 ```typescript
-type MyBus = RequireExtends<{
+type MyBus = MsgStructFactory<{
     "Order.Create": {
         in: { items: Item[] };    // request payload
         out: OrderResult;         // response payload
     };
-}, MsgStruct>;
+}>;
 ```
 
 `out` types should NOT be wrapped in `Promise` — async is handled at the API level.

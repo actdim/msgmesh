@@ -2,7 +2,7 @@
 //# Copyright (c) Pavel Borodaev 2022                                         #
 //##############################################################################
 // SafeBus
-import { IsTuple, MaybePromise, Overwrite, Skip } from "@actdim/utico/typeCore";
+import { IsTuple, MaybePromise } from "@actdim/utico/typeCore";
 import { ThrottleOptions } from "./util";
 
 export const $CG_IN = "in" as const;
@@ -15,25 +15,10 @@ export const $C_ERROR = "MSGBUS.ERROR" as const;
 
 export const $SYSTEM_TOPIC = "msgbus" as const;
 
-export type InParam = {
-    // [key in typeof $CG_IN]: any;
-    [$CG_IN]: any;
-};
-
-export type OutParam = {
-    // [key in typeof $CG_OUT]: any;
-    [$CG_OUT]: any;
-};
-
 export type ErrorPayload = {
     error: any;
     source?: any;
     handled?: boolean;
-};
-
-export type ErrorParam<T extends ErrorPayload = ErrorPayload> = {
-    // [key in typeof $CG_ERROR]: any;
-    [$CG_ERROR]: T;
 };
 
 export const TIMEOUT_ERROR_NAME = "TimeoutError" as const;
@@ -96,28 +81,24 @@ export function isOperationCanceledError(error: unknown): error is OperationCanc
     return typeof error === "object" && error !== null && $isOperationCanceledError in error;
 }
 
+export type InChannelStruct = {
+    [$CG_IN]: any;
+};
+
+export type OutChannelStruct = {
+    [$CG_OUT]: any;
+};
+
+export type ErrorChannelStruct = {
+    [$CG_ERROR]: ErrorPayload;
+};
+
+export type SystemChannelStruct = Partial<InChannelStruct & OutChannelStruct & ErrorChannelStruct>;
+
 // ReservedChannelGroup
-export type SystemChannelGroup = `${keyof InParam | keyof OutParam | keyof OutParam}`;
+export type SystemChannelGroup = keyof SystemChannelStruct;
 
-// TODO:
-// Point-to-Point (P2P): direct messaging with targeted, address delivery (exactly one recipient)
-// Broadcast
-// Queue group: Load Balancing, Round-Robin, Fan-out, Fan-in
-// QoS
-// Message Filtering
-// Cross-tab message delivery:
-// https://www.sitepen.com/blog/cross-tab-synchronization-with-the-web-locks-api
-// https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API
-// LocalStorage
-// https://github.com/GoogleChromeLabs/comlink
-
-export type MsgChannelStruct = Partial<{ [group: string]: any } & InParam & OutParam & ErrorParam>;
-
-// type MsgChannelStruct = { [group: string]: any } & (
-//   | InParam
-//   | OutParam
-//   | (InParam & OutParam)
-// );
+export type MsgChannelStruct = SystemChannelStruct & Record<string, any>;
 
 // SystemMsgtruct
 export type MsgStructBase = {
@@ -129,37 +110,20 @@ export type MsgStructBase = {
     // };
 };
 
-export type MsgStruct = {
-    [channel: string]: MsgChannelStruct;
+export type MsgStruct = Record<string, MsgChannelStruct> & MsgStructBase;
+
+// ToMsgStruct/MsgStructBuilder
+export type MsgStructFactory<TStruct extends MsgStruct> = {
+    [C in keyof TStruct]: TStruct[C] & ErrorChannelStruct;
 } & MsgStructBase;
 
-// MsgStructBuilder
-export type MsgStructFactory<
-    TStruct extends TStructBase,
-    TStructBase extends MsgStruct = MsgStruct
-> = {
-        [C in keyof TStruct]: TStruct[C] & ErrorParam;
-    };
-
-// export type MsgStruct = Record<string, MsgChannelStruct>;
-
-export type InStruct<TStruct extends MsgStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends InParam
-    ? TStruct[TChannel]["in"] // keyof InParam or typeof $CG_IN
-    : undefined; // never
-
-// export type InStruct<
-//   TStruct extends MsgStruct,
-//   TChannel extends keyof TStruct
-// > = TStruct[TChannel] extends InParam ? TStruct[TChannel]["in"] : never;
-
-export type OutStruct<TStruct extends MsgStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends OutParam
-    ? TStruct[TChannel][keyof OutParam]
+export type InStruct<TStruct extends MsgStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends InChannelStruct
+    ? TStruct[TChannel][keyof InChannelStruct]
     : undefined;
 
-// export type OutStruct<
-//   TStruct extends MsgStruct,
-//   TChannel extends keyof TStruct
-// > = TStruct[TChannel] extends OutParam ? TStruct[TChannel]["out"] : never;
+export type OutStruct<TStruct extends MsgStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends OutChannelStruct
+    ? TStruct[TChannel][keyof OutChannelStruct]
+    : undefined;
 
 export type MsgChannelConfig<TChannel> = {
     // (channel) message queue distribution and processing strategy
@@ -204,10 +168,10 @@ export type MsgBusConfig<TStruct extends MsgStruct> = {
 export type MsgAddress<
     TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel] // typeof $CG_IN
+    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel]
 > = {
     channel: TChannel;
-    group?: TGroup; // typeGroup
+    group?: TGroup;
     // supports wildcard matching (https://docs.nats.io/nats-concepts/subjects#wildcards)
     topic?: string;
     version?: string;
@@ -280,12 +244,13 @@ export type Msg<
     TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders extends MsgHeaders = MsgHeaders // Record<string, string>
+    THeaders extends MsgHeaders = MsgHeaders
 > = {
     // transportId
     id?: string;
     address: MsgAddress<TStruct, TChannel, TGroup>;
     payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
+    // payload?: TStruct[TChannel][TGroup];
     headers?: THeaders;
 };
 
@@ -310,12 +275,14 @@ export type MsgSubParams<
     options?: MsgSubOptions;
 };
 
-export type MsgSub<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
-    TChannel extends keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
->(
-    params: MsgSubParams<TStruct, TChannel, TGroup, THeaders>
-) => void;
+export type MsgSub<
+    TStruct extends MsgStruct,
+    THeaders extends MsgHeaders = MsgHeaders
+> = {
+    <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
+        params: MsgSubParams<TStruct, TChannel, TGroup, THeaders>
+    ): void;
+};
 
 export type AwaitableMsgSubOptions = MsgSubOptions & PromiseOptions;
 
@@ -331,12 +298,14 @@ export type MsgStreamParams<
     options?: MsgStreamOptions;
 };
 
-export type MsgStream<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
-    TChannel extends keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
->(
-    params: MsgStreamParams<TStruct, TChannel, TGroup>
-) => AsyncIterableIterator<Msg<TStruct, TChannel, TGroup, THeaders>>; // TGroup extends undefined ? typeof $CG_IN : TGroup
+export type MsgStream<
+    TStruct extends MsgStruct,
+    THeaders extends MsgHeaders = MsgHeaders
+> = {
+    <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
+        params: MsgStreamParams<TStruct, TChannel, TGroup, THeaders>
+    ): AsyncIterableIterator<Msg<TStruct, TChannel, TGroup, THeaders>>;
+};
 
 export type AwaitableMsgSubParams<
     TStruct extends MsgStruct = MsgStruct,
@@ -347,19 +316,21 @@ export type AwaitableMsgSubParams<
     options?: AwaitableMsgSubOptions;
 };
 
-export type AwaitableMsgSub<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
-    TChannel extends keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
->(
-    params: AwaitableMsgSubParams<TStruct, TChannel, TGroup>
-) => Promise<Msg<TStruct, TChannel, TGroup, THeaders>>; // TGroup extends undefined ? typeof $CG_IN : TGroup
+export type AwaitableMsgSub<
+    TStruct extends MsgStruct,
+    THeaders extends MsgHeaders = MsgHeaders
+> = {
+    <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
+        params: AwaitableMsgSubParams<TStruct, TChannel, TGroup, THeaders>
+    ): Promise<Msg<TStruct, TChannel, TGroup, THeaders>>;
+}; // TGroup extends undefined ? typeof $CG_IN : TGroup
 
 export type MsgProviderOptions = MsgSubOptions;
 
 export type MsgProviderParams<
     TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
+    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
 > = MsgSubBaseParams<TStruct, TChannel, TGroup, THeaders> & {
     // resolve
@@ -368,19 +339,21 @@ export type MsgProviderParams<
     headers?: THeaders;
 };
 
-export type MsgProvider<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
-    TChannel extends keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
->(
-    params: MsgProviderParams<TStruct, TChannel, TGroup, THeaders>
-) => void;
+export type MsgProvider<
+    TStruct extends MsgStruct,
+    THeaders extends MsgHeaders = MsgHeaders
+> = {
+    <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
+        params: MsgProviderParams<TStruct, TChannel, TGroup, THeaders>
+    ): void;
+};
 
 export type MsgSenderOptions = PromiseOptions;
 
 export type MsgSenderParams<
     TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
+    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
 > = MsgAddress<TStruct, TChannel, TGroup> & {
     channelSelector?: string | ((channel: string) => boolean);
@@ -394,12 +367,14 @@ export type MsgSenderParams<
     headers?: THeaders;
 };
 
-export type MsgSender<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
-    TChannel extends keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
->(
-    params: MsgSenderParams<TStruct, TChannel, TGroup, THeaders>
-) => Promise<Msg<TStruct, TChannel, TGroup, THeaders>>;
+export type MsgSender<
+    TStruct extends MsgStruct,
+    THeaders extends MsgHeaders = MsgHeaders
+> = {
+    <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
+        params: MsgSenderParams<TStruct, TChannel, TGroup, THeaders>
+    ): Promise<Msg<TStruct, TChannel, TGroup, THeaders>>;
+};
 
 export type MsgRequestOptions = PromiseOptions & {
     sendTimeout?: number;
@@ -409,7 +384,7 @@ export type MsgRequestOptions = PromiseOptions & {
 export type MsgRequestDispatcherParams<
     TStruct extends MsgStruct = MsgStruct,
     TChannel extends keyof TStruct = keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
+    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
 > = MsgAddress<TStruct, TChannel, TGroup> & {
     channelSelector?: string | ((channel: string) => boolean);
@@ -423,12 +398,14 @@ export type MsgRequestDispatcherParams<
     headers?: THeaders;
 };
 
-export type MsgRequestDispatcher<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = <
-    TChannel extends keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = typeof $CG_IN
->(
-    params: MsgRequestDispatcherParams<TStruct, TChannel, TGroup, THeaders>
-) => Promise<Msg<TStruct, TChannel, typeof $CG_OUT>>;
+export type MsgRequestDispatcher<
+    TStruct extends MsgStruct,
+    THeaders extends MsgHeaders = MsgHeaders
+> = {
+    <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
+        params: MsgRequestDispatcherParams<TStruct, TChannel, TGroup, THeaders>
+    ): Promise<Msg<TStruct, TChannel, keyof OutChannelStruct>>;
+};
 
 export type MsgChannelStructNormalized<TStruct extends MsgChannelStruct> = {
     [G in keyof TStruct]: Awaited<TStruct[G]>;

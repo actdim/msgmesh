@@ -3,7 +3,7 @@ import { TestBusStruct, createTestMsgBus, sharedMsgBus } from "./testDomain";
 import "@/core";
 import { delay, delayError, withTimeout } from "@actdim/utico/utils";
 import { v4 as uuid } from "uuid";
-import { MsgHeaders, OperationCanceledError, TimeoutError } from "@/contracts";
+import { $CG_ERROR, MsgHeaders, OperationCanceledError, TimeoutError } from "@/contracts";
 import { createMsgBus } from "@/core";
 import { BaseServiceSuffix, getMsgChannelSelector, MsgProviderAdapter, registerAdapters, ToMsgChannelPrefix, ToMsgStruct } from "@/adapters";
 
@@ -77,7 +77,6 @@ describe("msgBus", () => {
         const msgBus = createMsgBus();
         msgBus.on({
             channel: "Test.DoSomeWork",
-            group: "in",
             callback: async (msg) => {
                 c++;
             }
@@ -96,7 +95,6 @@ describe("msgBus", () => {
         sharedMsgBus.provide({
             channel: "Test.DoSomeWork",
             // topic: "/.*/",
-            group: "in",
             callback: async (msg) => {
                 await delay(30);
                 // done = true;
@@ -130,7 +128,6 @@ describe("msgBus", () => {
         msgBus.on({
             channel: "Test.DoSomeWork",
             // topic: "/.*/",
-            group: "in",
             callback: async (msg) => {
                 c++;
             },
@@ -191,7 +188,6 @@ describe("msgBus", () => {
         let request = (async () => {
             const msg = await sharedMsgBus.request({
                 channel: "Test.ComputeSum",
-                group: "in",
                 payload: data,
                 headers: {
                     sourceId: requestId
@@ -937,7 +933,7 @@ describe("msgBus", () => {
             channel: "Test.ComputeSum",
             group: "inFn",
             callback: (msg) => {
-                const [a, b] = msg.payload as [number, number];
+                const [a, b] = msg.payload;
                 receivedA = a;
                 receivedB = b;
                 return a + b;
@@ -960,7 +956,6 @@ describe("msgBus", () => {
         class TestApiClient {
             static readonly name = 'TestApiClient' as const;
             readonly name = 'TestApiClient' as const;
-
 
             computeOnServer(a: number, b: number) {
                 return new Promise<number>((res, rej) => {

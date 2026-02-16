@@ -24,7 +24,8 @@ import {
     MsgProvider,
     MsgSender,
     MsgRequestDispatcher,
-    MsgSenderParams
+    MsgSenderParams,
+    OutChannelStruct
 } from "./contracts";
 import { v4 as uuid } from "uuid";
 import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, OperatorFunction, SchedulerLike } from "rxjs";
@@ -386,7 +387,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
                         if (msgIn.headers?.status === 'canceled') {
                             return;
                         }
-                        const msgOut: Msg<TStructN, keyof TStructN, typeof $CG_OUT> = {
+                        const msgOut: Msg<TStructN, keyof TStructN, keyof OutChannelStruct> = {
                             address: {
                                 channel: msgIn.address.channel,
                                 group: $CG_OUT,
@@ -418,7 +419,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
     async function dispatch(params: MsgDispatcherParams<TStructN>) {
         let msg: Msg<TStructN> = null;
         if (params.callback) {
-            const subParams: MsgSubParams<TStructN, keyof TStructN, typeof $CG_OUT> = {
+            const subParams: MsgSubParams<TStructN, keyof TStructN, keyof OutChannelStruct> = {
                 channel: params.channel,
                 group: $CG_OUT,
                 topic: params.topic,
@@ -647,6 +648,16 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
 // TODO: support msg ack via custom RepeatSubject and MsgRecord: (no acked messages in queue, auto ack on publish to "out" channel)
 // TODO: support rate limiting (for single channel) and backpressure (for "in" and "out" channel pair), real send promise
 // TODO: support TTL, maxBufferLength
+// TODO:
+// TODO: Point-to-Point (P2P): direct messaging with targeted, address delivery (exactly one recipient)
+// TODO: Broadcast
+// TODO: Queue group: Load Balancing, Round-Robin, Fan-out, Fan-in
+// TODO: QoS
+// TODO: Cross-tab message delivery:
+// https://www.sitepen.com/blog/cross-tab-synchronization-with-the-web-locks-api
+// https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API
+// https://github.com/GoogleChromeLabs/comlink
+
 /*
 class RepeatSubject<T> {
   private buffer: Msg<T>[] = [];
