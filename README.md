@@ -28,7 +28,9 @@
   - [`once()`](#awaiting-a-single-message-once)
   - [`stream()`](#streaming-messages-stream)
   - [`provide()`](#providing-response-handlers-provide)
+    - [Provider-Side Cancellation](#cancellation-handling)
   - [`request()`](#request-response-pattern-request)
+    - [Request Cancellation](#cancellation)
 - [Advanced Features](#advanced-features)
   - [Message Replay](#message-replay)
   - [Throttling and Debouncing](#throttling-and-debouncing)
@@ -48,6 +50,10 @@ Once the project loads, run the tests to see the message bus in action:
 ```bash
 pnpm run test
 ```
+
+Request cancellation is cooperative: when `request()` is aborted, the provider callback receives a cancel message (`headers.status === 'canceled'`) so it can stop in-flight work and clean up resources.
+
+See [`provide()` -> `Cancellation Handling`](#cancellation-handling) and [`request()` -> `Cancellation`](#cancellation).
 
 ## Installation
 
@@ -193,19 +199,19 @@ Use generic `MsgStruct<...>` to define bus structures: it extends your declared 
 import { MsgStruct } from '@actdim/msgmesh';
 
 export type MyBusStruct = MsgStruct<{
-    'Test.ComputeSum': {
+    'TEST.COMPUTE_SUM': {
         in: { a: number; b: number };
         out: number;
     };
-    'Test.DoSomeWork': {
+    'TEST.DO_SOME_WORK': {
         in: string;
         out: void;
     };
-    'Test.TestTaskWithRepeat': {
+    'TEST.TEST_TASK_WITH_REPEAT': {
         in: string;
         out: void;
     };
-    'Test.Multiplexer': {
+    'TEST.MULTIPLEXER': {
         in1: string;
         in2: number;
         out: number;
@@ -274,7 +280,7 @@ type MyMsgChannels<TChannel extends keyof MyBusStruct | Array<keyof MyBusStruct>
 // Helper types are necessary for IntelliSense with dynamic types
 // All API checks are enforced at compile time - you cannot violate defined contracts
 type Behavior = {
-    messages: MyMsgChannels<'Test.ComputeSum' | 'Test.DoSomeWork'>;
+    messages: MyMsgChannels<'TEST.COMPUTE_SUM' | 'TEST.DO_SOME_WORK'>;
 };
 ```
 
@@ -297,7 +303,7 @@ You can configure channels with various options:
 import { MsgBusConfig } from '@actdim/msgmesh';
 
 const config: MsgBusConfig<MyBusStruct> = {
-    'Test.ComputeSum': {
+    'TEST.COMPUTE_SUM': {
         replayBufferSize: 10, // Number of messages to buffer for replay
         replayWindowTime: 5000, // Time window for replay (ms)
         delay: 100, // Delay before processing (ms)
@@ -321,33 +327,33 @@ Send a message to the bus for a specific channel and group (default is `in`). Th
 ```typescript
 // Basic send
 await msgBus.send({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     payload: { a: 10, b: 20 }, // Typed and validated
 });
 
 // With group specification
 await msgBus.send({
-    channel: 'Test.Multiplexer',
+    channel: 'TEST.MULTIPLEXER',
     group: 'in1',
     payload: 'hello', // Typed as string for 'in1' group
 });
 
 await msgBus.send({
-    channel: 'Test.Multiplexer',
+    channel: 'TEST.MULTIPLEXER',
     group: 'in2',
     payload: 42, // Typed as number for 'in2' group
 });
 
 // With topic
 await msgBus.send({
-    channel: 'Test.DoSomeWork',
+    channel: 'TEST.DO_SOME_WORK',
     topic: 'priority-high',
     payload: 'urgent task',
 });
 
 // With custom headers
 await msgBus.send({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     payload: { a: 5, b: 15 },
     headers: {
         correlationId: 'task-123',
@@ -365,7 +371,7 @@ Subscribe to messages on a specific channel and group with optional topic filter
 ```typescript
 // Basic subscription
 msgBus.on({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     callback: (msg) => {
         // msg.payload is typed as { a: number; b: number }
         console.log('Received:', msg.payload);
@@ -374,7 +380,7 @@ msgBus.on({
 
 // Subscribe to specific group
 msgBus.on({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     group: 'out', // Listen for responses
     callback: (msg) => {
         // msg.payload is typed as number
@@ -384,7 +390,7 @@ msgBus.on({
 
 // With topic filtering (regex pattern)
 msgBus.on({
-    channel: 'Test.DoSomeWork',
+    channel: 'TEST.DO_SOME_WORK',
     topic: '/^task-.*/', // Match topics starting with "task-"
     callback: (msg) => {
         console.log('Task message:', msg.payload);
@@ -393,7 +399,7 @@ msgBus.on({
 
 // With options
 msgBus.on({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     callback: (msg) => {
         console.log('Message:', msg.payload);
     },
@@ -415,7 +421,7 @@ msgBus.on({
 
 ```typescript
 msgBus.on({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     callback: (msg) => {
         console.log(msg.payload);
     },
@@ -433,7 +439,7 @@ Use `AbortSignal` for controlled unsubscription. This allows combining abort sig
 const abortController = new AbortController();
 
 msgBus.on({
-    channel: "Test.ComputeSum",
+    channel: "TEST.COMPUTE_SUM",
     callback: (msg) => {
         console.log(msg.payload);
     },
@@ -455,7 +461,7 @@ const combinedSignal = AbortSignal.any([
 ]);
 
 msgBus.on({
-    channel: "Test.ComputeSum",
+    channel: "TEST.COMPUTE_SUM",
     options: {
         abortSignal: combinedSignal
     },
@@ -472,7 +478,7 @@ function MyComponent() {
         const controller = new AbortController();
 
         msgBus.on({
-            channel: "Test.Events",
+            channel: "TEST.EVENTS",
             callback: handleEvent,
             options: {
                 abortSignal: controller.signal
@@ -496,14 +502,14 @@ Subscribe and await the first (next) message on a specific channel and group, si
 ```typescript
 // Wait for one message
 const msg = await msgBus.once({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
 });
 
 console.log('Received:', msg.payload); // Typed as { a: number; b: number }
 
 // With group specification
 const response = await msgBus.once({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     group: 'out',
 });
 
@@ -511,7 +517,7 @@ console.log('Result:', response.payload); // Typed as number
 
 // With topic filtering
 const taskMsg = await msgBus.once({
-    channel: 'Test.DoSomeWork',
+    channel: 'TEST.DO_SOME_WORK',
     topic: '/^priority-.*/', // Match topics starting with "priority-"
 });
 ```
@@ -523,7 +529,7 @@ Configure timeout duration via the `timeout` option. The `abortSignal` option al
 ```typescript
 try {
     const msg = await msgBus.once({
-        channel: 'Test.ComputeSum',
+        channel: 'TEST.COMPUTE_SUM',
         options: {
             timeout: 5000, // 5 second timeout
         },
@@ -539,7 +545,7 @@ try {
 const abortController = new AbortController();
 
 const messagePromise = msgBus.once({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     options: {
         timeout: 10000,
         abortSignal: abortController.signal,
@@ -565,7 +571,7 @@ Create an async iterable iterator for consuming messages as a stream.
 ```typescript
 // Basic streaming
 const messageStream = msgBus.stream({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
 });
 
 for await (const msg of messageStream) {
@@ -575,7 +581,7 @@ for await (const msg of messageStream) {
 
 // With topic filtering
 const taskStream = msgBus.stream({
-    channel: 'Test.DoSomeWork',
+    channel: 'TEST.DO_SOME_WORK',
     topic: '/^task-.*/',
 });
 
@@ -593,7 +599,7 @@ For a hard time limit on the stream's total duration, use `AbortSignal.timeout()
 ```typescript
 // Inactivity timeout: end stream if no messages for 5s
 const stream1 = msgBus.stream({
-    channel: 'Test.Events',
+    channel: 'TEST.EVENTS',
     options: {
         timeout: 5000,
     },
@@ -601,7 +607,7 @@ const stream1 = msgBus.stream({
 
 // Total duration limit: end stream after 60s regardless of activity
 const stream2 = msgBus.stream({
-    channel: 'Test.Events',
+    channel: 'TEST.EVENTS',
     options: {
         abortSignal: AbortSignal.timeout(60000),
     },
@@ -609,7 +615,7 @@ const stream2 = msgBus.stream({
 
 // Both: inactivity 5s + hard limit 60s
 const stream3 = msgBus.stream({
-    channel: 'Test.Events',
+    channel: 'TEST.EVENTS',
     options: {
         timeout: 5000,
         abortSignal: AbortSignal.timeout(60000),
@@ -626,7 +632,7 @@ The callback can be asynchronous and its result is automatically used to form th
 ```typescript
 // Simple provider
 msgBus.provide({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     callback: (msg) => {
         // msg.payload is typed as { a: number; b: number }
         // Return type is inferred as number (from 'out' type)
@@ -636,7 +642,7 @@ msgBus.provide({
 
 // Async provider
 msgBus.provide({
-    channel: 'Test.DoSomeWork',
+    channel: 'TEST.DO_SOME_WORK',
     callback: async (msg) => {
         // msg.payload is typed as string
         await performWork(msg.payload);
@@ -646,7 +652,7 @@ msgBus.provide({
 
 // With topic filtering
 msgBus.provide({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     topic: '/^calc-.*/',
     callback: (msg) => {
         return msg.payload.a + msg.payload.b;
@@ -655,7 +661,7 @@ msgBus.provide({
 
 // With options
 msgBus.provide({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     callback: (msg) => {
         return msg.payload.a + msg.payload.b;
     },
@@ -674,7 +680,7 @@ For providers that don't need cancellation support, simply check that `headers.s
 
 ```typescript
 msgBus.provide({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     callback: (msg, headers) => {
         if (headers.status !== 'ok') return;
         return msg.payload.a + msg.payload.b;
@@ -688,7 +694,7 @@ For providers with long-running or cancelable operations (e.g. `fetch`), track a
 const activeRequests = new Map<string, AbortController>();
 
 msgBus.provide({
-    channel: 'Api.FetchData',
+    channel: 'API.FETCH_DATA',
     callback: async (msg, headers) => {
         const { requestId } = headers;
 
@@ -722,7 +728,7 @@ Send a message and automatically await a response from a handler (registered via
 ```typescript
 // Basic request
 const response = await msgBus.request({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     payload: { a: 10, b: 20 },
 });
 
@@ -730,13 +736,13 @@ console.log('Result:', response.payload); // Typed as number
 
 // With group overloading (using different input groups)
 const response1 = await msgBus.request({
-    channel: 'Test.Multiplexer',
+    channel: 'TEST.MULTIPLEXER',
     group: 'in1',
     payload: 'hello',
 });
 
 const response2 = await msgBus.request({
-    channel: 'Test.Multiplexer',
+    channel: 'TEST.MULTIPLEXER',
     group: 'in2',
     payload: 42,
 });
@@ -746,7 +752,7 @@ const response2 = await msgBus.request({
 // With timeout
 try {
     const response = await msgBus.request({
-        channel: 'Test.ComputeSum',
+        channel: 'TEST.COMPUTE_SUM',
         payload: { a: 5, b: 15 },
         options: {
             timeout: 5000, // Overall timeout
@@ -760,7 +766,7 @@ try {
 
 // With separate send and response timeouts
 const response = await msgBus.request({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     payload: { a: 5, b: 15 },
     options: {
         sendTimeout: 1000, // Timeout for sending the message
@@ -770,7 +776,7 @@ const response = await msgBus.request({
 
 // With headers for correlation
 const response = await msgBus.request({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     payload: { a: 5, b: 15 },
     headers: {
         sourceId: 'component-123',
@@ -803,7 +809,7 @@ On the provider side, the cancel message is delivered to the callback so it can 
 const abortController = new AbortController();
 
 const responsePromise = msgBus.request({
-    channel: 'Api.FetchData',
+    channel: 'API.FETCH_DATA',
     payload: { url: 'https://api.example.com/data' },
     options: {
         abortSignal: abortController.signal,
@@ -829,7 +835,7 @@ Configure channels to buffer and replay messages for late subscribers.
 
 ```typescript
 const msgBus = createMsgBus<MyBusStruct>({
-    'Test.Events': {
+    'TEST.EVENTS': {
         replayBufferSize: 50, // Keep last 50 messages
         replayWindowTime: 60000, // Keep messages for 60 seconds
     },
@@ -838,14 +844,14 @@ const msgBus = createMsgBus<MyBusStruct>({
 // Send messages
 for (let i = 0; i < 100; i++) {
     await msgBus.send({
-        channel: 'Test.Events',
+        channel: 'TEST.EVENTS',
         payload: `Message ${i}`,
     });
 }
 
 // Late subscriber receives last 50 messages
 msgBus.on({
-    channel: 'Test.Events',
+    channel: 'TEST.EVENTS',
     callback: (msg) => {
         console.log('Replayed:', msg.payload);
     },
@@ -859,7 +865,7 @@ Control message processing rate at both channel and subscription levels.
 ```typescript
 // Channel-level throttling
 const msgBus = createMsgBus<MyBusStruct>({
-    'Test.Updates': {
+    'TEST.UPDATES': {
         throttle: {
             duration: 1000,
             leading: true,
@@ -870,7 +876,7 @@ const msgBus = createMsgBus<MyBusStruct>({
 
 // Subscription-level debouncing
 msgBus.on({
-    channel: 'Test.Updates',
+    channel: 'TEST.UPDATES',
     callback: (msg) => {
         updateUI(msg.payload);
     },
@@ -887,7 +893,7 @@ The bus includes built-in error handling and a reserved error channel.
 ```typescript
 // Subscribe to errors for a specific channel
 msgBus.on({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     group: 'error',
     callback: (msg) => {
         console.error('Error in ComputeSum:', msg.payload.error);
@@ -904,7 +910,7 @@ msgBus.on({
 
 // Errors in providers are automatically caught and routed
 msgBus.provide({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     callback: (msg) => {
         if (msg.payload.a < 0) {
             throw new Error('Negative numbers not allowed');
@@ -946,7 +952,7 @@ type MyHeaders = MsgHeaders & {
 const msgBus = createMsgBus<MyBusStruct, MyHeaders>();
 
 await msgBus.send({
-    channel: 'Test.ComputeSum',
+    channel: 'TEST.COMPUTE_SUM',
     payload: { a: 10, b: 20 },
     headers: {
         userId: 'user-123',
