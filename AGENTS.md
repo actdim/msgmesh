@@ -82,7 +82,7 @@ Reserved system channel:
 
 ## Typing Rules
 
-1. Bus structures should be declared with `MsgStructFactory<...>` so system channel groups are added consistently.
+1. Bus structures should be declared with generic `MsgStruct<...>` so system channel groups are added consistently and the same base type is used across the API.
 2. `out` payload types are plain values (no `Promise` wrapping in type definitions).
 3. Keep strict channel/group payload typing intact for all public methods.
 4. `payloadFn` is used for tuple-based payload channels (especially adapters).

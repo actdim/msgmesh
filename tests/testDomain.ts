@@ -1,8 +1,8 @@
-import { MsgBus, MsgBusConfig, MsgStruct, MsgStructNormalized, MsgHeaders, MsgStructFactory } from "@/contracts";
+import { MsgBus, MsgBusConfig, MsgStructNormalized, MsgStruct } from "@/contracts";
 import { createMsgBus } from "@/core";
-import { KeysOf, RequireExtends } from "@actdim/utico/typeCore";
+import { KeysOf } from "@actdim/utico/typeCore";
 
-export type TestBusStruct = MsgStructFactory<
+export type TestBusStruct = MsgStruct<
     {
         "Test.ComputeSum": {
             in: { a: number; b: number };

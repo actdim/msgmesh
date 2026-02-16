@@ -1,4 +1,4 @@
-import { MsgBus, MsgStruct, MsgStructFactory } from "./contracts";
+import { MsgBus, MsgStruct } from "./contracts";
 import { AddPrefix, Filter, Func, RemoveSuffix, Skip, ToUpper } from "@actdim/utico/typeCore";
 
 const getMethodNames = (client: any) => {
@@ -60,7 +60,7 @@ type ToMsgStructSource<TService, TPrefix extends string, TSkip extends keyof TSe
     Func
 >;
 
-export type ToMsgStruct<TService, TPrefix extends string, TSkip extends keyof TService = never, TMsgStructSource = ToMsgStructSource<TService, TPrefix, TSkip>> = MsgStructFactory<{
+export type ToMsgStruct<TService, TPrefix extends string, TSkip extends keyof TService = never, TMsgStructSource = ToMsgStructSource<TService, TPrefix, TSkip>> = MsgStruct<{
     [K in keyof TMsgStructSource as TMsgStructSource[K] extends Func ? (Uppercase<K extends string ? K : never>) : never]: {
         in: TMsgStructSource[K] extends Func ? Parameters<TMsgStructSource[K]> : never;
         out: TMsgStructSource[K] extends Func ? ReturnType<TMsgStructSource[K]> : never;

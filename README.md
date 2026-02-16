@@ -185,14 +185,14 @@ Each group defines a message structure (payload type). For standard buses, types
 
 **Note**: You don't need to wrap `out` types in `Promise` - async handling is automatically supported at the API level.
 
-Use `MsgStructFactory` to define bus structures: it extends your declared channels with system channel groups (including reserved `error` handling groups) so runtime and typing stay consistent.
+Use generic `MsgStruct<...>` to define bus structures: it extends your declared channels with system channel groups (including reserved `error` handling groups), and this same base type is used across the entire API.
 
 ### Type Definition Example
 
 ```typescript
-import { MsgStructFactory } from '@actdim/msgmesh';
+import { MsgStruct } from '@actdim/msgmesh';
 
-export type MyBusStruct = MsgStructFactory<{
+export type MyBusStruct = MsgStruct<{
     'Test.ComputeSum': {
         in: { a: number; b: number };
         out: number;

@@ -101,7 +101,7 @@ export type SystemChannelGroup = keyof SystemChannelStruct;
 export type MsgChannelStruct = SystemChannelStruct & Record<string, any>;
 
 // SystemMsgtruct
-export type MsgStructBase = {
+export type SystemMsgStruct = {
     [$C_ERROR]?: {
         [$CG_IN]: ErrorPayload;
     };
@@ -110,11 +110,11 @@ export type MsgStructBase = {
     // };
 };
 
-export type MsgStruct = Record<string, MsgChannelStruct> & MsgStructBase;
+export type MsgStructBase = Record<PropertyKey, MsgChannelStruct> & SystemMsgStruct;
 
-// ToMsgStruct/MsgStructBuilder
-export type MsgStructFactory<TStruct extends MsgStruct> = {
-    [C in keyof TStruct]: TStruct[C] & ErrorChannelStruct;
+// factory/builder type
+export type MsgStruct<TStruct extends MsgStructBase = MsgStructBase> = {
+    [C in keyof TStruct]: TStruct[C] & Partial<ErrorChannelStruct>;
 } & MsgStructBase;
 
 export type InStruct<TStruct extends MsgStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends InChannelStruct

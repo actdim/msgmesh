@@ -42,10 +42,10 @@ Every message has an address: `{ channel, group, topic }`.
 
 ### Type Structure
 
-Bus should be defined via `MsgStructFactory` — it augments your structure with system channel groups (for example, `error`) and keeps contracts aligned with runtime behavior:
+Bus should be defined via generic `MsgStruct<...>` — it augments your structure with system channel groups (for example, `error`) and is the same base type used across the API:
 
 ```typescript
-type MyBus = MsgStructFactory<{
+type MyBus = MsgStruct<{
     "Order.Create": {
         in: { items: Item[] };    // request payload
         out: OrderResult;         // response payload
@@ -225,7 +225,7 @@ Class: OrderApiClient                    Bus struct:
 Key types:
 - `ToMsgChannelPrefix<ClassName, Prefix, Suffix>` — generates channel prefix from class name. Removes known suffixes (CLIENT, API, SERVICE, etc.), uppercases. E.g. `"OrderApiClient"` + `"API"` → `"API.ORDER."`
 - `ToMsgStruct<Service, Prefix, Skip>` — maps service methods to bus struct. Method params → `in` tuple (`Parameters<>`), return type → `out` (`ReturnType<>`). `Skip` excludes methods from the type.
-- `MsgStructFactory<T>` — adds `error` group to each channel in struct
+- `MsgStruct<T>` — adds system channel groups (including `error`) to each channel in struct
 
 Runtime:
 - `registerAdapters(msgBus, adapters, abortSignal?)` — registers each method as `provide()` handler. Callback spreads `msg.payload` tuple as method arguments: `service[method](...msg.payload)`
