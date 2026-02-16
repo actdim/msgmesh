@@ -110,7 +110,7 @@ export type SystemMsgStruct = {
     // };
 };
 
-export type MsgStructBase = Record<PropertyKey, MsgChannelStruct> & SystemMsgStruct;
+export type MsgStructBase = Record<string, MsgChannelStruct> & SystemMsgStruct;
 
 // factory/builder type
 export type MsgStruct<TStruct extends MsgStructBase = MsgStructBase> = {
