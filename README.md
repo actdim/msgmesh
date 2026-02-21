@@ -51,10 +51,6 @@ Once the project loads, run the tests to see the message bus in action:
 pnpm run test
 ```
 
-Request cancellation is cooperative: when `request()` is aborted, the provider callback receives a cancel message (`headers.status === 'canceled'`) so it can stop in-flight work and clean up resources.
-
-See [`provide()` -> `Cancellation Handling`](#cancellation-handling) and [`request()` -> `Cancellation`](#cancellation).
-
 ## Installation
 
 ```bash
@@ -801,9 +797,11 @@ console.log(response.headers.correlationId); // Preserved correlation ID
 
 #### Cancellation
 
-Cancel an in-flight request by passing an `AbortSignal` via `options.abortSignal`. When aborted, the bus sends a cancel message (with `headers.status === 'canceled'`) to the provider and rejects the returned Promise with an `OperationCanceledError`.
+Request cancellation is cooperative: when `request()` is aborted, the provider callback receives a cancel message (`headers.status === 'canceled'`) so it can stop in-flight work and clean up resources.
 
-On the provider side, the cancel message is delivered to the callback so it can clean up resources. See [`provide()` — Cancellation Handling](#cancellation-handling) for details.
+Cancel an in-flight request by passing an `AbortSignal` via `options.abortSignal`. When aborted, the bus sends a cancel message to the provider and rejects the returned Promise with an `OperationCanceledError`.
+
+See [`provide()` -> `Cancellation Handling`](#cancellation-handling) for provider-side handling details.
 
 ```typescript
 const abortController = new AbortController();
