@@ -1,4 +1,4 @@
-import { MsgBus, MsgStruct } from "./contracts";
+import { MsgBus, MsgStruct, MsgStructBase } from "./contracts";
 import { AddPrefix, Filter, Func, RemoveSuffix, Skip, ToUpper } from "@actdim/utico/typeCore";
 
 const getMethodNames = (client: any) => {
@@ -17,7 +17,7 @@ export type MsgProviderAdapter = {
     channelSelector: (service: any, methodName: string) => string;
 };
 
-export function registerAdapters(msgBus: MsgBus<MsgStruct>, adapters: MsgProviderAdapter[], abortSignal?: AbortSignal) {
+export function registerAdapters(msgBus: MsgBus<MsgStructBase>, adapters: MsgProviderAdapter[], abortSignal?: AbortSignal) {
     if (adapters) {
         for (const adapter of adapters) {
             const { service, channelSelector } = adapter;

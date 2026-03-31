@@ -1,6 +1,6 @@
 import {
     MsgBus,
-    MsgStruct,
+    MsgStructBase,
     Msg,
     $CG_IN,
     $CG_OUT,
@@ -60,7 +60,7 @@ function now() {
 
 // createServiceBus
 const groupPrefix = ":"; // "/", ":", "::"
-export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders>(config?: MsgBusConfig<MsgStructNormalized<TStruct>>) {
+export function createMsgBus<TStruct extends MsgStructBase, THeaders extends MsgHeaders = MsgHeaders>(config?: MsgBusConfig<MsgStructNormalized<TStruct>>) {
     type TStructN = MsgStructNormalized<TStruct>;
     type MsgInfo = Skip<Msg<TStructN>, "payload">;
 
@@ -408,7 +408,7 @@ export function createMsgBus<TStruct extends MsgStruct, THeaders extends MsgHead
     }
 
     type MsgDispatcherParams<
-        TStruct extends MsgStruct = MsgStruct,
+        TStruct extends MsgStructBase = MsgStructBase,
         TChannel extends keyof TStruct = keyof TStruct,
         TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
         THeaders extends MsgHeaders = MsgHeaders

@@ -100,7 +100,6 @@ export type SystemChannelGroup = keyof SystemChannelStruct;
 
 export type MsgChannelStruct = SystemChannelStruct & Record<string, any>;
 
-// SystemMsgtruct
 export type SystemMsgStruct = {
     [$C_ERROR]?: {
         [$CG_IN]: ErrorPayload;
@@ -112,16 +111,16 @@ export type SystemMsgStruct = {
 
 export type MsgStructBase = Record<string, MsgChannelStruct> & SystemMsgStruct;
 
-// factory/builder type
+// Factory type
 export type MsgStruct<TStruct extends MsgStructBase = MsgStructBase> = {
-    [C in keyof TStruct]: TStruct[C] & Partial<ErrorChannelStruct>;
-} & MsgStructBase;
+    [C in keyof TStruct]: TStruct[C] & ErrorChannelStruct;
+} & SystemMsgStruct;
 
-export type InStruct<TStruct extends MsgStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends InChannelStruct
+export type InStruct<TStruct extends MsgStructBase, TChannel extends keyof TStruct> = TStruct[TChannel] extends InChannelStruct
     ? TStruct[TChannel][keyof InChannelStruct]
     : undefined;
 
-export type OutStruct<TStruct extends MsgStruct, TChannel extends keyof TStruct> = TStruct[TChannel] extends OutChannelStruct
+export type OutStruct<TStruct extends MsgStructBase, TChannel extends keyof TStruct> = TStruct[TChannel] extends OutChannelStruct
     ? TStruct[TChannel][keyof OutChannelStruct]
     : undefined;
 
@@ -161,12 +160,12 @@ export type PromiseOptions = {
     timeout?: number;
 };
 
-export type MsgBusConfig<TStruct extends MsgStruct> = {
+export type MsgBusConfig<TStruct extends MsgStructBase> = {
     [TChannel in keyof TStruct]?: MsgChannelConfig<TStruct[TChannel]>;
 };
 
 export type MsgAddress<
-    TStruct extends MsgStruct = MsgStruct,
+    TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel]
 > = {
@@ -241,7 +240,7 @@ export type MsgHeaders = {
 // TODO: integrate with https://github.com/connor4312/cockatiel 
 // MsgEnvelope
 export type Msg<
-    TStruct extends MsgStruct = MsgStruct,
+    TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
@@ -255,7 +254,7 @@ export type Msg<
 };
 
 export type MsgSubBaseParams<
-    TStruct extends MsgStruct = MsgStruct,
+    TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
@@ -266,7 +265,7 @@ export type MsgSubBaseParams<
 };
 
 export type MsgSubParams<
-    TStruct extends MsgStruct = MsgStruct,
+    TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
@@ -276,7 +275,7 @@ export type MsgSubParams<
 };
 
 export type MsgSub<
-    TStruct extends MsgStruct,
+    TStruct extends MsgStructBase,
     THeaders extends MsgHeaders = MsgHeaders
 > = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
@@ -290,7 +289,7 @@ export type AwaitableMsgSubOptions = MsgSubOptions & PromiseOptions;
 export type MsgStreamOptions = AwaitableMsgSubOptions;
 
 export type MsgStreamParams<
-    TStruct extends MsgStruct = MsgStruct,
+    TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
@@ -299,7 +298,7 @@ export type MsgStreamParams<
 };
 
 export type MsgStream<
-    TStruct extends MsgStruct,
+    TStruct extends MsgStructBase,
     THeaders extends MsgHeaders = MsgHeaders
 > = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
@@ -308,7 +307,7 @@ export type MsgStream<
 };
 
 export type AwaitableMsgSubParams<
-    TStruct extends MsgStruct = MsgStruct,
+    TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
@@ -317,7 +316,7 @@ export type AwaitableMsgSubParams<
 };
 
 export type AwaitableMsgSub<
-    TStruct extends MsgStruct,
+    TStruct extends MsgStructBase,
     THeaders extends MsgHeaders = MsgHeaders
 > = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
@@ -328,7 +327,7 @@ export type AwaitableMsgSub<
 export type MsgProviderOptions = MsgSubOptions;
 
 export type MsgProviderParams<
-    TStruct extends MsgStruct = MsgStruct,
+    TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
@@ -340,7 +339,7 @@ export type MsgProviderParams<
 };
 
 export type MsgProvider<
-    TStruct extends MsgStruct,
+    TStruct extends MsgStructBase,
     THeaders extends MsgHeaders = MsgHeaders
 > = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
@@ -351,7 +350,7 @@ export type MsgProvider<
 export type MsgSenderOptions = PromiseOptions;
 
 export type MsgSenderParams<
-    TStruct extends MsgStruct = MsgStruct,
+    TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
@@ -368,7 +367,7 @@ export type MsgSenderParams<
 };
 
 export type MsgSender<
-    TStruct extends MsgStruct,
+    TStruct extends MsgStructBase,
     THeaders extends MsgHeaders = MsgHeaders
 > = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
@@ -382,7 +381,7 @@ export type MsgRequestOptions = PromiseOptions & {
 };
 
 export type MsgRequestDispatcherParams<
-    TStruct extends MsgStruct = MsgStruct,
+    TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
@@ -399,7 +398,7 @@ export type MsgRequestDispatcherParams<
 };
 
 export type MsgRequestDispatcher<
-    TStruct extends MsgStruct,
+    TStruct extends MsgStructBase,
     THeaders extends MsgHeaders = MsgHeaders
 > = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
@@ -411,14 +410,14 @@ export type MsgChannelStructNormalized<TStruct extends MsgChannelStruct> = {
     [G in keyof TStruct]: Awaited<TStruct[G]>;
 };
 
-export type MsgStructNormalized<TStruct extends MsgStruct> = {
+export type MsgStructNormalized<TStruct extends MsgStructBase> = {
     [C in keyof TStruct]: MsgChannelStructNormalized<TStruct[C]>;
 };
 
-export const $TypeArgStruct = Symbol("__<TStruct>");
-export const $TypeArgHeaders = Symbol("__<THeaders>");
+export const $TypeArgStruct = Symbol("<TStruct>");
+export const $TypeArgHeaders = Symbol("<THeaders>");
 
-export type MsgBus<TStruct extends MsgStruct, THeaders extends MsgHeaders = MsgHeaders> = {
+export type MsgBus<TStruct extends MsgStructBase, THeaders extends MsgHeaders = MsgHeaders> = {
     readonly config: MsgBusConfig<MsgStructNormalized<TStruct>>;
     // subscribe, listen
     readonly on: MsgSub<MsgStructNormalized<TStruct>, THeaders>;
