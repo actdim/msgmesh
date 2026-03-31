@@ -113,7 +113,7 @@ export type MsgStructBase = Record<string, MsgChannelStruct> & SystemMsgStruct;
 
 // Factory type
 export type MsgStruct<TStruct extends MsgStructBase = MsgStructBase> = {
-    [C in keyof TStruct]: TStruct[C] & ErrorChannelStruct;
+    [C in keyof TStruct]: TStruct[C] & Partial<ErrorChannelStruct>;
 } & SystemMsgStruct;
 
 export type InStruct<TStruct extends MsgStructBase, TChannel extends keyof TStruct> = TStruct[TChannel] extends InChannelStruct
