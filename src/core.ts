@@ -77,7 +77,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         } as MsgInfo;
     }
 
-    function handleError(srcMsg: Msg<TStructN>, err: any) {
+    function handleError(srcMsg: Msg<TStructN>, err: any, respondToRequest?: boolean) {
         // TODO: keep original error only in debug mode
         // if (err instanceof Error) {
         //     err = {
@@ -110,6 +110,17 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
             payload: errPayload
         };
         publish(errMsg);
+        if (respondToRequest && srcMsg.headers?.requestId) {
+            publish({
+                address: { channel: srcMsg.address.channel, group: $CG_OUT, topic: srcMsg.address.topic },
+                headers: {
+                    ...srcMsg.headers,
+                    inResponseToId: srcMsg.headers.requestId,
+                    status: 'error',
+                    error: err?.message ?? String(err)
+                },
+            });
+        }
         // + nack?
     }
 
@@ -235,7 +246,6 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                     return params.callback(msg);
                 } catch (err) {
                     handleError(msg, err);
-                    // throw err;
                 }
             },
             error: (err) => {
@@ -407,8 +417,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                         };
                         publish(msgOut);
                     } catch (err) {
-                        handleError(msgIn, err);
-                        // throw err;
+                        handleError(msgIn, err, true);
                     }
                 }
             }

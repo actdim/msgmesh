@@ -1061,4 +1061,22 @@ describe("msgBus", () => {
 
         expect(response.payload).toBe(8);
     });
+
+    it("request rejects with Error when provider throws", async () => {
+        const msgBus = createTestMsgBus();
+
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: () => {
+                throw new Error("provider failure");
+            }
+        });
+
+        await expect(
+            msgBus.request({
+                channel: "Test.ComputeSum",
+                payload: { a: 1, b: 2 }
+            })
+        ).rejects.toThrow("provider failure");
+    });
 });
