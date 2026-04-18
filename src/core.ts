@@ -25,7 +25,9 @@ import {
     MsgSender,
     MsgRequestDispatcher,
     MsgSenderParams,
-    OutChannelStruct
+    OutChannelStruct,
+    NoProviderError,
+    $C_INHERIT
 } from "./contracts";
 import { v4 as uuid } from "uuid";
 import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, OperatorFunction, SchedulerLike } from "rxjs";
@@ -49,7 +51,7 @@ export const getMatchTest = (pattern: string) => {
     }
 };
 
-const DEFAULT_PROMISE_TIMEOUT = 1000 * 60 * 2; // 2 minutes
+export let defaultPromiseTimeout = 1000 * 5; // 5 seconds
 
 // see also https://www.npmjs.com/package/p-queue
 // https://github.com/postaljs/postal.js
@@ -125,6 +127,10 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         return `${channel}${groupPrefix}${group}`;
     }
 
+    function getChannelConfig(channel: string) {
+        return { ...config?.[$C_INHERIT], ...config?.[channel] };
+    }
+
     // TODO: use for subjects
     // type MsgRecord = {
     //     msg: Msg<TStructN>;
@@ -138,7 +144,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         // TODO: support BehaviorSubject
         if (!subjects.has(routingKey)) {
             let subject: Subject<Msg<TStructN>> = null;
-            const channelConfig = config?.[channel];
+            const channelConfig = getChannelConfig(channel);
             if (channelConfig) {
                 if (channelConfig.replayBufferSize != undefined || channelConfig.replayWindowTime != undefined) {
                     subject = new ReplaySubject<Msg<TStructN>>(channelConfig.replayBufferSize == undefined ? Infinity : channelConfig.replayBufferSize, channelConfig.replayWindowTime == undefined ? Infinity : channelConfig.replayWindowTime);
@@ -199,7 +205,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
         ops.push(fOp);
 
-        const channelConfig = config?.[channel];
+        const channelConfig = getChannelConfig(channel);
 
         applyThrottle(ops, channelConfig?.throttle, scheduler);
 
@@ -298,6 +304,9 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         }
         const group = String(msg.address.group);
         const subject = getOrCreateSubject(channel, group);
+        if (!subject.observed) {
+            console.warn(`[msgBus] No subscribers on channel "${channel}" (group: "${group}"). Message may be lost.`);
+        }
         subject.next(msg);
         // TODO: implement backpressure using signal after auto-'ack' or "out" msg signal
         return Promise.resolve(msg);
@@ -308,7 +317,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
     }
 
     function once(params: AwaitableMsgSubParams<TStructN>) {
-        const timeout = params.options?.timeout == undefined ? DEFAULT_PROMISE_TIMEOUT : params.options?.timeout;
+        const timeout = params.options?.timeout == undefined ? defaultPromiseTimeout : params.options?.timeout;
         let settled = false;
         return Promise.race([delayError(timeout, () => new TimeoutError()), new Promise<any>((res, rej) => {
             try {
@@ -464,7 +473,17 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
     }
 
     async function request(params: MsgRequestDispatcherParams<TStructN>): Promise<any> {
-        const timeout = params.options?.timeout == undefined ? DEFAULT_PROMISE_TIMEOUT : params.options?.timeout;
+        const channel = String(params.channel);
+        const inGroup = params.group == undefined ? $CG_IN : String(params.group);
+        const channelConfig = getChannelConfig(channel);
+        const inSubject = getOrCreateSubject(channel, inGroup);
+        if (!inSubject.observed) {
+            console.warn(`[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`);
+            if (params.options?.throwIfNoProvider || channelConfig?.mandatoryProvider) {
+                throw new NoProviderError(channel);
+            }
+        }
+        const timeout = params.options?.timeout == undefined ? defaultPromiseTimeout : params.options?.timeout;
         let settled = false;
         return Promise.race([delayError(timeout, () => new TimeoutError()), new Promise(async (res, rej) => {
             try {
@@ -645,7 +664,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
 // TODO: support persistence
 // TODO: support unsubscribe (abort) alias (like in hooks)
-// TODO: support msg ack via custom RepeatSubject and MsgRecord: (no acked messages in queue, auto ack on publish to "out" channel)
+// TODO: support msg ack via custom RepeatSubject and MsgRecord: (no acked messages in queue, auto ack on publish to "out" channel, + "ack" group?)
 // TODO: support rate limiting (for single channel) and backpressure (for "in" and "out" channel pair), real send promise
 // TODO: support TTL, maxBufferLength
 // TODO:

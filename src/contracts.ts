@@ -13,6 +13,8 @@ export const $CG_ERROR = "error" as const;
 
 export const $C_ERROR = "MSGBUS.ERROR" as const;
 
+export const $C_INHERIT = Symbol("*");
+
 export const $SYSTEM_TOPIC = "msgbus" as const;
 
 export type ErrorPayload = {
@@ -81,6 +83,24 @@ export function isOperationCanceledError(error: unknown): error is OperationCanc
     return typeof error === "object" && error !== null && $isOperationCanceledError in error;
 }
 
+export const NO_PROVIDER_ERROR_NAME = "NoProviderError" as const;
+export const $isNoProviderError = Symbol("isNoProviderError");
+
+export class NoProviderError extends BaseError {
+    readonly name: string = NO_PROVIDER_ERROR_NAME;
+    readonly [$isNoProviderError] = true as const;
+    readonly channel: string;
+
+    constructor(channel: string) {
+        super(`No provider registered for channel "${channel}"`);
+        this.channel = channel;
+    }
+}
+
+export function isNoProviderError(error: unknown): error is NoProviderError {
+    return typeof error === "object" && error !== null && $isNoProviderError in error;
+}
+
 export type InChannelStruct = {
     [$CG_IN]: any;
 };
@@ -140,6 +160,8 @@ export type MsgChannelConfig<TChannel> = {
     replayBufferSize?: number;
     replayWindowTime?: number;
 
+    mandatoryProvider?: boolean;
+
     delay?: number;
     throttle?: number | (ThrottleOptions & { duration: number; });
     debounce?: number;
@@ -162,6 +184,8 @@ export type PromiseOptions = {
 
 export type MsgBusConfig<TStruct extends MsgStructBase> = {
     [TChannel in keyof TStruct]?: MsgChannelConfig<TStruct[TChannel]>;
+} & {
+    [$C_INHERIT]?: MsgChannelConfig<any>;
 };
 
 export type MsgAddress<
@@ -378,6 +402,7 @@ export type MsgSender<
 export type MsgRequestOptions = PromiseOptions & {
     sendTimeout?: number;
     responseTimeout?: number;
+    throwIfNoProvider?: boolean;
 };
 
 export type MsgRequestDispatcherParams<

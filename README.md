@@ -296,9 +296,13 @@ type Behavior = {
 You can configure channels with various options:
 
 ```typescript
-import { MsgBusConfig } from '@actdim/msgmesh';
+import { MsgBusConfig, $C_INHERIT } from '@actdim/msgmesh';
 
 const config: MsgBusConfig<MyBusStruct> = {
+    // Default config inherited by all channels (channel-specific overrides win)
+    [$C_INHERIT]: {
+        mandatoryProvider: true,
+    },
     'TEST.COMPUTE_SUM': {
         replayBufferSize: 10, // Number of messages to buffer for replay
         replayWindowTime: 5000, // Time window for replay (ms)
@@ -310,6 +314,7 @@ const config: MsgBusConfig<MyBusStruct> = {
             trailing: true,
         },
         debounce: 500, // Debounce delay (ms)
+        mandatoryProvider: false, // overrides $C_INHERIT for this channel
     },
 };
 
@@ -520,7 +525,7 @@ const taskMsg = await msgBus.once({
 
 #### Timeout Configuration
 
-Configure timeout duration via the `timeout` option. The `abortSignal` option also works with `once()`.
+Configure timeout duration via the `timeout` option (default: `defaultPromiseTimeout` = 5 seconds, configurable globally). The `abortSignal` option also works with `once()`.
 
 ```typescript
 try {
@@ -670,7 +675,9 @@ msgBus.provide({
 
 #### Cancellation Handling
 
-The provider callback receives both the message and constructed headers. When a request is canceled by the caller (via `AbortSignal` in [`request()`](#cancellation)), a cancel message with `headers.status === 'canceled'` is delivered to the provider callback. The provider should check `headers.status` and handle cancellation accordingly. The bus will **not** publish an `out` response for cancel messages.
+The provider callback receives both the message and constructed headers. When a request is canceled by the caller (via `AbortSignal` in [`request()`](#cancellation)), a cancel message with `headers.status === 'canceled'` is delivered to the provider callback. The provider should check `headers.status` and handle cancellation accordingly. The bus **awaits** the callback even for cancel messages (so async cleanup completes), then skips publishing the `out` response.
+
+A provider can also initiate cancellation itself by setting `headers.status = 'canceled'` before returning — the bus will skip the `out` publish and `request()` will reject with `OperationCanceledError`.
 
 For providers that don't need cancellation support, simply check that `headers.status === 'ok'` before doing work:
 
@@ -760,6 +767,21 @@ try {
     }
 }
 
+// Fail immediately if no provider is registered
+try {
+    const response = await msgBus.request({
+        channel: 'TEST.COMPUTE_SUM',
+        payload: { a: 5, b: 15 },
+        options: {
+            throwIfNoProvider: true,
+        },
+    });
+} catch (error) {
+    if (error instanceof NoProviderError) {
+        console.error('No provider registered for channel:', error.channel);
+    }
+}
+
 // With separate send and response timeouts
 const response = await msgBus.request({
     channel: 'TEST.COMPUTE_SUM',
@@ -789,11 +811,13 @@ console.log(response.headers.correlationId); // Preserved correlation ID
 
 1. **Input Type Overloading**: Use different input groups within the same channel to support multiple request signatures while maintaining a single response type.
 
-2. **Timeout Control**: Configure response timeout via the `responseTimeout` option to prevent indefinite waiting.
+2. **Timeout Control**: Configure response timeout via the `responseTimeout` option to prevent indefinite waiting. Default is `defaultPromiseTimeout` (5 seconds), overridable globally via `import { defaultPromiseTimeout } from '@actdim/msgmesh'`.
 
 3. **Header Propagation**: Headers like `correlationId` are automatically propagated from request to response for tracing.
 
 4. **Cancellation**: Cancel in-flight requests with `AbortSignal` (see below).
+
+5. **No-Provider Guard**: Use `throwIfNoProvider: true` in options or `mandatoryProvider: true` in channel config to get an immediate `NoProviderError` instead of waiting for the timeout when no provider is registered.
 
 #### Cancellation
 
@@ -905,6 +929,9 @@ msgBus.on({
         console.error('System error:', msg.payload);
     },
 });
+
+// Subscribe to NoProviderError (thrown synchronously, not routed to error channel)
+// — use try/catch or .catch() on the request() Promise
 
 // Errors in providers are automatically caught and routed
 msgBus.provide({

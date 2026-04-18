@@ -3,7 +3,7 @@ import { TestBusStruct, createTestMsgBus, sharedMsgBus } from "./testDomain";
 import "@/core";
 import { delay, delayError, withTimeout } from "@actdim/utico/utils";
 import { v4 as uuid } from "uuid";
-import { $CG_ERROR, MsgHeaders, OperationCanceledError, TimeoutError } from "@/contracts";
+import { $CG_ERROR, MsgHeaders, MsgStruct, NoProviderError, OperationCanceledError, TimeoutError } from "@/contracts";
 import { createMsgBus } from "@/core";
 import { BaseServiceSuffix, getMsgChannelSelector, MsgProviderAdapter, registerAdapters, ToMsgChannelPrefix, ToMsgStruct } from "@/adapters";
 
@@ -1013,8 +1013,52 @@ describe("msgBus", () => {
             payloadFn: fn => fn(10, 20)
         });
 
-
         abortController.abort();
         expect(response.payload).toBe(30);
+    });
+
+    it("throws NoProviderError when throwIfNoProvider and no provider", async () => {
+        const msgBus = createTestMsgBus();
+
+        await expect(
+            msgBus.request({
+                channel: "Test.ComputeSum",
+                payload: { a: 1, b: 2 },
+                options: { throwIfNoProvider: true }
+            })
+        ).rejects.toBeInstanceOf(NoProviderError);
+    });
+
+    it("throws NoProviderError when mandatoryProvider in channel config and no provider", async () => {
+        type BusStruct = MsgStruct<{
+            "Test.ComputeSum": { in: { a: number; b: number }; out: number };
+        }>;
+        const msgBus = createMsgBus<BusStruct>({
+            "Test.ComputeSum": { mandatoryProvider: true }
+        });
+
+        await expect(
+            msgBus.request({
+                channel: "Test.ComputeSum",
+                payload: { a: 1, b: 2 }
+            })
+        ).rejects.toBeInstanceOf(NoProviderError);
+    });
+
+    it("does not throw NoProviderError when provider is registered", async () => {
+        const msgBus = createTestMsgBus();
+
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: (msg) => msg.payload.a + msg.payload.b
+        });
+
+        const response = await msgBus.request({
+            channel: "Test.ComputeSum",
+            payload: { a: 5, b: 3 },
+            options: { throwIfNoProvider: true }
+        });
+
+        expect(response.payload).toBe(8);
     });
 });

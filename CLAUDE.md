@@ -72,6 +72,23 @@ Both `send()` and `request()` use internal `dispatch()`. `publish()` is a lower-
 
 ### Internal Flow
 
+#### Channel Config Inheritance
+
+`getChannelConfig(channel)` merges `config[$C_INHERIT]` (base) with `config[channel]` (specific). Channel-specific always wins:
+
+```typescript
+return { ...config?.[$C_INHERIT], ...config?.[channel] };
+```
+
+`$C_INHERIT` is a Symbol key (`Symbol("*")`) — use it to set defaults for all channels:
+
+```typescript
+createMsgBus<MyStruct>({
+    [$C_INHERIT]: { mandatoryProvider: true },
+    "Order.Create": { mandatoryProvider: false } // overrides for this channel
+});
+```
+
 #### Subject Routing
 
 Messages are routed via RxJS Subjects stored in `Map<string, Subject>`.
@@ -113,12 +130,27 @@ const headers = { ...msgIn.headers, ...params.headers, inResponseToId: msgIn.hea
 // msgIn.headers first, then provider's static headers override, inResponseToId always wins
 ```
 
-On cancel: `provide()` calls the callback (so provider can react), but does NOT publish `out` response:
+On cancel: `provide()` **awaits** the callback (so provider can do async cleanup), then checks `msgIn.headers?.status === 'canceled'` and does NOT publish `out`:
 ```typescript
+const payload = await Promise.resolve(params.callback(msgIn, headers));
 if (msgIn.headers?.status === 'canceled') {
-    return; // after callback, skip publish to out
+    return; // skip publish to out
 }
 ```
+
+Provider can also initiate cancellation by mutating `headers.status = 'canceled'` inside the callback — `provide()` checks `msgIn.headers.status` for caller-initiated cancel, but the mutated `headers` object flows into `msgOut.headers`, so `request()` will see `status: 'canceled'` in the `out` response and reject with `OperationCanceledError`.
+
+#### request() — No-Provider Check
+
+Before setting up the timeout/promise, `request()` checks for a registered provider if either `options.throwIfNoProvider` is set or the channel config has `mandatoryProvider: true`:
+
+```typescript
+if (options.throwIfNoProvider || channelConfig.mandatoryProvider) {
+    if (!inSubject.observed) throw new NoProviderError(channel);
+}
+```
+
+This is a synchronous snapshot check — it does not guarantee delivery. Use ack for delivery guarantees (planned).
 
 #### request() — Response Handling
 
@@ -127,7 +159,7 @@ if (msgIn.headers?.status === 'canceled') {
 2. `'error'` → reject with `Error` (message from `headers.error`)
 3. Else → set `status = 'ok'`, resolve
 
-**Default timeout**: 2 minutes (`DEFAULT_PROMISE_TIMEOUT = 1000 * 60 * 2`).
+**Default timeout**: 5 seconds (`defaultPromiseTimeout = 1000 * 5`). Override globally: `import { defaultPromiseTimeout } from '@actdim/msgmesh/core'; defaultPromiseTimeout = 10000;`
 
 #### request() — Abort Timing
 
@@ -191,14 +223,16 @@ msgBus.provide({
 - `publish()` sets `status = "ok"` by default if not specified
 - `request()` sends `status: "canceled"` on abort
 - `provide()` errors set `status: "error"`
+- Provider can set `headers.status = 'canceled'` in callback to initiate provider-side cancellation — `provide()` will skip publishing `out`, and `request()` will reject with `OperationCanceledError`
 
 ### Error Types
 
-- `TimeoutError` — timeout exceeded (request, once). Default: 2 minutes.
+- `TimeoutError` — timeout exceeded (request, once). Default: 5 seconds (`defaultPromiseTimeout`).
 - `AbortError` — subscription aborted via AbortSignal (on, once, stream)
 - `OperationCanceledError` — request canceled (request with abortSignal)
+- `NoProviderError` — no provider registered on channel at time of request. Has `.channel` property.
 
-All extend `BaseError`. Use `isTimeoutError()`, `isAbortError()`, `isOperationCanceledError()` type guards.
+All extend `BaseError`. Use `isTimeoutError()`, `isAbortError()`, `isOperationCanceledError()`, `isNoProviderError()` type guards.
 
 ### stream() Specifics
 
@@ -271,6 +305,7 @@ Ignore `mocha.test.ts` — it's a legacy file, fails with "describe is not defin
 - **`send()` uses `dispatch()` internally** but without callback — so it's effectively just a publish with `requestId` generation. The `out` subscription in `dispatch()` only activates when `request()` passes a callback.
 - **Headers spread order in `provide()`**: `{ ...msgIn.headers, ...params.headers, inResponseToId }` — provider's static headers override incoming, but `inResponseToId` always wins.
 - **Cancel message has no payload**: only `{ requestId, status: 'canceled' }` in headers. Provider must handle `msg.payload` being `undefined` for cancel messages.
+- **`throwIfNoProvider`** in `request()` options and **`mandatoryProvider`** in channel config both cause immediate `NoProviderError` if no provider is subscribed at call time. They check `subject.observed` — a snapshot, not a delivery guarantee.
 - **`dispatch()` subscribe-before-publish**: changing this order breaks request-response correlation.
 - **`request()` abort after dispatch**: abort listener is attached after `await dispatch()`, not before. Immediate abort is handled by checking `abortSignal.aborted`.
 - **`asyncScheduler` makes delivery async**: callbacks are never called synchronously within the same `publish()` call. Tests use `await delay()` to let the scheduler process messages.
