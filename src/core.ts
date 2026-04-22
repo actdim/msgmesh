@@ -79,16 +79,25 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
     function handleError(srcMsg: Msg<TStructN>, err: any, respondToRequest?: boolean) {
         // TODO: keep original error only in debug mode
-        // if (err instanceof Error) {
-        //     err = {
-        //         name: err.name,
-        //         message: err.message,
-        //         stack: err.stack,
-        //         cause: err.cause
-        //     };
-        // }
+
+        let errInfo: unknown;
+        if (!import.meta.env.DEV) {
+            if (err instanceof Error) {
+                errInfo = {
+                    name: err.name,
+                    message: err.message,
+                    stack: err.stack,
+                    cause: err.cause
+                };
+            }
+            else {
+                errInfo = JSON.stringify(err);
+            }
+        } else {
+            errInfo = err;
+        }
         const errPayload = ({
-            error: err,
+            error: errInfo,
             source: getMsgInfo(srcMsg)
         } satisfies ErrorPayload) as Msg<TStructN>["payload"];
         let errMsg: Msg<TStructN>;

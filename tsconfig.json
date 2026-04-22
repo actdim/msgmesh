@@ -27,7 +27,7 @@
             "ESNext",
             "DOM",
         ],
-        "types": ["mocha", "chai"],
+        "types": ["mocha", "chai", "vite/client"],
         // "jsx": "react",
         // "jsx": "react-jsx", // vite-specific
         "jsx": "preserve",
