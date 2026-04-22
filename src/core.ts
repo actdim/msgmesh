@@ -78,8 +78,6 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
     }
 
     function handleError(srcMsg: Msg<TStructN>, err: any, respondToRequest?: boolean) {
-        // TODO: keep original error only in debug mode
-
         let errInfo: unknown;
         if (!import.meta.env.DEV) {
             if (err instanceof Error) {
