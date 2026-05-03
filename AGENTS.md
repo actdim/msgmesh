@@ -11,7 +11,7 @@ Part of the @actdim/dynstruct architectural framework.
 ```
 src/
   contracts.ts   — All types, interfaces, error classes (MsgStruct, MsgBus, MsgHeaders, Msg, etc.)
-  core.ts        — Implementation (createMsgBus): publish, subscribe, provide, dispatch, request, stream
+  core.ts        — Implementation (createMsgBus): publish, subscribe, provide, dispatch, request, requestStream, stream
   adapters.ts    — Service adapter system: registerAdapters, ToMsgStruct, ToMsgChannelPrefix, getMsgChannelSelector
   util.ts        — Helpers (delay, throttle options)
 tests/
@@ -70,6 +70,7 @@ Both `send()` and `request()` use internal `dispatch()`. `publish()` is a lower-
 | `stream()` | `subscribe()` + async generator with manual Promise queue |
 | `provide()` | `subscribe()` + auto-publish to `out` |
 | `request()` | `dispatch()` + Promise.race with timeout |
+| `requestStream()` | `subscribe(out)` + `publish(in)` + async generator | Generates `requestId` upfront; subscribes to `out` filtered by `requestId` before publishing; no `fetchCount: 1` on subscription — all provider responses flow through |
 
 `publish()` is a purely internal function — not exposed in the public API. It generates `msg.id`, sets default `status: "ok"`, sets `publishedAt`, and calls `Subject.next()`.
 
@@ -248,6 +249,26 @@ All extend `BaseError`. Use `isTimeoutError()`, `isAbortError()`, `isOperationCa
 - **Timeout is inactivity timeout** (resets on each message), NOT total duration
 - Supports `fetchCount` (max messages) and `abortSignal`
 
+### requestStream() Specifics
+
+Fan-in pattern: one request, multiple provider responses collected as an async stream.
+
+**Critical ordering** (same invariant as `dispatch()`):
+1. Generate `requestId` upfront (`params.headers?.requestId ?? uuid()`)
+2. **Subscribe to `out`** with filter `inResponseToId === requestId` — no `fetchCount: 1`, all provider responses pass through
+3. **Publish to `in`** — providers receive the message and each publishes their response to `out`
+4. Yield each response through the async generator
+
+This subscribe-before-publish order is critical — reversing it would miss responses that arrive synchronously.
+
+**Response status handling** (checked per message, unlike `request()` which checks once):
+- `status: 'error'` → throw `Error`, stop iteration
+- `status: 'canceled'` → throw `OperationCanceledError`, stop iteration
+
+**Timeout** is inactivity timeout (same as `stream()`): resets on each received response. Use `AbortSignal.timeout()` for a hard total limit.
+
+**`throwIfNoProvider`** works the same as in `request()`: synchronous snapshot check on `inSubject.observed`. Also triggered by `mandatoryProvider: true` in channel config.
+
 ### settled Pattern
 
 `once()` and `request()` use a `settled` boolean flag to prevent double resolution of the Promise. Always check `if (settled) return` before resolving/rejecting, and set `settled = true` immediately after.
@@ -336,5 +357,7 @@ If change affects API shape or build artifacts, also run:
 - **`request()` abort after dispatch**: abort listener is attached after `await dispatch()`, not before. Immediate abort is handled by checking `abortSignal.aborted`.
 - **`asyncScheduler` makes delivery async**: callbacks are never called synchronously within the same `publish()` call. Tests use `await delay()` to let the scheduler process messages.
 - **Conflating `msg.id` with `headers.requestId`**: `msg.id` is transport ID (unique per publish), `requestId` is logical request ID (shared between request and its cancel message).
-- **`stream()` timeout is inactivity timeout**, not total duration — resets on each received message.
-- **Provider exceptions propagate to `request()`**: `provide()` catch publishes to `out` with `status: 'error'` when `requestId` is present, so `request()` rejects immediately instead of timing out.
+- **`stream()` timeout is inactivity timeout**, not total duration — resets on each received message. Same applies to `requestStream()`.
+- **Provider exceptions propagate to `request()`**: `provide()` catch publishes to `out` with `status: 'error'` when `requestId` is present, so `request()` rejects immediately instead of timing out. Same for `requestStream()` — a provider error throws from the generator and stops iteration.
+- **`requestStream()` subscribe-before-publish**: `requestId` is generated upfront so the `out` subscription filter can be set before publishing to `in`. Reversing this order would miss synchronous responses.
+- **`requestStream()` vs `request()`**: `request()` uses `fetchCount: 1` on the subscription (takes first response only). `requestStream()` has no `fetchCount` on the subscription — all provider responses arrive; `fetchCount` in options controls how many the generator yields before stopping.

@@ -24,6 +24,8 @@ import {
     MsgProvider,
     MsgSender,
     MsgRequestDispatcher,
+    MsgRequestStream,
+    MsgRequestStreamParams,
     MsgSenderParams,
     OutChannelStruct,
     NoProviderError,
@@ -569,6 +571,145 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         })]);
     }
 
+    async function* requestStream(params: MsgRequestStreamParams<TStructN>) {
+        const channel = String(params.channel);
+        const inGroup = params.group == undefined ? $CG_IN : String(params.group);
+        const channelConfig = getChannelConfig(channel);
+        const inSubject = getOrCreateSubject(channel, inGroup);
+
+        if (!inSubject.observed) {
+            console.warn(`[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`);
+            if (params.options?.throwIfNoProvider || channelConfig?.mandatoryProvider) {
+                throw new NoProviderError(channel);
+            }
+        }
+
+        const timeout = params.options?.timeout;
+        const abortSignal = params.options?.abortSignal;
+        const streamEnd = Symbol("stream-end");
+        let aborted = false;
+
+        let pendingResolve: ((msg: Msg<TStructN> | typeof streamEnd) => void) | null = null;
+        let pendingReject: ((error: any) => void) | null = null;
+        let timeoutId: any = null;
+        let messageCount = 0;
+        const fetchCount = params.options?.fetchCount;
+
+        const resetTimeout = () => {
+            if (timeoutId) {
+                clearTimeout(timeoutId);
+                timeoutId = null;
+            }
+            if (timeout && timeout !== Infinity) {
+                timeoutId = setTimeout(() => {
+                    if (pendingReject) {
+                        pendingReject(new TimeoutError());
+                        pendingReject = null;
+                        pendingResolve = null;
+                    }
+                }, timeout);
+            }
+        };
+
+        const resolvePendingAsEnded = () => {
+            if (pendingResolve) {
+                pendingResolve(streamEnd);
+                pendingResolve = null;
+                pendingReject = null;
+            }
+        };
+
+        const requestId = params.headers?.requestId ?? uuid();
+
+        let payload: any;
+        if (params.payloadFn) {
+            params.payloadFn((...args) => { payload = args; });
+        } else {
+            payload = params.payload;
+        }
+
+        // Subscribe to out BEFORE publishing to in (same ordering as dispatch())
+        const subParams: MsgSubParams<TStructN, keyof TStructN, keyof OutChannelStruct> = {
+            channel: params.channel,
+            group: $CG_OUT,
+            topic: params.topic,
+            filter: (msgOut) => msgOut.headers.inResponseToId === requestId && (!params.filter || params.filter(msgOut as any)),
+            options: {
+                throttle: params.options?.throttle,
+                debounce: params.options?.debounce,
+            },
+            callback: (msg) => {
+                resetTimeout();
+                if (pendingResolve) {
+                    pendingResolve(msg);
+                    pendingResolve = null;
+                    pendingReject = null;
+                }
+            }
+        };
+
+        const unsubscribe = subscribe(subParams);
+
+        await publish({
+            address: {
+                channel: params.channel,
+                group: params.group,
+                topic: params.topic
+            },
+            headers: {
+                requestId,
+                ...params.headers
+            },
+            payload
+        });
+
+        let onAbort: (() => void) | null = null;
+        if (abortSignal) {
+            onAbort = () => {
+                aborted = true;
+                unsubscribe();
+                resolvePendingAsEnded();
+            };
+            if (abortSignal.aborted) {
+                onAbort();
+            } else {
+                abortSignal.addEventListener("abort", onAbort);
+            }
+        }
+
+        resetTimeout();
+
+        try {
+            while ((!fetchCount || messageCount < fetchCount) && !aborted) {
+                const msg = await new Promise<Msg<TStructN> | typeof streamEnd>((resolve, reject) => {
+                    pendingResolve = resolve;
+                    pendingReject = reject;
+                });
+
+                if (msg === streamEnd) break;
+
+                if (msg.headers?.status === 'canceled') {
+                    throw createOperationCanceledError(msg, "The request was canceled by the provider");
+                } else if (msg.headers?.status === 'error') {
+                    const errHeader = msg.headers.error;
+                    const errMessage = typeof errHeader === "string"
+                        ? errHeader
+                        : errHeader?.message ?? "Unknown error";
+                    throw new Error(errMessage, { cause: msg });
+                }
+
+                messageCount++;
+                yield msg;
+            }
+        } finally {
+            if (timeoutId) clearTimeout(timeoutId);
+            if (onAbort && abortSignal) {
+                abortSignal.removeEventListener("abort", onAbort);
+            }
+            unsubscribe();
+        }
+    }
+
     // : AsyncIterableIterator<Msg<TStructN>>
     async function* stream(params: MsgStreamParams<TStructN>) {
         const timeout = params.options?.timeout;
@@ -670,7 +811,8 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         stream: stream as MsgStream<TStructN, THeaders>,
         provide: provide as MsgProvider<TStructN, THeaders>,
         send: dispatch as MsgSender<TStructN, THeaders>,
-        request: request as MsgRequestDispatcher<TStructN, THeaders>
+        request: request as MsgRequestDispatcher<TStructN, THeaders>,
+        requestStream: requestStream as MsgRequestStream<TStructN, THeaders>
     };
 
     // msgBus[$subjects] = subjects;

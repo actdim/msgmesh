@@ -31,6 +31,7 @@
     - [Provider-Side Cancellation](#cancellation-handling)
   - [`request()`](#request-response-pattern-request)
     - [Request Cancellation](#cancellation)
+  - [`requestStream()`](#fan-in-streaming-pattern-requeststream)
 - [Advanced Features](#advanced-features)
   - [Message Replay](#message-replay)
   - [Throttling and Debouncing](#throttling-and-debouncing)
@@ -289,7 +290,8 @@ type Behavior = {
 | `once()` | Await a single message (Promise-based) |
 | `stream()` | Consume messages as an async iterable |
 | `provide()` | Register a request handler (auto-responds on `out`) |
-| `request()` | Send a request and await a response |
+| `request()` | Send a request and await a single response |
+| `requestStream()` | Send a request and consume all responses as an async iterable (Fan-in) |
 
 ### Configuration
 
@@ -846,6 +848,102 @@ try {
 } catch (error) {
     // OperationCanceledError: The request was canceled by the caller
     console.error(error.message);
+}
+```
+
+### Fan-in Streaming Pattern: `requestStream()`
+
+Send a request and consume all responses as an async iterable. Unlike `request()` which takes only the first response, `requestStream()` collects responses from **all registered providers** on the channel — enabling Fan-in patterns where multiple workers process the same request and report back.
+
+```typescript
+// Multiple providers registered on the same channel
+msgBus.provide({
+    channel: 'DATA.FETCH',
+    callback: async (msg) => fetchFromSourceA(msg.payload),
+});
+msgBus.provide({
+    channel: 'DATA.FETCH',
+    callback: async (msg) => fetchFromSourceB(msg.payload),
+});
+
+// Collect all responses
+const results: DataResult[] = [];
+
+for await (const msg of msgBus.requestStream({
+    channel: 'DATA.FETCH',
+    payload: { query: 'search term' },
+    options: { fetchCount: 2 }, // stop after 2 responses
+})) {
+    results.push(msg.payload);
+}
+```
+
+#### Options
+
+`requestStream()` supports the same options as `stream()` plus `throwIfNoProvider`:
+
+- **`fetchCount`** — stop after N responses (otherwise streams until timeout or abort)
+- **`timeout`** — inactivity timeout in ms (resets on each received response)
+- **`abortSignal`** — abort the stream externally
+- **`throwIfNoProvider`** — throw `NoProviderError` immediately if no provider is registered (also triggered by `mandatoryProvider: true` in channel config)
+- **`throttle`** / **`debounce`** — applied to the `out` subscription
+
+```typescript
+// With timeout and fetchCount
+for await (const msg of msgBus.requestStream({
+    channel: 'SEARCH.QUERY',
+    payload: { term: 'typescript' },
+    options: {
+        fetchCount: 10,    // at most 10 results
+        timeout: 3000,     // stop if no new result for 3s
+    },
+})) {
+    displayResult(msg.payload);
+}
+
+// With abort
+const abortController = new AbortController();
+
+const streamTask = (async () => {
+    for await (const msg of msgBus.requestStream({
+        channel: 'DATA.FETCH',
+        payload: { query: 'all' },
+        options: { abortSignal: abortController.signal },
+    })) {
+        if (isEnough(msg.payload)) {
+            abortController.abort(); // stops iteration cleanly
+            break;
+        }
+    }
+})();
+```
+
+#### Key Differences from `request()`
+
+| | `request()` | `requestStream()` |
+|--|-------------|-------------------|
+| Return | `Promise<Msg>` | `AsyncIterableIterator<Msg>` |
+| Responses | First one wins | All providers respond |
+| Completion | On first response | `fetchCount` / timeout / abort |
+| Use case | Single provider RPC | Fan-in / multi-provider aggregation |
+
+#### Error Handling
+
+If a provider responds with `status: 'error'`, the generator throws `Error`. If `status: 'canceled'`, it throws `OperationCanceledError`. Both stop the iteration.
+
+```typescript
+try {
+    for await (const msg of msgBus.requestStream({
+        channel: 'DATA.FETCH',
+        payload: { query: 'test' },
+        options: { throwIfNoProvider: true },
+    })) {
+        process(msg.payload);
+    }
+} catch (err) {
+    if (err instanceof NoProviderError) console.error('No provider:', err.channel);
+    if (err instanceof TimeoutError) console.error('Timed out');
+    if (err instanceof OperationCanceledError) console.error('Canceled');
 }
 ```
 

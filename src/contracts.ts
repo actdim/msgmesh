@@ -405,6 +405,10 @@ export type MsgRequestOptions = PromiseOptions & {
     throwIfNoProvider?: boolean;
 };
 
+export type MsgRequestStreamOptions = MsgStreamOptions & {
+    throwIfNoProvider?: boolean;
+};
+
 export type MsgRequestDispatcherParams<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
@@ -429,6 +433,31 @@ export type MsgRequestDispatcher<
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
         params: MsgRequestDispatcherParams<TStruct, TChannel, TGroup, THeaders>
     ): Promise<Msg<TStruct, TChannel, keyof OutChannelStruct>>;
+};
+
+export type MsgRequestStreamParams<
+    TStruct extends MsgStructBase = MsgStructBase,
+    TChannel extends keyof TStruct = keyof TStruct,
+    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
+    THeaders extends MsgHeaders = MsgHeaders
+> = MsgAddress<TStruct, TChannel, TGroup> & {
+    channelSelector?: string | ((channel: string) => boolean);
+    payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
+    payloadFn?: IsTuple<TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]> extends true
+    ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
+    : never;
+    options?: MsgRequestStreamOptions;
+    filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
+    headers?: THeaders;
+};
+
+export type MsgRequestStream<
+    TStruct extends MsgStructBase,
+    THeaders extends MsgHeaders = MsgHeaders
+> = {
+    <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
+        params: MsgRequestStreamParams<TStruct, TChannel, TGroup, THeaders>
+    ): AsyncIterableIterator<Msg<TStruct, TChannel, keyof OutChannelStruct>>;
 };
 
 export type MsgChannelStructNormalized<TStruct extends MsgChannelStruct> = {
@@ -456,6 +485,8 @@ export type MsgBus<TStruct extends MsgStructBase, THeaders extends MsgHeaders = 
     readonly send: MsgSender<MsgStructNormalized<TStruct>, THeaders>;
     // publish + subscribe
     readonly request: MsgRequestDispatcher<MsgStructNormalized<TStruct>, THeaders>;
+    // publish + stream of responses
+    readonly requestStream: MsgRequestStream<MsgStructNormalized<TStruct>, THeaders>;
 
     /**
      * @internal

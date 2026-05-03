@@ -1079,4 +1079,127 @@ describe("msgBus", () => {
             })
         ).rejects.toThrow("provider failure");
     });
+
+    it("can requestStream from multiple providers", async () => {
+        const msgBus = createTestMsgBus();
+        const results: number[] = [];
+
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: (msg) => msg.payload.a + msg.payload.b
+        });
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: (msg) => (msg.payload.a + msg.payload.b) * 2
+        });
+
+        const streamTask = (async () => {
+            for await (const msg of msgBus.requestStream({
+                channel: "Test.ComputeSum",
+                payload: { a: 3, b: 7 },
+                options: { fetchCount: 2 }
+            })) {
+                results.push(msg.payload);
+            }
+        })();
+
+        await Promise.race([streamTask, delay(timeout)]);
+
+        expect(results.length).toBe(2);
+        expect(results).toContain(10);
+        expect(results).toContain(20);
+    });
+
+    it("can requestStream with fetchCount", async () => {
+        const msgBus = createTestMsgBus();
+        const results: number[] = [];
+        const providerCount = 5;
+
+        for (let i = 0; i < providerCount; i++) {
+            const multiplier = i + 1;
+            msgBus.provide({
+                channel: "Test.ComputeSum",
+                callback: (msg) => (msg.payload.a + msg.payload.b) * multiplier
+            });
+        }
+
+        const fetchCount = 3;
+        const streamTask = (async () => {
+            for await (const msg of msgBus.requestStream({
+                channel: "Test.ComputeSum",
+                payload: { a: 1, b: 1 },
+                options: { fetchCount }
+            })) {
+                results.push(msg.payload);
+            }
+        })();
+
+        await Promise.race([streamTask, delay(timeout)]);
+
+        expect(results.length).toBe(fetchCount);
+    });
+
+    it("can requestStream with inactivity timeout", async () => {
+        const msgBus = createTestMsgBus();
+        let streamError: any;
+
+        const streamTask = (async () => {
+            try {
+                for await (const _msg of msgBus.requestStream({
+                    channel: "Test.ComputeSum",
+                    payload: { a: 1, b: 2 },
+                    options: { timeout: 50 }
+                })) {
+                    // no provider, never receives
+                }
+            } catch (err) {
+                streamError = err;
+            }
+        })();
+
+        await Promise.race([streamTask, delay(timeout)]);
+
+        expect(streamError).toBeInstanceOf(TimeoutError);
+    });
+
+    it("can abort requestStream", async () => {
+        const msgBus = createTestMsgBus();
+        const results: number[] = [];
+        const abortController = new AbortController();
+        let streamCompleted = false;
+
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: (msg) => msg.payload.a + msg.payload.b
+        });
+
+        const streamTask = (async () => {
+            for await (const msg of msgBus.requestStream({
+                channel: "Test.ComputeSum",
+                payload: { a: 2, b: 3 },
+                options: { abortSignal: abortController.signal }
+            })) {
+                results.push(msg.payload);
+                abortController.abort();
+            }
+            streamCompleted = true;
+        })();
+
+        await Promise.race([streamTask, delay(timeout)]);
+
+        expect(results.length).toBe(1);
+        expect(streamCompleted).toBe(true);
+    });
+
+    it("requestStream throws NoProviderError when throwIfNoProvider and no provider", async () => {
+        const msgBus = createTestMsgBus();
+
+        const gen = msgBus.requestStream({
+            channel: "Test.ComputeSum",
+            payload: { a: 1, b: 2 },
+            options: { throwIfNoProvider: true }
+        });
+
+        await expect(gen.next()).rejects.toBeInstanceOf(NoProviderError);
+    });
 });
