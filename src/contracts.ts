@@ -133,7 +133,15 @@ export type MsgStructBase = Record<string, MsgChannelStruct> & SystemMsgStruct;
 
 // Factory type
 export type MsgStruct<TStruct extends MsgStructBase = MsgStructBase> = {
-    [C in keyof TStruct]: TStruct[C] & Partial<ErrorChannelStruct>;
+    [C in keyof TStruct]: TStruct[C] & Partial<ErrorChannelStruct> &
+    (typeof $CG_OUT extends keyof TStruct[C] ? {} : {
+        // unknown?
+        [$CG_OUT]?: void // enforces explicit out type declaration when payload matters
+    }) &
+    (typeof $CG_IN extends keyof TStruct[C] ? {} : {
+        // unknown?
+        [$CG_IN]?: void // enforces explicit in type declaration when payload matters
+    });
 } & SystemMsgStruct;
 
 export type InStruct<TStruct extends MsgStructBase, TChannel extends keyof TStruct> = TStruct[TChannel] extends InChannelStruct
