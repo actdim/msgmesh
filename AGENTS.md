@@ -58,6 +58,13 @@ type MyBus = MsgStruct<{
 
 `out` types should NOT be wrapped in `Promise` — async is handled at the API level.
 
+`MsgStruct<>` adds three implicit groups to every channel if not declared explicitly:
+- `error?: ErrorPayload` — always added (channel-specific errors)
+- `out?: void` — added when `out` is missing; `void` enforces explicit type declaration when payload matters
+- `in?: void` — added when `in` is missing; same rationale
+
+This means `group: "out"` is always a valid subscription target even if `out` is not in the channel struct.
+
 ### Public API vs Internal Functions
 
 Both `send()` and `request()` use internal `dispatch()`. `publish()` is a lower-level internal function.
