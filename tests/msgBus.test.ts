@@ -3,7 +3,7 @@ import { TestBusStruct, createTestMsgBus, sharedMsgBus } from "./testDomain";
 import "@/core";
 import { delay, delayError, withTimeout } from "@actdim/utico/utils";
 import { v4 as uuid } from "uuid";
-import { $CG_ERROR, MsgHeaders, MsgStruct, NoProviderError, OperationCanceledError, TimeoutError } from "@/contracts";
+import { MsgHeaders, MsgStruct, NoProviderError, OperationCanceledError, Outcome, TimeoutError } from "@/contracts";
 import { createMsgBus } from "@/core";
 import { BaseServiceSuffix, getMsgChannelSelector, MsgProviderAdapter, registerAdapters, ToMsgChannelPrefix, ToMsgStruct } from "@/adapters";
 
@@ -74,7 +74,7 @@ describe("msgBus", () => {
 
     it("can subscribe", async () => {
         let c = 0;
-        const msgBus = createMsgBus();
+        const msgBus = createTestMsgBus();
         msgBus.on({
             channel: "Test.DoSomeWork",
             callback: async (msg) => {
@@ -863,11 +863,11 @@ describe("msgBus", () => {
                 const requestId = headers.requestId;
 
                 // Cancel message — mark the request as canceled
-                if (headers?.status === 'canceled') {
+                if (headers?.outcome === 'canceled' satisfies Outcome) {
                     if (requestId && cancelFlags.has(requestId)) {
                         cancelFlags.set(requestId, true);
                     }
-                    return undefined as any;
+                    return undefined;
                 }
 
                 // Normal request — register in cancel tracking
@@ -881,7 +881,7 @@ describe("msgBus", () => {
                     if (cancelFlags.get(requestId)) {
                         providerWorkAborted = true;
                         cancelFlags.delete(requestId);
-                        return undefined as any;
+                        return undefined;
                     }
                 }
 

@@ -2,7 +2,7 @@
 //# Copyright (c) Pavel Borodaev 2022                                         #
 //##############################################################################
 // SafeBus
-import { IsTuple, MaybePromise } from "@actdim/utico/typeCore";
+import { Func, HasKeys, IsTuple, MaybePromise } from "@actdim/utico/typeCore";
 import { ThrottleOptions } from "./util";
 
 export const $CG_IN = "in" as const;
@@ -13,7 +13,7 @@ export const $CG_ERROR = "error" as const;
 
 export const $C_ERROR = "MSGBUS.ERROR" as const;
 
-export const $C_INHERIT = Symbol("*");
+export const $C_ANY = "*" as const; // $C_ALL
 
 export const $SYSTEM_TOPIC = "msgbus" as const;
 
@@ -124,9 +124,7 @@ export type SystemMsgStruct = {
     [$C_ERROR]?: {
         [$CG_IN]: ErrorPayload;
     };
-    // "*": {
-    //     [$CG_IN]: any;
-    // };
+    "*"?: never;
 };
 
 export type MsgStructBase = Record<string, MsgChannelStruct> & SystemMsgStruct;
@@ -193,7 +191,9 @@ export type PromiseOptions = {
 export type MsgBusConfig<TStruct extends MsgStructBase> = {
     [TChannel in keyof TStruct]?: MsgChannelConfig<TStruct[TChannel]>;
 } & {
-    [$C_INHERIT]?: MsgChannelConfig<any>;
+    /** Default config applied to all channels. Channel-specific config always wins.
+     * Can be a static object or a function that receives the channel name and returns config. */
+    [$C_ANY]?: MsgChannelConfig<any> | ((channel: string) => MsgChannelConfig<any>);
 };
 
 export type MsgAddress<
@@ -208,10 +208,20 @@ export type MsgAddress<
     version?: string;
 };
 
-export type ResponseStatus = "ok" | "error" | "canceled" | "timeout";
+// export type ResponseStatus = "ok" | "error" | "canceled" | "timeout";
+
+export type Outcome =
+    | 'success'
+    | 'failure'
+    | 'canceled'
+    | 'skipped'
+    | 'timeout'
+    | 'unknown';
+
 export type MsgHeaders = {
 
-    status?: ResponseStatus;
+    status?: string;
+    outcome?: string;
     // similar to inReplyToId
     inResponseToId?: string;
     version?: string; // schemaVersion
@@ -219,30 +229,34 @@ export type MsgHeaders = {
     requestId?: string;
 
     // routing hints
+    /** Stable id of the component, service, store, route, or worker that emitted the message. */
     sourceId?: string; // senderId/producerId
     targetId?: string; // receiverId/recipientId
 
-    originId?: string;
+    correlationId?: string;
 
-    correlationId?: string; // activityId
-    traceId?: string;
+    /** Message creation time as Unix timestamp in milliseconds. */
+    timestamp?: number; // publishedAt
 
-    // timestamp (unix epoch, ms):
-    publishedAt?: number;
+    /** Stable machine-readable name of what happened. */
+    name?: string; // eventName
+    severity?: string; // logLevel
 
     priority?: number;
     persistent?: boolean; // durable? (for durable queue)
 
     tags?: string | string[];
 
-    auth?: {
-        userId?: string;
-        token?: string;
-    }
-
-    absoluteExpiration?: number;
     ttl?: number;
+    absoluteExpiration?: number;
     slidingExpiration?: number;
+
+    // OTel:
+    /** Trace id used to correlate this message with a distributed trace. */
+    traceId?: string;
+
+    /** Span id used to correlate this message with a specific operation/span. */
+    spanId?: string; // activityId, operationId
 
     // discard policy (for dead-letter)?
 
@@ -253,12 +267,19 @@ export type MsgHeaders = {
     // retryCount?: number;
     // deliveryAttempt?: number;
 
-    // audience
-    // intent    
+    // common extensions:
+    // code
+    // category
+    // group    
     // subject
-    // group
+    // audience            
     // schema
     // scope
+    // ownerId
+    // originId
+    // accessLevel
+    // presentation
+
     error?: string | {
         code?: string | number;
         message?: string;
@@ -277,7 +298,7 @@ export type Msg<
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
 > = {
-    // transportId
+    /** Stable unique id for deduplication, updates, and dismissal. */
     id?: string;
     address: MsgAddress<TStruct, TChannel, TGroup>;
     payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
@@ -473,7 +494,7 @@ export type MsgChannelStructNormalized<TStruct extends MsgChannelStruct> = {
 };
 
 export type MsgStructNormalized<TStruct extends MsgStructBase> = {
-    [C in keyof TStruct]: MsgChannelStructNormalized<TStruct[C]>;
+    [C in keyof TStruct as HasKeys<TStruct[C]> extends false ? never : C]: MsgChannelStructNormalized<TStruct[C]>;
 };
 
 export const $TypeArgStruct = Symbol("<TStruct>");

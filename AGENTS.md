@@ -85,20 +85,31 @@ Both `send()` and `request()` use internal `dispatch()`. `publish()` is a lower-
 
 #### Channel Config Inheritance
 
-`getChannelConfig(channel)` merges `config[$C_INHERIT]` (base) with `config[channel]` (specific). Channel-specific always wins:
+`getChannelConfig(channel)` merges `config["*"]` (base) with `config[channel]` (specific). Channel-specific always wins:
 
 ```typescript
-return { ...config?.[$C_INHERIT], ...config?.[channel] };
+const base = config?.[$C_ANY];
+const defaults = typeof base === "function" ? base(channel) : base;
+return { ...defaults, ...config?.[channel] };
 ```
 
-`$C_INHERIT` is a Symbol key (`Symbol("*")`) — use it to set defaults for all channels:
+`$C_ANY` is the exported constant for the `"*"` key. Use it, or write `"*"` directly in the config object, to set defaults for all channels:
 
 ```typescript
+// Static default
 createMsgBus<MyStruct>({
-    [$C_INHERIT]: { mandatoryProvider: true },
+    "*": { mandatoryProvider: true },
     "Order.Create": { mandatoryProvider: false } // overrides for this channel
 });
+
+// Dynamic default — function receives the channel name
+createMsgBus<MyStruct>({
+    "*": (channel) => ({ mandatoryProvider: channel.startsWith("Api.") }),
+    "Order.Create": { mandatoryProvider: false }
+});
 ```
+
+`"*"` is reserved — cannot be used as a channel name. Enforced at the type level via `"*"?: never` in `SystemMsgStruct`.
 
 #### Subject Routing
 

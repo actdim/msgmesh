@@ -298,11 +298,11 @@ type Behavior = {
 You can configure channels with various options:
 
 ```typescript
-import { MsgBusConfig, $C_INHERIT } from '@actdim/msgmesh';
+import { MsgBusConfig } from '@actdim/msgmesh';
 
 const config: MsgBusConfig<MyBusStruct> = {
-    // Default config inherited by all channels (channel-specific overrides win)
-    [$C_INHERIT]: {
+    // Static default config applied to all channels (channel-specific overrides win)
+    "*": {
         mandatoryProvider: true,
     },
     'TEST.COMPUTE_SUM': {
@@ -316,12 +316,27 @@ const config: MsgBusConfig<MyBusStruct> = {
             trailing: true,
         },
         debounce: 500, // Debounce delay (ms)
-        mandatoryProvider: false, // overrides $C_INHERIT for this channel
+        mandatoryProvider: false, // overrides "*" for this channel
     },
 };
 
 const msgBus = createMsgBus<MyBusStruct>(config);
 ```
+
+You can also pass a function as `"*"` to compute per-channel defaults dynamically:
+
+```typescript
+const config: MsgBusConfig<MyBusStruct> = {
+    "*": (channel) => ({
+        mandatoryProvider: channel.startsWith('Api.'),
+    }),
+    'TEST.COMPUTE_SUM': {
+        mandatoryProvider: false, // overrides the function result for this channel
+    },
+};
+```
+
+> **Note**: `"*"` is reserved and cannot be used as a channel name in your bus struct.
 
 ### Sending Messages: `send()`
 
