@@ -208,20 +208,17 @@ export type MsgAddress<
     version?: string;
 };
 
-// export type ResponseStatus = "ok" | "error" | "canceled" | "timeout";
-
-export type Outcome =
-    | 'success'
-    | 'failure'
+export type MsgStatus =
+    | 'handled'
+    | 'failed'
     | 'canceled'
     | 'skipped'
     | 'timeout'
-    | 'unknown';
+    // 'unknown'
+    | 'pending';
 
 export type MsgHeaders = {
 
-    status?: string;
-    outcome?: string;
     // similar to inReplyToId
     inResponseToId?: string;
     version?: string; // schemaVersion
@@ -268,6 +265,7 @@ export type MsgHeaders = {
     // deliveryAttempt?: number;
 
     // common extensions:
+    // outcome
     // code
     // category
     // group    
@@ -286,11 +284,8 @@ export type MsgHeaders = {
     }
 };
 
-// TODO: support MsgStatus
-// export type MsgStatus = "pending" | "sent" | "delivered" | "processed" | "failed" | "expired";
-
 // TODO: support ack/nack
-// TODO: integrate with https://github.com/connor4312/cockatiel 
+// TODO: integrate with https://github.com/connor4312/cockatiel
 // MsgEnvelope
 export type Msg<
     TStruct extends MsgStructBase = MsgStructBase,
@@ -302,8 +297,8 @@ export type Msg<
     id?: string;
     address: MsgAddress<TStruct, TChannel, TGroup>;
     payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
-    // payload?: TStruct[TChannel][TGroup];
     headers?: THeaders;
+    status?: MsgStatus;
 };
 
 export type MsgSubBaseParams<
@@ -385,8 +380,7 @@ export type MsgProviderParams<
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
     THeaders extends MsgHeaders = MsgHeaders
 > = MsgSubBaseParams<TStruct, TChannel, TGroup, THeaders> & {
-    // resolve
-    callback?: (msgIn: Msg<TStruct, TChannel, TGroup, THeaders>, headers?: THeaders) => MaybePromise<OutStruct<TStruct, TChannel>>;
+    callback?: (inMsg: Msg<TStruct, TChannel, TGroup, THeaders>, outMsg: Msg<TStruct, TChannel, keyof OutChannelStruct, THeaders>) => MaybePromise<OutStruct<TStruct, TChannel> | undefined>;
     options?: MsgProviderOptions;
     headers?: THeaders;
 };

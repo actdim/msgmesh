@@ -3,7 +3,7 @@ import { TestBusStruct, createTestMsgBus, sharedMsgBus } from "./testDomain";
 import "@/core";
 import { delay, delayError, withTimeout } from "@actdim/utico/utils";
 import { v4 as uuid } from "uuid";
-import { MsgHeaders, MsgStruct, NoProviderError, OperationCanceledError, Outcome, TimeoutError } from "@/contracts";
+import { MsgHeaders, MsgStruct, NoProviderError, OperationCanceledError, TimeoutError } from "@/contracts";
 import { createMsgBus } from "@/core";
 import { BaseServiceSuffix, getMsgChannelSelector, MsgProviderAdapter, registerAdapters, ToMsgChannelPrefix, ToMsgStruct } from "@/adapters";
 
@@ -367,23 +367,23 @@ describe("msgBus", () => {
     it("can subscribe using 'onceAsync'", async (ctx) => {
         let data = testData[0];
         const test = async () => {
-            const msgIn = await sharedMsgBus.once({
+            const inMsg = await sharedMsgBus.once({
                 channel: "Test.ComputeSum"
             });
 
-            const msgId = msgIn.id;
-            expect(msgIn.headers.correlationId).toBe(data.id);
-            expect(msgIn.payload.a).toBe(data.a);
-            expect(msgIn.payload.b).toBe(data.b);
+            const msgId = inMsg.id;
+            expect(inMsg.headers.correlationId).toBe(data.id);
+            expect(inMsg.payload.a).toBe(data.a);
+            expect(inMsg.payload.b).toBe(data.b);
 
-            const msgOut = await sharedMsgBus.once({
+            const outMsg = await sharedMsgBus.once({
                 channel: "Test.ComputeSum",
                 group: "out"
             });
 
-            expect(msgOut.headers.requestId).toBe(msgId);
-            expect(msgOut.headers.correlationId).toBe(data.id);
-            expect(msgOut.payload).toBe(computeSum(data));
+            expect(outMsg.headers.requestId).toBe(msgId);
+            expect(outMsg.headers.correlationId).toBe(data.id);
+            expect(outMsg.payload).toBe(computeSum(data));
         };
 
         sharedMsgBus.send({
@@ -859,11 +859,11 @@ describe("msgBus", () => {
 
         msgBus.provide({
             channel: "Test.ComputeSum",
-            callback: async (msg, headers) => {
-                const requestId = headers.requestId;
+            callback: async (msg, outMsg) => {
+                const requestId = outMsg.headers.requestId;
 
                 // Cancel message — mark the request as canceled
-                if (headers?.outcome === 'canceled' satisfies Outcome) {
+                if (msg.status === 'canceled') {
                     if (requestId && cancelFlags.has(requestId)) {
                         cancelFlags.set(requestId, true);
                     }
@@ -1201,5 +1201,92 @@ describe("msgBus", () => {
         });
 
         await expect(gen.next()).rejects.toBeInstanceOf(NoProviderError);
+    });
+
+    it("supports chain of responsibility via outMsg.status = 'skipped'", async () => {
+        const msgBus = createTestMsgBus();
+        const handled: string[] = [];
+
+        // Provider A: handles only even sums, skips odd
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: (msg, outMsg) => {
+                const sum = msg.payload.a + msg.payload.b;
+                if (sum % 2 !== 0) {
+                    outMsg.status = 'skipped';
+                    return undefined;
+                }
+                handled.push('A');
+                return sum * 10;
+            }
+        });
+
+        // Provider B: handles only odd sums, skips even
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: (msg, outMsg) => {
+                const sum = msg.payload.a + msg.payload.b;
+                if (sum % 2 === 0) {
+                    outMsg.status = 'skipped';
+                    return undefined;
+                }
+                handled.push('B');
+                return sum * 100;
+            }
+        });
+
+        // even sum (2+4=6) → Provider A handles, Provider B skips
+        const r1 = await msgBus.request({
+            channel: "Test.ComputeSum",
+            payload: { a: 2, b: 4 },
+        });
+        expect(r1.payload).toBe(60);
+        expect(handled).toEqual(['A']);
+
+        handled.length = 0;
+
+        // odd sum (3+4=7) → Provider A skips, Provider B handles
+        const r2 = await msgBus.request({
+            channel: "Test.ComputeSum",
+            payload: { a: 3, b: 4 },
+        });
+        expect(r2.payload).toBe(700);
+        expect(handled).toEqual(['B']);
+    });
+
+    it("subscriber mutations do not affect other subscribers", async () => {
+        const msgBus = createTestMsgBus();
+        const received: { status: string; headersSourceId: string }[] = [];
+
+        msgBus.on({
+            channel: "Test.ComputeSum",
+            callback: (msg) => {
+                msg.status = 'skipped';
+                msg.headers.sourceId = 'mutated-by-A';
+                received.push({ status: msg.status, headersSourceId: msg.headers.sourceId });
+            }
+        });
+
+        msgBus.on({
+            channel: "Test.ComputeSum",
+            callback: (msg) => {
+                received.push({ status: msg.status, headersSourceId: msg.headers?.sourceId });
+            }
+        });
+
+        msgBus.send({
+            channel: "Test.ComputeSum",
+            payload: { a: 1, b: 2 },
+            headers: { sourceId: 'original' }
+        });
+
+        await delay(50);
+
+        expect(received).toHaveLength(2);
+        // subscriber B sees the original envelope, not A's mutations
+        const b = received.find(r => r.headersSourceId !== 'mutated-by-A');
+        expect(b).toBeDefined();
+        expect(b.headersSourceId).toBe('original');
+        expect(b.status).toBe('pending'); // default from publish(), not A's 'skipped'
     });
 });

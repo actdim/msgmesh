@@ -30,7 +30,7 @@ import {
     OutChannelStruct,
     NoProviderError,
     $C_ANY,
-    Outcome
+    MsgStatus
 } from "./contracts";
 import { v4 as uuid } from "uuid";
 import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, OperatorFunction, SchedulerLike } from "rxjs";
@@ -123,10 +123,10 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         if (respondToRequest && srcMsg.headers?.requestId) {
             publish({
                 address: { channel: srcMsg.address.channel, group: $CG_OUT, topic: srcMsg.address.topic },
+                status: 'failed' satisfies MsgStatus,
                 headers: {
                     ...srcMsg.headers,
                     inResponseToId: srcMsg.headers.requestId,
-                    outcome: 'failure' satisfies Outcome,
                     error: err?.message ?? String(err)
                 },
             });
@@ -255,7 +255,8 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         const sub = observable.subscribe({
             next: (msg: Msg<TStructN>) => {
                 try {
-                    return params.callback(msg);
+                    const { payload, ...envelope } = msg;                    
+                    return params.callback({ ...structuredClone(envelope), payload });
                 } catch (err) {
                     handleError(msg, err);
                 }
@@ -315,8 +316,8 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         if (msg.headers == undefined) {
             msg.headers = {};
         }
-        if (msg.headers.outcome == undefined) {
-            msg.headers.outcome = 'success' satisfies Outcome;
+        if (msg.status == undefined) {
+            msg.status = 'pending' satisfies MsgStatus;
         }
         const headers = msg.headers;
         headers.timestamp = now()
@@ -407,29 +408,25 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         const subParams: MsgSubParams<TStructN> = {
             ...params,
             ...{
-                callback: async (msgIn) => {
+                callback: async (inMsg) => {
                     try {
-                        const headers: MsgHeaders = {
-                            ...msgIn.headers,
-                            ...params.headers,
-                            inResponseToId: msgIn.headers.requestId
-                        }
-                        const payload = (await Promise.resolve(params.callback(msgIn, headers)));
-                        if (msgIn.headers?.outcome === 'canceled' satisfies Outcome) {
+                        const outMsg: Msg<TStructN, keyof TStructN, keyof OutChannelStruct> = {
+                            address: { channel: inMsg.address.channel, group: $CG_OUT, topic: inMsg.address.topic },
+                            headers: {
+                                ...inMsg.headers,
+                                ...params.headers,
+                                inResponseToId: inMsg.headers?.requestId
+                            } as Msg<TStructN>["headers"]
+                        };
+                        const payload = await Promise.resolve(params.callback(inMsg, outMsg));
+                        if (inMsg.status === 'canceled' || outMsg.status === 'skipped' || outMsg.status === 'canceled') {
                             return;
                         }
-                        const msgOut: Msg<TStructN, keyof TStructN, keyof OutChannelStruct> = {
-                            address: {
-                                channel: msgIn.address.channel,
-                                group: $CG_OUT,
-                                topic: msgIn.address.topic
-                            },
-                            headers: headers,
-                            payload: payload
-                        };
-                        publish(msgOut);
+                        outMsg.payload = payload;
+                        if (outMsg.status == null) outMsg.status = 'handled';
+                        publish(outMsg);
                     } catch (err) {
-                        handleError(msgIn, err, true);
+                        handleError(inMsg, err, true);
                     }
                 }
             }
@@ -459,12 +456,12 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                         fetchCount: 1
                     }
                 },
-                callback: (msgOut) => {
+                callback: (outMsg) => {
                     // sub.unsubscribe();
-                    params.callback(msgOut);
+                    params.callback(outMsg);
                 },
-                filter: (msgOut) => {
-                    return msgOut.headers.inResponseToId === msg.headers.requestId && (!params.filter || params.filter(msgOut)) // TODO: match topic?
+                filter: (outMsg) => {
+                    return outMsg.headers.inResponseToId === msg.headers.requestId && (!params.filter || params.filter(outMsg)) // TODO: match topic?
                 }
             };
             subscribe(subParams);
@@ -520,18 +517,17 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                             }
                             settled = true;
                             cleanup?.();
-                            if (msg.headers?.outcome === 'canceled' satisfies Outcome) {
+                            if (msg.status === 'canceled') {
                                 rej(createOperationCanceledError(msg, "The request was canceled by the provider"));
                                 return;
-                            } else if (msg.headers?.outcome === 'failure' satisfies Outcome) {
-                                const errHeader = msg.headers.error;
+                            } else if (msg.status === 'failed') {
+                                const errHeader = msg.headers?.error;
                                 const errMessage = typeof errHeader === "string"
                                     ? errHeader
                                     : errHeader?.message ?? "Unknown error";
                                 rej(new Error(errMessage, { cause: msg }));
                                 return;
                             }
-                            msg.headers.outcome = 'success' satisfies Outcome;
                             res(msg);
                         } catch (err) {
                             if (settled) {
@@ -558,7 +554,8 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                         cleanup();
                         publish({
                             address: { channel: params.channel, group: $CG_IN, topic: params.topic },
-                            headers: { requestId: msg.headers.requestId, outcome: 'canceled' satisfies Outcome }
+                            status: 'canceled' satisfies MsgStatus,
+                            headers: { requestId: msg.headers.requestId }
                         });
                         rej(createOperationCanceledError(abortSignal.reason, "The request was canceled by the caller"));
                     };
@@ -636,7 +633,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
             channel: params.channel,
             group: $CG_OUT,
             topic: params.topic,
-            filter: (msgOut) => msgOut.headers.inResponseToId === requestId && (!params.filter || params.filter(msgOut as any)),
+            filter: (outMsg) => outMsg.headers.inResponseToId === requestId && (!params.filter || params.filter(outMsg)),
             options: {
                 throttle: params.options?.throttle,
                 debounce: params.options?.debounce,
@@ -691,10 +688,10 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
                 if (msg === streamEnd) break;
 
-                if (msg.headers?.outcome === 'canceled' satisfies Outcome) {
+                if (msg.status === 'canceled') {
                     throw createOperationCanceledError(msg, "The request was canceled by the provider");
-                } else if (msg.headers?.outcome === 'failure' satisfies Outcome) {
-                    const errHeader = msg.headers.error;
+                } else if (msg.status === 'failed') {
+                    const errHeader = msg.headers?.error;
                     const errMessage = typeof errHeader === "string"
                         ? errHeader
                         : errHeader?.message ?? "Unknown error";

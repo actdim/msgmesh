@@ -79,7 +79,7 @@ Both `send()` and `request()` use internal `dispatch()`. `publish()` is a lower-
 | `request()` | `dispatch()` + Promise.race with timeout |
 | `requestStream()` | `subscribe(out)` + `publish(in)` + async generator | Generates `requestId` upfront; subscribes to `out` filtered by `requestId` before publishing; no `fetchCount: 1` on subscription — all provider responses flow through |
 
-`publish()` is a purely internal function — not exposed in the public API. It generates `msg.id`, sets default `status: "ok"`, sets `publishedAt`, and calls `Subject.next()`.
+`publish()` is a purely internal function — not exposed in the public API. It generates `msg.id`, sets `publishedAt`, and calls `Subject.next()`. It does not set a default `status`.
 
 ### Internal Flow
 
@@ -139,7 +139,7 @@ The `asyncScheduler` ensures message delivery is always async (never synchronous
 #### dispatch() — Critical Ordering
 
 `dispatch()` (which is exposed as public `send()`):
-1. **First**: subscribes to `out` group with filter `msgOut.headers.inResponseToId === msg.headers.requestId`
+1. **First**: subscribes to `out` group with filter `outMsg.headers.inResponseToId === msg.headers.requestId`
 2. **Then**: publishes message to `in` group via `publish()`
 3. Returns the published message (with `headers.requestId`)
 
@@ -148,19 +148,26 @@ This order is critical — subscribing after publishing could miss the response 
 #### provide() — Headers Merge & Cancel Logic
 
 ```typescript
-const headers = { ...msgIn.headers, ...params.headers, inResponseToId: msgIn.headers.requestId };
+const msgOut: Msg<TStructN, keyof TStructN, "out"> = {
+    address: { channel: msgIn.address.channel, group: "out", topic: msgIn.address.topic },
+    headers: { ...msgIn.headers, ...params.headers, inResponseToId: msgIn.headers?.requestId }
+};
 // msgIn.headers first, then provider's static headers override, inResponseToId always wins
 ```
 
-On cancel: `provide()` **awaits** the callback (so provider can do async cleanup), then checks `msgIn.headers?.status === 'canceled'` and does NOT publish `out`:
+On cancel: `provide()` **awaits** the callback, then checks `msgIn.status === 'canceled'` OR `msgOut.status === 'skipped'` OR `msgOut.status === 'canceled'` and does NOT publish `out`:
 ```typescript
-const payload = await Promise.resolve(params.callback(msgIn, headers));
-if (msgIn.headers?.status === 'canceled') {
+const payload = await Promise.resolve(params.callback(msgIn, msgOut));
+if (msgIn.status === 'canceled' || msgOut.status === 'skipped' || msgOut.status === 'canceled') {
     return; // skip publish to out
 }
+msgOut.payload = payload;
+publish(msgOut);
 ```
 
-Provider can also initiate cancellation by mutating `headers.status = 'canceled'` inside the callback — `provide()` checks `msgIn.headers.status` for caller-initiated cancel, but the mutated `headers` object flows into `msgOut.headers`, so `request()` will see `status: 'canceled'` in the `out` response and reject with `OperationCanceledError`.
+Provider-initiated cancellation: set `msgOut.status = 'canceled'` inside the callback — `provide()` will skip publishing `out`, and `request()` will reject with `OperationCanceledError`.
+
+Chain of responsibility: set `msgOut.status = 'skipped'` — `provide()` skips publishing, the next provider handles the message.
 
 #### request() — No-Provider Check
 
@@ -210,7 +217,7 @@ The cancel message has the SAME `requestId` as the original but a DIFFERENT `msg
 
 ### headers.inResponseToId
 
-Set by `provide()` on the `out` response: `inResponseToId = msgIn.headers.requestId`. This is how `dispatch()` filters the correct response for a given request.
+Set by `provide()` on the `out` response headers: `msgOut.headers.inResponseToId = msgIn.headers.requestId`. This is how `dispatch()` filters the correct response for a given request.
 
 ### Cancellation Flow
 
@@ -225,31 +232,34 @@ Provider-side pattern for cancelable work:
 const activeRequests = new Map<string, AbortController>();
 msgBus.provide({
     channel: "...",
-    callback: async (msg, headers) => {
-        if (headers.status === 'canceled') {
-            activeRequests.get(headers.requestId)?.abort();
-            activeRequests.delete(headers.requestId);
+    callback: async (msg, msgOut) => {
+        if (msg.status === 'canceled') {
+            activeRequests.get(msg.headers.requestId)?.abort();
+            activeRequests.delete(msg.headers.requestId);
             return;
         }
         const ctrl = new AbortController();
-        activeRequests.set(headers.requestId, ctrl);
+        activeRequests.set(msg.headers.requestId, ctrl);
         try {
             return await doWork({ signal: ctrl.signal });
         } finally {
-            activeRequests.delete(headers.requestId);
+            activeRequests.delete(msg.headers.requestId);
         }
     }
 });
 ```
 
-### headers.status (ResponseStatus)
+### msg.status (MsgStatus)
 
-`"ok" | "error" | "canceled" | "timeout"`
+`'handled' | 'failed' | 'canceled' | 'skipped' | 'timeout' | 'pending'`
 
-- `publish()` sets `status = "ok"` by default if not specified
-- `request()` sends `status: "canceled"` on abort
-- `provide()` errors set `status: "error"` and publish to `out` with `inResponseToId` — so `request()` rejects with `Error` (message from `headers.error`)
-- Provider can set `headers.status = 'canceled'` in callback to initiate provider-side cancellation — `provide()` will skip publishing `out`, and `request()` will reject with `OperationCanceledError`
+`status` lives on the top-level `Msg` object, not in `headers`.
+
+- `publish()` sets no default status (undefined by default)
+- `request()` sends `status: 'canceled'` on abort (cancel message to provider)
+- `provide()` errors set `status: 'failed'` and publish to `out` with `inResponseToId` — so `request()` rejects with `Error` (message from `headers.error`)
+- Provider can set `msgOut.status = 'canceled'` to initiate provider-side cancellation — `provide()` will skip publishing `out`, and `request()` will reject with `OperationCanceledError`
+- Provider can set `msgOut.status = 'skipped'` to skip publishing — lets the next provider handle the message (chain of responsibility)
 
 ### Error Types
 
@@ -286,6 +296,17 @@ This subscribe-before-publish order is critical — reversing it would miss resp
 **Timeout** is inactivity timeout (same as `stream()`): resets on each received response. Use `AbortSignal.timeout()` for a hard total limit.
 
 **`throwIfNoProvider`** works the same as in `request()`: synchronous snapshot check on `inSubject.observed`. Also triggered by `mandatoryProvider: true` in channel config.
+
+### Chain of Responsibility
+
+Multiple providers on the same channel each get an independent copy of the message envelope (via `structuredClone` on the envelope — payload is shared by reference). A provider can opt out of handling by setting `msgOut.status = 'skipped'` — `provide()` will skip publishing `out` for that invocation, and the next provider handles normally.
+
+```typescript
+msgBus.provide({ channel: "Order.Create", callback: (msg, msgOut) => {
+    if (!canHandle(msg.payload)) { msgOut.status = 'skipped'; return; }
+    return handle(msg.payload);
+}});
+```
 
 ### settled Pattern
 
@@ -368,7 +389,9 @@ If change affects API shape or build artifacts, also run:
 ## Common Pitfalls
 
 - **`send()` uses `dispatch()` internally** but without callback — so it's effectively just a publish with `requestId` generation. The `out` subscription in `dispatch()` only activates when `request()` passes a callback.
-- **Headers spread order in `provide()`**: `{ ...msgIn.headers, ...params.headers, inResponseToId }` — provider's static headers override incoming, but `inResponseToId` always wins.
+- **Headers spread order in `provide()`**: `{ ...inMsg.headers, ...params.headers, inResponseToId }` — provider's static headers override incoming, but `inResponseToId` always wins.
+- **`provide()` callback signature**: second parameter is `msgOut: Msg<TStruct, TChannel, "out">` — the pre-initialized outgoing message. Write `msgOut.status = 'skipped'` or `msgOut.status = 'canceled'` to control publish behavior. Cancel check is `msgIn.status === 'canceled'` (on the incoming message), not `msgOut.status`.
+- **Message envelope is cloned per subscriber**: `subscribe()` calls `structuredClone` on the message envelope (everything except `payload`) before delivering to each callback. Mutations to `msg.status`, `msg.headers`, `msg.address` do not leak between subscribers. `payload` is the same reference for all.
 - **Cancel message has no payload**: only `{ requestId, status: 'canceled' }` in headers. Provider must handle `msg.payload` being `undefined` for cancel messages.
 - **`throwIfNoProvider`** in `request()` options and **`mandatoryProvider`** in channel config both cause immediate `NoProviderError` if no provider is subscribed at call time. They check `subject.observed` — a snapshot, not a delivery guarantee.
 - **`dispatch()` subscribe-before-publish**: changing this order breaks request-response correlation.
