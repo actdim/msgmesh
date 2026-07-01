@@ -1289,4 +1289,189 @@ describe("msgBus", () => {
         expect(b.headersSourceId).toBe('original');
         expect(b.status).toBe('pending'); // default from publish(), not A's 'skipped'
     });
+
+    it("multiple simultaneous requests are correlated by requestId", async () => {
+        const msgBus = createTestMsgBus();
+        const delays = [40, 5];
+        let callIndex = 0;
+
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: async (msg) => {
+                const d = delays[callIndex++];
+                await delay(d);
+                return msg.payload.a + msg.payload.b;
+            }
+        });
+
+        const [r1, r2] = await Promise.all([
+            msgBus.request({ channel: "Test.ComputeSum", payload: { a: 1, b: 2 } }),
+            msgBus.request({ channel: "Test.ComputeSum", payload: { a: 10, b: 20 } }),
+        ]);
+
+        // r2 finishes first but each resolves with its own result
+        expect(r1.payload).toBe(3);
+        expect(r2.payload).toBe(30);
+    });
+
+    it("once() receives replayed message from replay buffer", async () => {
+        type ReplayStruct = MsgStruct<{ "Replay.Val": { in: { value: number } } }>;
+        const msgBus = createMsgBus<ReplayStruct>({ "Replay.Val": { replayBufferSize: 1 } });
+
+        msgBus.send({ channel: "Replay.Val", payload: { value: 42 } });
+        await delay(10);
+
+        const msg = await msgBus.once({ channel: "Replay.Val" });
+        expect(msg.payload).toEqual({ value: 42 });
+    });
+
+    it("stream() stops at fetchCount when messages arrive quickly", async () => {
+        const msgBus = createTestMsgBus();
+        const received: number[] = [];
+        const gen = msgBus.stream({
+            channel: "Test.ComputeSum",
+            options: { fetchCount: 2, timeout: 5000 },
+        });
+
+        setTimeout(() => {
+            msgBus.send({ channel: "Test.ComputeSum", payload: { a: 1, b: 0 } });
+            msgBus.send({ channel: "Test.ComputeSum", payload: { a: 2, b: 0 } });
+            msgBus.send({ channel: "Test.ComputeSum", payload: { a: 3, b: 0 } });
+        }, 10);
+
+        for await (const msg of gen) {
+            received.push(msg.payload.a);
+        }
+
+        expect(received).toEqual([1, 2]);
+    });
+
+    it("stream() throws TimeoutError when inactivity timeout fires", async () => {
+        const msgBus = createTestMsgBus();
+        const received: number[] = [];
+        const gen = msgBus.stream({
+            channel: "Test.ComputeSum",
+            options: { fetchCount: 10, timeout: 60 },
+        });
+
+        setTimeout(() => {
+            msgBus.send({ channel: "Test.ComputeSum", payload: { a: 7, b: 0 } });
+        }, 10);
+
+        await expect(async () => {
+            for await (const msg of gen) {
+                received.push(msg.payload.a);
+            }
+        }).rejects.toThrow(TimeoutError);
+
+        expect(received).toEqual([7]);
+    });
+
+    it("once() rejects immediately when AbortSignal is already aborted", async () => {
+        const msgBus = createTestMsgBus();
+        const controller = new AbortController();
+        controller.abort("pre-aborted");
+
+        await expect(
+            msgBus.once({ channel: "Test.ComputeSum", options: { abortSignal: controller.signal } })
+        ).rejects.toThrow(OperationCanceledError);
+    });
+
+    it("on() callback never fires when AbortSignal is already aborted", async () => {
+        const msgBus = createTestMsgBus();
+        const controller = new AbortController();
+        controller.abort();
+        let called = false;
+
+        msgBus.on({
+            channel: "Test.ComputeSum",
+            callback: () => { called = true; },
+            options: { abortSignal: controller.signal }
+        });
+
+        msgBus.send({ channel: "Test.ComputeSum", payload: { a: 1, b: 2 } });
+        await delay(50);
+
+        expect(called).toBe(false);
+    });
+
+    it("request() resolves with undefined payload when provider returns undefined", async () => {
+        const msgBus = createTestMsgBus();
+
+        msgBus.provide({
+            channel: "Test.DoSomeWork",
+            callback: () => undefined,
+        });
+
+        const msg = await msgBus.request({ channel: "Test.DoSomeWork", payload: "work" });
+        expect(msg.payload).toBeUndefined();
+    });
+
+    it("provide() custom msgOut.headers are present in request() response", async () => {
+        const msgBus = createTestMsgBus();
+
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: (msg, msgOut) => {
+                msgOut.headers = { ...msgOut.headers, sourceId: "provider-tag" };
+                return msg.payload.a + msg.payload.b;
+            }
+        });
+
+        const msg = await msgBus.request({ channel: "Test.ComputeSum", payload: { a: 3, b: 7 } });
+        expect(msg.payload).toBe(10);
+        expect(msg.headers?.sourceId).toBe("provider-tag");
+    });
+
+    it("request() rejects with Error when provider sets msgOut.status = 'failed'", async () => {
+        const msgBus = createTestMsgBus();
+
+        msgBus.provide({
+            channel: "Test.ComputeSum",
+            callback: (_msg, msgOut) => {
+                msgOut.status = 'failed';
+                msgOut.headers = { ...msgOut.headers, error: "validation failed" };
+                return undefined;
+            }
+        });
+
+        await expect(
+            msgBus.request({ channel: "Test.ComputeSum", payload: { a: 1, b: 2 } })
+        ).rejects.toThrow("validation failed");
+    });
+
+    it("send() with custom group delivers only to that group's subscribers", async () => {
+        const msgBus = createTestMsgBus();
+        const in1Received: string[] = [];
+        const in2Received: number[] = [];
+
+        msgBus.on({ channel: "Test.Multiplexer", group: "in1", callback: (msg) => { in1Received.push(msg.payload); } });
+        msgBus.on({ channel: "Test.Multiplexer", group: "in2", callback: (msg) => { in2Received.push(msg.payload); } });
+
+        msgBus.send({ channel: "Test.Multiplexer", group: "in1", payload: "hello" });
+        await delay(50);
+
+        expect(in1Received).toEqual(["hello"]);
+        expect(in2Received).toHaveLength(0);
+    });
+
+    it("'*' config in function form applies dynamic defaults per channel", async () => {
+        type DynStruct = MsgStruct<{
+            "Api.Data": { in: string; out: string };
+            "Local.Data": { in: string; out: string };
+        }>;
+        const msgBus = createMsgBus<DynStruct>({
+            "*": (channel) => ({ mandatoryProvider: channel.startsWith("Api.") }),
+        });
+
+        // Api.Data requires provider — should throw NoProviderError
+        await expect(
+            msgBus.request({ channel: "Api.Data", payload: "q" })
+        ).rejects.toThrow(NoProviderError);
+
+        // Local.Data does not require provider — should throw TimeoutError (no provider, but no mandatory check)
+        await expect(
+            msgBus.request({ channel: "Local.Data", payload: "q", options: { timeout: 50 } })
+        ).rejects.toThrow(TimeoutError);
+    });
 });

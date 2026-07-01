@@ -252,10 +252,14 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
         observable = pipeFromArray(ops)(subject);
 
+        if (params.options?.abortSignal?.aborted) {
+            return () => {};
+        }
+
         const sub = observable.subscribe({
             next: (msg: Msg<TStructN>) => {
                 try {
-                    const { payload, ...envelope } = msg;                    
+                    const { payload, ...envelope } = msg;
                     return params.callback({ ...structuredClone(envelope), payload });
                 } catch (err) {
                     handleError(msg, err);
@@ -350,6 +354,11 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                     un?.();
                     un = null;
                 };
+
+                if (abortSignal?.aborted) {
+                    rej(createOperationCanceledError(abortSignal.reason));
+                    return;
+                }
 
                 if (abortSignal) {
                     let onAbort: (() => void) | null = null;
@@ -487,7 +496,6 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
             payload: payload
         });
         return msg;
-
     }
 
     async function request(params: MsgRequestDispatcherParams<TStructN>): Promise<any> {

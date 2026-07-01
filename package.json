@@ -1,6 +1,6 @@
 {
     "name": "@actdim/msgmesh",
-    "version": "1.5.2",
+    "version": "1.5.3",
     "description": "A type-safe, modular message mesh for scalable async communication in TypeScript",
     "author": "Pavel Borodaev",
     "license": "MIT",
@@ -29,12 +29,6 @@
         "README.md",
         "LICENSE"
     ],
-    "files(src)": [
-        "src",
-        "docs",
-        "README.md",
-        "LICENSE"
-    ],
     "exports": {
         "./*": {
             "import": "./dist/*.es.js",
@@ -52,7 +46,6 @@
         "access": "public"
     },
     "sideEffects": false,
-    "sideEffects?": [],
     "packageManager": "pnpm@10.21.0",
     "scripts": {
         "test": "npx vitest --config=vitest.node.config.ts --no-cache",
@@ -92,7 +85,6 @@
         "mocha": "^11.7.5",
         "npm-check-updates": "^19.1.2",
         "prettier": "^3.6.2",
-        "prettier-plugin-classnames": "^0.8.5",
         "shx": "^0.4.0",
         "typescript": "^5.9.3",
         "typescript-eslint": "^8.46.3",

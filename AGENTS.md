@@ -35,11 +35,13 @@ tests/
 Every message has an address: `{ channel, group, topic }`.
 
 - **Channel** — logical namespace (e.g. `"User.Login"`, `"Api.FetchData"`). String with dot notation.
-- **Group** — message direction within a channel:
-  - `"in"` — requests/events (default for `send`, `on`, `provide`)
-  - `"out"` — responses (auto-published by `provide`, consumed by `request`)
-  - `"error"` — channel-specific errors (auto-published on provider throw)
-  - Custom groups allowed for multiplexing (e.g. `"in1"`, `"in2"`)
+- **Group** — defines message role within a channel. Two semantic kinds:
+  - **Input groups** — any name except `"out"` and `"error"`. Declare the payload type coming *into* the channel.
+    - `"in"` — conventional primary input group; used as default in `send`, `on`, `provide`, `request` when group is omitted.
+    - Custom names (`"in1"`, `"in2"`, etc.) — additional input payload types on the same channel (**input type overloading**). Each input group is an independent subscription target; a `provide()` handler must specify which group it listens to.
+  - **Output group** — always named `"out"`. Declares the payload type of the channel's response. One per channel, shared across all input groups. If omitted, `MsgStruct<>` adds `out?: void` implicitly.
+  - `"error"` — reserved; auto-published on provider throw.
+  - **`send()` vs `request()`**: `send()` publishes and returns immediately (fire-and-forget — no confirmation of handling). `request()` / `requestStream()` awaits the handler's response via `out`. Even `out: void` is meaningful: it confirms the message was *processed*, not just dispatched. A handler can set `msgOut.status = 'skipped'` to produce no `out` response and let another handler take it (chain of responsibility).
 - **Topic** — optional sub-filter. Exact match by default. Regex if wrapped in slashes: `"/^task-.*/"`.
 - **Reserved**: `"MSGBUS.ERROR"` channel for system-level errors.
 

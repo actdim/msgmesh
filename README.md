@@ -175,21 +175,35 @@ Channels organize messages by task class, domain, event type, or any other logic
 
 #### 2. Groups
 
-Groups connect related messages within a single channel. Standard groups include:
+Groups define message roles within a channel. There are two semantic kinds:
 
-- **`in`**: For requests or arbitrary messages/events (default for most operations)
-- **`out`**: For responses to requests
-- **`error`**: Reserved system group for channel-specific errors
+**Input groups** — any name except `"out"` and `"error"`. Declare the payload type of messages entering the channel:
 
-You can define custom groups for message multiplexing and input type overloading.
+- `"in"` — the conventional name for the primary input group; used as default by [`send()`](#sending-messages-send), [`on()`](#subscribing-to-messages-on), [`provide()`](#providing-response-handlers-provide), and [`request()`](#request-response-pattern-request) when no group is specified.
+- Custom names (`"in1"`, `"in2"`, etc.) — define additional input payload types on the same channel. This is **input type overloading**: a single channel can accept different payload shapes through different groups, all producing the same `out` type. A handler registered with [`provide()`](#providing-response-handlers-provide) must specify which input group it targets (and therefore which payload type it accepts).
+
+**Output group** — always named `"out"`. Declares the payload type of the channel's response. One `out` type covers all input groups on the channel:
+
+- If `out` is not declared, `MsgStruct<>` implicitly adds `out?: void` — the channel produces no meaningful response.
+- `out: void` is intentional: it means the handler ran and the caller can await confirmation, but no data is returned.
+- `out` types must **not** be wrapped in `Promise` — async is handled at the API level.
+
+**Reserved groups**: `"error"` (channel-specific error routing) and the `MSGBUS.ERROR` system channel.
+
+#### send() vs request() — fire-and-forget vs awaited handling
+
+This distinction maps directly to whether you care about the `out` group:
+
+- **[`send()`](#sending-messages-send)** — publishes to the channel's input group and returns immediately. No waiting for any handler. Use when you only care that the event was dispatched.
+- **[`request()`](#request-response-pattern-request) / [`requestStream()`](#fan-in-streaming-pattern-requeststream)** — publishes and **awaits the handler's response** via the `out` group. Even when `out: void`, this confirms the message was *processed*, not just published. Use when you need to know the work completed.
+
+A handler registered with [`provide()`](#providing-response-handlers-provide) can **skip** individual messages by setting `msgOut.status = 'skipped'`, leaving them for another handler on the same channel (see [Chain of Responsibility](#chain-of-responsibility)). A skipped message produces no `out` response from that handler.
 
 #### 3. Message Types
 
-Each group defines a message structure (payload type). For standard buses, types can be any valid TypeScript type. For persistent message buses (work in progress), types must be serializable.
+Each group declares one payload type. Any valid TypeScript type is supported.
 
-**Note**: You don't need to wrap `out` types in `Promise` - async handling is automatically supported at the API level.
-
-Use generic `MsgStruct<...>` to define bus structures: it extends your declared channels with system channel groups (including reserved `error` handling groups), and this same base type is used across the entire API.
+Use `MsgStruct<...>` to define bus structures — it augments your channels with the system `error` group and implicit `out?: void` / `in?: void` for channels that don't declare them explicitly:
 
 ### Type Definition Example
 
