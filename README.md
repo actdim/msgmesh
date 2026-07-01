@@ -1156,6 +1156,62 @@ await msgBus.send({
 
 Automatically register any service object (e.g. a Swagger-generated API client) as a message bus provider. The adapter system uses TypeScript's type system to map service methods to bus channels at compile time — channel names, payload types, and return types are all derived from the service class. No manual wiring, no runtime errors.
 
+#### Complete Example
+
+```typescript
+import {
+    ToMsgChannelPrefix, ToMsgStruct, BaseServiceSuffix,
+    registerAdapters, getMsgChannelSelector, MsgProviderAdapter
+} from '@actdim/msgmesh/adapters';
+import { createMsgBus } from '@actdim/msgmesh/core';
+
+// 1. Your service class (e.g. a Swagger-generated API client)
+class OrderApiClient {
+    static readonly name = 'OrderApiClient' as const;
+    readonly name = 'OrderApiClient' as const;
+
+    createOrder(items: Item[], priority: number): Promise<OrderResult> { /* ... */ }
+    getOrder(id: string): Promise<Order> { /* ... */ }
+    formatResponse() { /* internal — will be skipped */ }
+}
+
+// 2. Derive channel prefix from class name:
+//    "OrderApiClient" → strip "Client", strip "Api" → "Order" → uppercase → "API.ORDER."
+type OrderPrefix = ToMsgChannelPrefix<typeof OrderApiClient.name, 'API', BaseServiceSuffix>;
+
+// 3. Map service methods to bus struct (skip internal helpers):
+//    createOrder → "API.ORDER.CREATEORDER": { in: [Item[], number]; out: OrderResult }
+//    getOrder    → "API.ORDER.GETORDER":    { in: [string];         out: Order }
+type OrderApiStruct = ToMsgStruct<OrderApiClient, OrderPrefix, 'formatResponse'>;
+
+// 4. Create bus and register the service as a provider
+const services: Record<OrderPrefix, OrderApiClient> = {
+    'API.ORDER.': new OrderApiClient(),
+};
+
+const msgBus = createMsgBus<OrderApiStruct>();
+const abortController = new AbortController();
+
+registerAdapters(
+    msgBus,
+    Object.entries(services).map(([_, service]) => ({
+        service,
+        channelSelector: getMsgChannelSelector(services),
+    }) as MsgProviderAdapter),
+    abortController.signal,
+);
+
+// 5. Call via the bus — fully type-safe, payloadFn matches the original method signature
+const response = await msgBus.request({
+    channel: 'API.ORDER.CREATEORDER',
+    payloadFn: fn => fn([{ id: '1', qty: 2 }], 1),
+});
+console.log(response.payload); // OrderResult
+
+// Clean up providers when done
+abortController.abort();
+```
+
 #### How It Works
 
 Given a service class:
@@ -1189,9 +1245,9 @@ import {
 //    "OrderApiClient" → remove suffix "Client" → uppercase → "API.ORDER."
 type ApiPrefix = 'API';
 type OrderChannelPrefix = ToMsgChannelPrefix<
-    typeof OrderApiClient.name,  // "OrderApiClient"
-    ApiPrefix,                    // "API"
-    BaseServiceSuffix             // removes CLIENT, API, SERVICE, etc.
+    typeof OrderApiClient.name, // "OrderApiClient"
+    ApiPrefix,                  // "API"
+    BaseServiceSuffix           // removes CLIENT, API, SERVICE, etc.
 >;
 // Result: "API.ORDER."
 
@@ -1199,13 +1255,13 @@ type OrderChannelPrefix = ToMsgChannelPrefix<
 type OrderApiStruct = ToMsgStruct<
     OrderApiClient,
     OrderChannelPrefix,
-    'formatResponse'  // skip this method
+    'formatResponse' // skip this method
 >;
 // Result type (compile-time):
 // {
 //     "API.ORDER.CREATEORDER": {
-//         in: [items: Item[], priority: number];  // ← tuple from Parameters<>
-//         out: OrderResult;                        // ← from ReturnType<>
+//         in: [items: Item[], priority: number]; // ← tuple from Parameters<>
+//         out: OrderResult;                      // ← from ReturnType<>
 //     };
 //     "API.ORDER.GETORDER": {
 //         in: [id: string];
@@ -1262,19 +1318,24 @@ const response2 = await msgBus.request({
 
 #### Type Transformation Chain
 
-```
-Service class                  ToMsgChannelPrefix              ToMsgStruct
-─────────────                  ──────────────────              ───────────
-OrderApiClient          →      "API.ORDER."              →    Bus struct
-  .createOrder(a, b)              ↑                              ↓
-  .getOrder(id)              removes suffix              "API.ORDER.CREATEORDER"
-  .formatResponse()          from class name               in: [a, b] (Parameters<>)
-                             + uppercases                  out: Result  (ReturnType<>)
-                                                         "API.ORDER.GETORDER"
-                                                           in: [id]
-                                                           out: Order
-                                                         (formatResponse skipped)
-```
+Example: `OrderApiClient` with base prefix `"API"` and `Skip = "formatResponse"`.
+
+`ToMsgChannelPrefix` builds the channel prefix from the class name:
+
+| Step | Value |
+|---|---|
+| Class name | `OrderApiClient` |
+| Strip known suffixes (`Client`, `Api`, …) | `Order` |
+| Uppercase | `ORDER` |
+| Add base prefix + dots | **`"API.ORDER."`** |
+
+`ToMsgStruct` maps each method to a bus channel under that prefix:
+
+| Method | Channel | `in` | `out` |
+|---|---|---|---|
+| `createOrder(a, b)` | `"API.ORDER.CREATEORDER"` | `Parameters<createOrder>` | `Awaited<ReturnType<createOrder>>` |
+| `getOrder(id)` | `"API.ORDER.GETORDER"` | `Parameters<getOrder>` | `Awaited<ReturnType<getOrder>>` |
+| `formatResponse()` | — | — | *(skipped via `Skip`)* |
 
 #### Supported Service Suffixes
 
