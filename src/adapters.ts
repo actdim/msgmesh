@@ -1,4 +1,4 @@
-import { MsgBus, MsgStruct, MsgStructBase } from "./contracts";
+import { MsgBus, MsgStruct, MsgStructBase } from "@/contracts";
 import { AddPrefix, Filter, Func, RemoveSuffix, Skip, ToUpper } from "@actdim/utico/typeCore";
 
 const getMethodNames = (client: any) => {

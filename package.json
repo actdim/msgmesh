@@ -1,6 +1,6 @@
 {
     "name": "@actdim/msgmesh",
-    "version": "1.5.4",
+    "version": "1.5.5",
     "description": "A type-safe, modular message mesh for scalable async communication in TypeScript",
     "author": "Pavel Borodaev",
     "license": "MIT",
@@ -52,7 +52,7 @@
         "test:w": "npx vitest --config=vitest.node.config.ts --watch",
         "test:v8": "npx vite",
         "lint": "eslint \"./**/*.{ts,tsx}\" -f visualstudio --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0",
-        "build": "tsc -b tsconfig.json --noEmit && vite build",
+        "build": "tsc -b tsconfig.json && vite build",
         "pnpm:u": "pnpm update",
         "pnpm:ou": "pnpm outdated",
         "ncu:l": "ncu",
@@ -62,10 +62,10 @@
         "nvm:il": "nvm install lts",
         "format": "prettier --write .",
         "format:check": "prettier --check .",
-        "typecheck": "tsc -p tsconfig.json --noEmit"
+        "typecheck": "tsc -b tsconfig.json"
     },
     "peerDependencies": {
-        "@actdim/utico": ">=1.2.6",
+        "@actdim/utico": ">=1.2.7",
         "rxjs": ">=7.8.0",
         "uuid": ">=13.0.0"
     },

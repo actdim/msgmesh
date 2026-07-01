@@ -31,14 +31,15 @@ import {
     NoProviderError,
     $C_ANY,
     MsgStatus
-} from "./contracts";
+} from "@/contracts";
 import { v4 as uuid } from "uuid";
 import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, OperatorFunction, SchedulerLike } from "rxjs";
 import { filter as filterOp, take as takeOp, observeOn, delay as delayOp, debounceTime as debounceOp } from "rxjs/operators";
 
 import { Skip } from "@actdim/utico/typeCore";
-import { pipeFromArray, throttleOp, ThrottleOptions } from "./util";
+import { pipeFromArray, throttleOp, ThrottleOptions } from "@/util";
 import { delayError } from "@actdim/utico/utils";
+import { getGlobalFlags } from "@/globals";
 
 export const getMatchTest = (pattern: string) => {
     if (pattern == undefined) {
@@ -253,7 +254,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         observable = pipeFromArray(ops)(subject);
 
         if (params.options?.abortSignal?.aborted) {
-            return () => {};
+            return () => { };
         }
 
         const sub = observable.subscribe({
@@ -287,9 +288,11 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         if (abortSignal) {
             onAbort = () => {
                 // TODO: publish debug (internal) message
-                console.debug(
-                    `Listening aborted for channel: ${channel}, group: ${group}, topic: ${params.topic}. Reason: ${abortSignal.reason}` // e.target
-                );
+                if (getGlobalFlags().debug) {
+                    console.debug(
+                        `Listening aborted for channel: ${channel}, group: ${group}, topic: ${params.topic}. Reason: ${abortSignal.reason}` // e.target
+                    );
+                }
                 sub.unsubscribe();
             };
             abortSignal.addEventListener("abort", onAbort);
@@ -332,7 +335,9 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         const group = String(msg.address.group);
         const subject = getOrCreateSubject(channel, group);
         if (!subject.observed) {
-            console.warn(`[msgBus] No subscribers on channel "${channel}" (group: "${group}"). Message may be lost.`);
+            if (getGlobalFlags().debug) {
+                console.warn(`[msgBus] No subscribers on channel "${channel}" (group: "${group}"). Message may be lost.`);
+            }
         }
         subject.next(msg);
         // TODO: implement backpressure using signal after auto-'ack' or "out" msg signal
@@ -504,7 +509,9 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         const channelConfig = getChannelConfig(channel);
         const inSubject = getOrCreateSubject(channel, inGroup);
         if (!inSubject.observed) {
-            console.warn(`[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`);
+            if (getGlobalFlags().debug) {
+                console.warn(`[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`);
+            }
             if (params.options?.throwIfNoProvider || channelConfig?.mandatoryProvider) {
                 throw new NoProviderError(channel);
             }
@@ -586,7 +593,9 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         const inSubject = getOrCreateSubject(channel, inGroup);
 
         if (!inSubject.observed) {
-            console.warn(`[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`);
+            if (getGlobalFlags().debug) {
+                console.warn(`[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`);
+            }
             if (params.options?.throwIfNoProvider || channelConfig?.mandatoryProvider) {
                 throw new NoProviderError(channel);
             }

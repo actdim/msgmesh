@@ -2,8 +2,8 @@
 //# Copyright (c) Pavel Borodaev 2022                                         #
 //##############################################################################
 // SafeBus
-import { Func, HasKeys, IsTuple, MaybePromise } from "@actdim/utico/typeCore";
-import { ThrottleOptions } from "./util";
+import { HasKeys, IsTuple, MaybePromise } from "@actdim/utico/typeCore";
+import { ThrottleOptions } from "@/util";
 
 export const $CG_IN = "in" as const;
 

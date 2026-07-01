@@ -6,6 +6,9 @@ import { v4 as uuid } from "uuid";
 import { MsgHeaders, MsgStruct, NoProviderError, OperationCanceledError, TimeoutError } from "@/contracts";
 import { createMsgBus } from "@/core";
 import { BaseServiceSuffix, getMsgChannelSelector, MsgProviderAdapter, registerAdapters, ToMsgChannelPrefix, ToMsgStruct } from "@/adapters";
+import { getGlobalFlags } from "@/globals";
+
+getGlobalFlags().debug = true;
 
 describe("msgBus", () => {
     // process.on("unhandledRejection", (reason, promise) => {
@@ -122,8 +125,8 @@ describe("msgBus", () => {
     it("can use throttling", async () => {
         let c = 0;
 
-        // const msgBus = createTestMsgBus();
-        const msgBus = sharedMsgBus;
+        const msgBus = createTestMsgBus();
+        // const msgBus = sharedMsgBus;
 
         msgBus.on({
             channel: "Test.DoSomeWork",
@@ -401,8 +404,8 @@ describe("msgBus", () => {
         let data = testData[0];
         let c = 0;
         const abortController = new AbortController();
-        // const msgBus = createTestMsgBus();
-        const msgBus = sharedMsgBus;
+        const msgBus = createTestMsgBus();
+        // const msgBus = sharedMsgBus;
 
         const cutoff = Date.now();
         const correlationId = uuid();

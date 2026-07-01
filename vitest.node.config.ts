@@ -22,7 +22,7 @@ export default defineConfig({
         include: ["tests/**/*.{test,spec}.ts"],
         includeSource: ["src/**/*.ts"],
         typecheck: {
-            tsconfig: 'tsconfig.vitest.json',
+            tsconfig: 'tsconfig.dev.json',
         },
         root: resolve('.'),
     },

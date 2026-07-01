@@ -21,12 +21,28 @@ tests/
 
 ## Commands
 
-- `pnpm install` — install dependencies
-- `pnpm run test` — run tests (vitest)
-- `pnpm run test:w` — watch mode
-- `pnpm run build` — typecheck + vite build
-- `pnpm run typecheck` — tsc --noEmit
-- `pnpm run lint` — lint
+```bash
+pnpm test              # Run tests (vitest)
+pnpm test:w            # Watch mode
+pnpm build             # type-check (build mode) + Vite build → dist/
+pnpm typecheck         # type-check (build mode)
+pnpm lint              # ESLint (max-warnings 0)
+pnpm format            # Prettier write
+pnpm format:check      # Prettier check
+```
+
+## TypeScript Config Layout
+
+Solution-style split — do not collapse it back into one config:
+
+- `tsconfig.base.json` — shared `compilerOptions` only. `moduleResolution: "bundler"` (this is a Vite package; do NOT switch to `"node"`/`node10` (deprecated) or `nodenext` (would force `.js` import extensions)). No `baseUrl` (deprecated in TS 6.0) — `paths` targets are relative: `"@/*": ["./src/*"]`. `extends` inherits only `compilerOptions`, not `include`/`files`/`references`.
+- `tsconfig.json` — pure orchestrator: `{ "files": [], "references": [...] }`. It compiles nothing itself; it only wires the leaf projects.
+- `tsconfig.build.json` — library build; emits `.d.ts` to `dist`. Consumed by `vite-plugin-dts` via its `tsconfigPath` (must stay a config WITHOUT `references`, else the plugin emits zero declarations).
+- `tsconfig.dev.json` — editor/dev + tests; broad `types` (node, vitest/globals, vite/client, …).
+
+Rules:
+- Root Node files (`packageConfig.ts`, `vite.config.ts`, `vitest*.config.ts`) get node types via `types: ["node"]` in the build/dev projects — NOT by editing includes elsewhere or adding `node` to a shared `types` array (that leaks node globals into browser `src`). If the editor shows "Cannot find name 'path'/'__dirname'" on such a file, it means the file isn't routed to a project — check the `references` chain, don't hack the source with `/// <reference>`.
+- Always type-check the solution with `tsc -b` (build mode), never `tsc -p` — `-p` sees `files: []` and checks nothing. Both `typecheck` and `build` scripts already use `tsc -b tsconfig.json --noEmit`.
 
 ## Architecture
 

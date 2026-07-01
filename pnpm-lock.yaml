@@ -9,8 +9,8 @@ importers:
   .:
     dependencies:
       '@actdim/utico':
-        specifier: '>=1.2.6'
-        version: 1.2.6(dexie@4.2.1)(luxon@3.7.2)(uuid@13.0.0)
+        specifier: '>=1.2.7'
+        version: 1.2.7(dexie@4.2.1)(luxon@3.7.2)(uuid@13.0.0)
       rxjs:
         specifier: '>=7.8.0'
         version: 7.8.2
@@ -87,8 +87,8 @@ importers:
 
 packages:
 
-  '@actdim/utico@1.2.6':
-    resolution: {integrity: sha512-adwle6JdoUC/ItBspF2p44rrh1ZcwrWRR0HvagvsiMzNh2Af/U81w/+gT+G3YhtpAH6T06sT7DNJn4YJOdl4Qg==}
+  '@actdim/utico@1.2.7':
+    resolution: {integrity: sha512-Demmjw1eQNWdCiDZXrl5puvCa0Bo9J2ci7pZMPRpTD+kSsnFOZaoNPEJYlrFieYO6cl60vu3D3pcuSv5NSm0ew==}
     peerDependencies:
       dexie: '>=4.2.0'
       luxon: '>=3.7.2'
@@ -1725,7 +1725,7 @@ packages:
 
 snapshots:
 
-  '@actdim/utico@1.2.6(dexie@4.2.1)(luxon@3.7.2)(uuid@13.0.0)':
+  '@actdim/utico@1.2.7(dexie@4.2.1)(luxon@3.7.2)(uuid@13.0.0)':
     dependencies:
       dexie: 4.2.1
       luxon: 3.7.2

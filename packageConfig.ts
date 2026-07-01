@@ -3,8 +3,8 @@ import * as url from "url";
 import * as fs from "fs";
 import * as packageJson from "./package.json";
 
-// const __filename = url.fileURLToPath(import.meta.url)
-// const __dirname = path.dirname(__filename)
+// const __filename = url.fileURLToPath(import.meta.url);
+// const __dirname = path.dirname(__filename);
 
 const rootPath = __dirname;
 
@@ -16,8 +16,12 @@ const aliases = {
 function getSrcFiles(dir: string): string[] {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
     return entries.flatMap((entry) => {
-        const res = path.resolve(dir, entry.name);
-        return entry.isDirectory() ? getSrcFiles(res) : entry.name.endsWith(".ts") || entry.name.endsWith(".tsx") ? [res] : [];
+        const fileName = path.resolve(dir, entry.name);
+        if (entry.name.startsWith("_")) return [];
+        if (entry.isDirectory()) {
+            return getSrcFiles(fileName);
+        }
+        return fileName.endsWith(".ts") || fileName.endsWith(".tsx") ? [fileName] : [];
     });
 }
 
