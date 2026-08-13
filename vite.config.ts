@@ -1,66 +1,66 @@
-import { defineConfig } from "vite";
-import config from "./packageConfig";
-import dts from "vite-plugin-dts";
-import tsConfigPaths from "vite-tsconfig-paths";
-import * as packageJson from "./package.json";
+import { defineConfig } from 'vite';
+import config from './packageConfig';
+import dts from 'vite-plugin-dts';
+import tsConfigPaths from 'vite-tsconfig-paths';
+import * as packageJson from './package.json';
 
-const packageName = packageJson.name.split("/").reverse()[0];
+const packageName = packageJson.name.split('/').reverse()[0];
 
 export default defineConfig({
     resolve: {
-        alias: config.resolveAliases()
+        alias: config.resolveAliases(),
     },
     build: {
-        outDir: "dist",
+        outDir: 'dist',
         lib: {
-            entry: "./src/index.ts",
+            entry: './src/index.ts',
             // name: packageName,
-            formats: ["es"],
-            fileName: (format) => `${packageName}.${format}.js`
+            formats: ['es'],
+            fileName: (format) => `${packageName}.${format}.js`,
         },
         rollupOptions: {
             input: config.srcFiles(),
             external: config.externals,
             output: {
-                exports: "named",
+                exports: 'named',
                 preserveModules: true, // incompatible with inlineDynamicImports: true
-                preserveModulesRoot: "src",
-                format: "esm",
-                entryFileNames: "[name].es.js", // mjs
-                sourcemapExcludeSources: false
-            }
+                preserveModulesRoot: 'src',
+                format: 'esm',
+                entryFileNames: '[name].es.js', // mjs
+                sourcemapExcludeSources: false,
+            },
         },
         sourcemap: true,
         minify: false,
-        emptyOutDir: true
+        emptyOutDir: true,
     },
     server: {
         port: 5173,
-        open: "/tests/browser/index.html",
+        open: '/tests/browser/index.html',
         fs: {
-            strict: false
-        }
+            strict: false,
+        },
     },
     esbuild: {
         // sourcemap: true,
         // target: "esnext",
-        keepNames: true // important if minify: "esbuild"
+        keepNames: true, // important if minify: "esbuild"
     },
     plugins: [
         tsConfigPaths(),
         dts({
-            tsconfigPath: "./tsconfig.build.json",
-            outDir: "dist",
-            entryRoot: "src",
-            include: ["src/**/*.ts"],
+            tsconfigPath: './tsconfig.build.json',
+            outDir: 'dist',
+            entryRoot: 'src',
+            include: ['src/**/*.ts'],
             rollupTypes: false,
-            insertTypesEntry: false
+            insertTypesEntry: false,
         }),
         {
-            name: "postBuild",
+            name: 'postBuild',
             closeBundle() {
-                console.log("Use vite dedupe:", config.packages.join(", "));
-            }
-        }
-    ]
+                console.log('Use vite dedupe:', config.packages.join(', '));
+            },
+        },
+    ],
 });

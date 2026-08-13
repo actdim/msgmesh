@@ -30,23 +30,37 @@ import {
     OutChannelStruct,
     NoProviderError,
     $C_ANY,
-    MsgStatus
-} from "@/contracts";
-import { v4 as uuid } from "uuid";
-import { MonoTypeOperatorFunction, Observable, Subject, ReplaySubject, asyncScheduler, OperatorFunction, SchedulerLike } from "rxjs";
-import { filter as filterOp, take as takeOp, observeOn, delay as delayOp, debounceTime as debounceOp } from "rxjs/operators";
+    MsgStatus,
+} from '@/contracts';
+import { v4 as uuid } from 'uuid';
+import {
+    MonoTypeOperatorFunction,
+    Observable,
+    Subject,
+    ReplaySubject,
+    asyncScheduler,
+    OperatorFunction,
+    SchedulerLike,
+} from 'rxjs';
+import {
+    filter as filterOp,
+    take as takeOp,
+    observeOn,
+    delay as delayOp,
+    debounceTime as debounceOp,
+} from 'rxjs/operators';
 
-import { Skip } from "@actdim/utico/typeCore";
-import { pipeFromArray, throttleOp, ThrottleOptions } from "@/util";
-import { delayError } from "@actdim/utico/utils";
-import { getGlobalFlags } from "@/globals";
+import { Skip } from '@actdim/utico/typeCore';
+import { pipeFromArray, throttleOp, ThrottleOptions } from '@/util';
+import { delayError } from '@actdim/utico/utils';
+import { getGlobalFlags } from '@/globals';
 
 export const getMatchTest = (pattern: string) => {
     if (pattern == undefined) {
         // return (value: string) => true;
         return (value: string) => value == pattern;
     }
-    if (pattern.startsWith("/") && pattern.endsWith("/")) {
+    if (pattern.startsWith('/') && pattern.endsWith('/')) {
         pattern = pattern.substring(1, pattern.length - 1);
         const regexp = new RegExp(pattern);
         return (value: string) => regexp.test(value);
@@ -65,10 +79,13 @@ function now() {
 }
 
 // createServiceBus
-const groupPrefix = ":"; // "/", ":", "::"
-export function createMsgBus<TStruct extends MsgStructBase, THeaders extends MsgHeaders = MsgHeaders>(config?: MsgBusConfig<MsgStructNormalized<TStruct>>) {
+const groupPrefix = ':'; // "/", ":", "::"
+export function createMsgBus<
+    TStruct extends MsgStructBase,
+    THeaders extends MsgHeaders = MsgHeaders,
+>(config?: MsgBusConfig<MsgStructNormalized<TStruct>>) {
     type TStructN = MsgStructNormalized<TStruct>;
-    type MsgInfo = Skip<Msg<TStructN>, "payload">;
+    type MsgInfo = Skip<Msg<TStructN>, 'payload'>;
 
     const errTopic = $SYSTEM_TOPIC;
     const scheduler: SchedulerLike = asyncScheduler;
@@ -77,7 +94,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         return {
             id: msg.id,
             address: msg.address,
-            headers: msg.headers
+            headers: msg.headers,
         } as MsgInfo;
     }
 
@@ -89,46 +106,49 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                     name: err.name,
                     message: err.message,
                     stack: err.stack,
-                    cause: err.cause
+                    cause: err.cause,
                 };
-            }
-            else {
+            } else {
                 errInfo = JSON.stringify(err);
             }
         } else {
             errInfo = err;
         }
-        const errPayload = ({
+        const errPayload = {
             error: errInfo,
-            source: getMsgInfo(srcMsg)
-        } satisfies ErrorPayload) as Msg<TStructN>["payload"];
+            source: getMsgInfo(srcMsg),
+        } satisfies ErrorPayload as Msg<TStructN>['payload'];
         let errMsg: Msg<TStructN>;
         errMsg = {
             address: {
                 channel: srcMsg.address.channel,
                 group: $CG_ERROR,
-                topic: errTopic
+                topic: errTopic,
             },
-            payload: errPayload
+            payload: errPayload,
         };
         publish(errMsg);
         errMsg = {
             address: {
                 channel: $C_ERROR as keyof TStructN,
                 group: $CG_IN,
-                topic: errTopic
+                topic: errTopic,
             },
-            payload: errPayload
+            payload: errPayload,
         };
         publish(errMsg);
         if (respondToRequest && srcMsg.headers?.requestId) {
             publish({
-                address: { channel: srcMsg.address.channel, group: $CG_OUT, topic: srcMsg.address.topic },
+                address: {
+                    channel: srcMsg.address.channel,
+                    group: $CG_OUT,
+                    topic: srcMsg.address.topic,
+                },
                 status: 'failed' satisfies MsgStatus,
                 headers: {
                     ...srcMsg.headers,
                     inResponseToId: srcMsg.headers.requestId,
-                    error: err?.message ?? String(err)
+                    error: err?.message ?? String(err),
                 },
             });
         }
@@ -137,7 +157,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
     function createOperationCanceledError(cause?: unknown, message?: string) {
         if (!message) {
-            message = "The operation was canceled by the caller";
+            message = 'The operation was canceled by the caller';
         }
         return new OperationCanceledError(message, cause);
     }
@@ -151,44 +171,48 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
     function getChannelConfig(channel: string) {
         const configOrResolver = config?.[$C_ANY];
-        const defaults = typeof configOrResolver === "function" ? configOrResolver(channel) : configOrResolver;
+        const defaults =
+            typeof configOrResolver === 'function' ? configOrResolver(channel) : configOrResolver;
         return { ...defaults, ...config?.[channel] };
     }
 
-    // TODO: use for subjects
-    // type MsgRecord = {
-    //     msg: Msg<TStructN>;
-    //     acked: boolean;
-    //     // ackTimestamp
-    //     ackedAt?: number;
-    // }
-
     function getOrCreateSubject(channel: string, group: string): Subject<Msg<TStructN>> {
         const routingKey = createRoutingKey(channel, group);
-        // TODO: support BehaviorSubject
         if (!subjects.has(routingKey)) {
             let subject: Subject<Msg<TStructN>> = null;
             const channelConfig = getChannelConfig(channel);
             if (channelConfig) {
-                if (channelConfig.replayBufferSize != undefined || channelConfig.replayWindowTime != undefined) {
-                    subject = new ReplaySubject<Msg<TStructN>>(channelConfig.replayBufferSize == undefined ? Infinity : channelConfig.replayBufferSize, channelConfig.replayWindowTime == undefined ? Infinity : channelConfig.replayWindowTime);
+                if (
+                    channelConfig.replayBufferSize != undefined ||
+                    channelConfig.replayWindowTime != undefined
+                ) {
+                    subject = new ReplaySubject<Msg<TStructN>>(
+                        channelConfig.replayBufferSize == undefined
+                            ? Infinity
+                            : channelConfig.replayBufferSize,
+                        channelConfig.replayWindowTime == undefined
+                            ? Infinity
+                            : channelConfig.replayWindowTime,
+                    );
                 }
             }
             if (!subject) {
                 subject = new Subject<Msg<TStructN>>();
             }
-            subjects.set(routingKey,
-                subject
-            );
+            subjects.set(routingKey, subject);
         }
         return subjects.get(routingKey);
     }
 
-    function applyThrottle(ops: OperatorFunction<any, any>[], throttle?: number | (ThrottleOptions & { duration: number; }), scheduler?: SchedulerLike) {
+    function applyThrottle(
+        ops: OperatorFunction<any, any>[],
+        throttle?: number | (ThrottleOptions & { duration: number }),
+        scheduler?: SchedulerLike,
+    ) {
         if (throttle != undefined) {
             let duration: number;
             let options: ThrottleOptions = { leading: true, trailing: true };
-            if (typeof throttle === "number") {
+            if (typeof throttle === 'number') {
                 duration = throttle;
             } else {
                 duration = throttle.duration;
@@ -199,15 +223,17 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         }
     }
 
-    function applyDebounce(ops: OperatorFunction<any, any>[], duration?: number, scheduler?: SchedulerLike) {
+    function applyDebounce(
+        ops: OperatorFunction<any, any>[],
+        duration?: number,
+        scheduler?: SchedulerLike,
+    ) {
         if (duration != undefined) {
             ops.push(debounceOp(duration, scheduler));
         }
     }
 
     function subscribe(params: MsgSubParams<TStructN>) {
-        // TODO: use [channel, group] as key?
-
         const channel = String(params.channel);
 
         const group = params.group == undefined ? $CG_IN : String(params.group);
@@ -220,7 +246,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
             (msg) =>
                 // msg.address.channel === channel &&
                 // msg.address.group === group &&
-                match(msg.address.topic) && (!params.filter || params.filter(msg))
+                match(msg.address.topic) && (!params.filter || params.filter(msg)),
         );
 
         let observable: Observable<Msg<TStructN>>;
@@ -254,7 +280,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         observable = pipeFromArray(ops)(subject);
 
         if (params.options?.abortSignal?.aborted) {
-            return () => { };
+            return () => {};
         }
 
         const sub = observable.subscribe({
@@ -272,44 +298,43 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                         address: {
                             channel: channel as keyof TStructN,
                             group: group,
-                            topic: params.topic
-                        }
+                            topic: params.topic,
+                        },
                     },
-                    err
+                    err,
                 );
             },
             complete: () => {
                 // cleanup
-            }
+            },
         });
 
         const abortSignal = params.options?.abortSignal;
         let onAbort: (() => void) | null = null;
         if (abortSignal) {
             onAbort = () => {
-                // TODO: publish debug (internal) message
                 if (getGlobalFlags().debug) {
                     console.debug(
-                        `Listening aborted for channel: ${channel}, group: ${group}, topic: ${params.topic}. Reason: ${abortSignal.reason}` // e.target
+                        `Listening aborted for channel: ${channel}, group: ${group}, topic: ${params.topic}. Reason: ${abortSignal.reason}`, // e.target
                     );
                 }
                 sub.unsubscribe();
             };
-            abortSignal.addEventListener("abort", onAbort);
+            abortSignal.addEventListener('abort', onAbort);
         }
 
         // Ensure abort listener is always removed when subscription ends
         // (complete/error/unsubscribe), even if caller doesn't call returned cleanup.
         sub.add(() => {
             if (onAbort && abortSignal) {
-                abortSignal.removeEventListener("abort", onAbort);
+                abortSignal.removeEventListener('abort', onAbort);
                 onAbort = null;
             }
         });
 
         return () => {
             if (onAbort && abortSignal) {
-                abortSignal.removeEventListener("abort", onAbort);
+                abortSignal.removeEventListener('abort', onAbort);
                 onAbort = null;
             }
             sub.unsubscribe();
@@ -327,7 +352,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
             msg.status = 'pending' satisfies MsgStatus;
         }
         const headers = msg.headers;
-        headers.timestamp = now()
+        headers.timestamp = now();
         const channel = String(msg.address.channel);
         if (msg.address.group == undefined) {
             msg.address.group = $CG_IN;
@@ -336,11 +361,12 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         const subject = getOrCreateSubject(channel, group);
         if (!subject.observed) {
             if (getGlobalFlags().debug) {
-                console.warn(`[msgBus] No subscribers on channel "${channel}" (group: "${group}"). Message may be lost.`);
+                console.warn(
+                    `[msgBus] No subscribers on channel "${channel}" (group: "${group}"). Message may be lost.`,
+                );
             }
         }
         subject.next(msg);
-        // TODO: implement backpressure using signal after auto-'ack' or "out" msg signal
         return Promise.resolve(msg);
     }
 
@@ -349,73 +375,77 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
     }
 
     function once(params: AwaitableMsgSubParams<TStructN>) {
-        const timeout = params.options?.timeout == undefined ? defaultPromiseTimeout : params.options?.timeout;
+        const timeout =
+            params.options?.timeout == undefined ? defaultPromiseTimeout : params.options?.timeout;
         let settled = false;
-        return Promise.race([delayError(timeout, () => new TimeoutError()), new Promise<any>((res, rej) => {
-            try {
-                const abortSignal = params.options?.abortSignal;
-                let un: (() => void) | null = null;
-                let cleanup: () => void = () => {
-                    un?.();
-                    un = null;
-                };
-
-                if (abortSignal?.aborted) {
-                    rej(createOperationCanceledError(abortSignal.reason));
-                    return;
-                }
-
-                if (abortSignal) {
-                    let onAbort: (() => void) | null = null;
-                    cleanup = () => {
-                        abortSignal.removeEventListener("abort", onAbort);
+        return Promise.race([
+            delayError(timeout, () => new TimeoutError()),
+            new Promise<any>((res, rej) => {
+                try {
+                    const abortSignal = params.options?.abortSignal;
+                    let un: (() => void) | null = null;
+                    let cleanup: () => void = () => {
                         un?.();
                         un = null;
                     };
-                    onAbort = () => {
-                        if (settled) {
-                            return
-                        };
-                        settled = true;
-                        cleanup();
-                        rej(createOperationCanceledError(abortSignal.reason));
-                    };
-                    abortSignal.addEventListener("abort", onAbort);
-                }
 
-                const subParams: MsgSubParams<TStructN> = {
-                    ...params,
-                    ...{
-                        options: {
-                            ...params.options,
-                            ...{
-                                fetchCount: 1
-                            }
-                        },
-                        callback: (msg) => {
-                            try {
-                                if (settled) {
-                                    return;
-                                }
-                                settled = true;
-                                cleanup?.();
-                                res(msg);
-                            } catch (err) {
-                                if (settled) {
-                                    return;
-                                }
-                                settled = true;
-                                cleanup?.();
-                                rej(err);
-                            }
-                        }
+                    if (abortSignal?.aborted) {
+                        rej(createOperationCanceledError(abortSignal.reason));
+                        return;
                     }
-                };
-                un = subscribe(subParams);
-            } catch (e) {
-                rej(e);
-            }
-        })]);
+
+                    if (abortSignal) {
+                        let onAbort: (() => void) | null = null;
+                        cleanup = () => {
+                            abortSignal.removeEventListener('abort', onAbort);
+                            un?.();
+                            un = null;
+                        };
+                        onAbort = () => {
+                            if (settled) {
+                                return;
+                            }
+                            settled = true;
+                            cleanup();
+                            rej(createOperationCanceledError(abortSignal.reason));
+                        };
+                        abortSignal.addEventListener('abort', onAbort);
+                    }
+
+                    const subParams: MsgSubParams<TStructN> = {
+                        ...params,
+                        ...{
+                            options: {
+                                ...params.options,
+                                ...{
+                                    fetchCount: 1,
+                                },
+                            },
+                            callback: (msg) => {
+                                try {
+                                    if (settled) {
+                                        return;
+                                    }
+                                    settled = true;
+                                    cleanup?.();
+                                    res(msg);
+                                } catch (err) {
+                                    if (settled) {
+                                        return;
+                                    }
+                                    settled = true;
+                                    cleanup?.();
+                                    rej(err);
+                                }
+                            },
+                        },
+                    };
+                    un = subscribe(subParams);
+                } catch (e) {
+                    rej(e);
+                }
+            }),
+        ]);
     }
 
     function provide(params: MsgProviderParams<TStructN>) {
@@ -425,15 +455,23 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                 callback: async (inMsg) => {
                     try {
                         const outMsg: Msg<TStructN, keyof TStructN, keyof OutChannelStruct> = {
-                            address: { channel: inMsg.address.channel, group: $CG_OUT, topic: inMsg.address.topic },
+                            address: {
+                                channel: inMsg.address.channel,
+                                group: $CG_OUT,
+                                topic: inMsg.address.topic,
+                            },
                             headers: {
                                 ...inMsg.headers,
                                 ...params.headers,
-                                inResponseToId: inMsg.headers?.requestId
-                            } as Msg<TStructN>["headers"]
+                                inResponseToId: inMsg.headers?.requestId,
+                            } as Msg<TStructN>['headers'],
                         };
                         const payload = await Promise.resolve(params.callback(inMsg, outMsg));
-                        if (inMsg.status === 'canceled' || outMsg.status === 'skipped' || outMsg.status === 'canceled') {
+                        if (
+                            inMsg.status === 'canceled' ||
+                            outMsg.status === 'skipped' ||
+                            outMsg.status === 'canceled'
+                        ) {
                             return;
                         }
                         outMsg.payload = payload;
@@ -442,8 +480,8 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                     } catch (err) {
                         handleError(inMsg, err, true);
                     }
-                }
-            }
+                },
+            },
         };
         subscribe(subParams);
     }
@@ -452,7 +490,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         TStruct extends MsgStructBase = MsgStructBase,
         TChannel extends keyof TStruct = keyof TStruct,
         TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel], // typeof $CG_IN
-        THeaders extends MsgHeaders = MsgHeaders
+        THeaders extends MsgHeaders = MsgHeaders,
     > = MsgSenderParams<TStruct, TChannel, TGroup, THeaders> & {
         callback?: (msg: Msg<TStruct, TChannel, typeof $CG_OUT, THeaders>) => void;
     };
@@ -467,16 +505,19 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                 options: {
                     ...params.options,
                     ...{
-                        fetchCount: 1
-                    }
+                        fetchCount: 1,
+                    },
                 },
                 callback: (outMsg) => {
                     // sub.unsubscribe();
                     params.callback(outMsg);
                 },
                 filter: (outMsg) => {
-                    return outMsg.headers.inResponseToId === msg.headers.requestId && (!params.filter || params.filter(outMsg)) // TODO: match topic?
-                }
+                    return (
+                        outMsg.headers.inResponseToId === msg.headers.requestId &&
+                        (!params.filter || params.filter(outMsg))
+                    );
+                },
             };
             subscribe(subParams);
         }
@@ -492,13 +533,13 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
             address: {
                 channel: params.channel,
                 group: params.group,
-                topic: params.topic
+                topic: params.topic,
             },
             headers: {
                 requestId: params.headers?.requestId || uuid(),
-                ...params.headers
+                ...params.headers,
             },
-            payload: payload
+            payload: payload,
         });
         return msg;
     }
@@ -510,80 +551,101 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         const inSubject = getOrCreateSubject(channel, inGroup);
         if (!inSubject.observed) {
             if (getGlobalFlags().debug) {
-                console.warn(`[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`);
+                console.warn(
+                    `[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`,
+                );
             }
             if (params.options?.throwIfNoProvider || channelConfig?.mandatoryProvider) {
                 throw new NoProviderError(channel);
             }
         }
-        const timeout = params.options?.timeout == undefined ? defaultPromiseTimeout : params.options?.timeout;
+        const timeout =
+            params.options?.timeout == undefined ? defaultPromiseTimeout : params.options?.timeout;
         let settled = false;
-        return Promise.race([delayError(timeout, () => new TimeoutError()), new Promise(async (res, rej) => {
-            try {
-                const abortSignal = params.options?.abortSignal;
-                let cleanup: () => void = null;
-                let msg: Msg<TStructN> = null;
-                const dispatchParams: MsgDispatcherParams<TStructN> = {
-                    ...params,
-                    callback: (msg) => {
-                        try {
-                            if (settled) {
-                                return;
+        return Promise.race([
+            delayError(timeout, () => new TimeoutError()),
+            new Promise(async (res, rej) => {
+                try {
+                    const abortSignal = params.options?.abortSignal;
+                    let cleanup: () => void = null;
+                    let msg: Msg<TStructN> = null;
+                    const dispatchParams: MsgDispatcherParams<TStructN> = {
+                        ...params,
+                        callback: (msg) => {
+                            try {
+                                if (settled) {
+                                    return;
+                                }
+                                settled = true;
+                                cleanup?.();
+                                if (msg.status === 'canceled') {
+                                    rej(
+                                        createOperationCanceledError(
+                                            msg,
+                                            'The request was canceled by the provider',
+                                        ),
+                                    );
+                                    return;
+                                } else if (msg.status === 'failed') {
+                                    const errHeader = msg.headers?.error;
+                                    const errMessage =
+                                        typeof errHeader === 'string'
+                                            ? errHeader
+                                            : (errHeader?.message ?? 'Unknown error');
+                                    rej(new Error(errMessage, { cause: msg }));
+                                    return;
+                                }
+                                res(msg);
+                            } catch (err) {
+                                if (settled) {
+                                    return;
+                                }
+                                settled = true;
+                                cleanup?.();
+                                rej(err);
                             }
-                            settled = true;
-                            cleanup?.();
-                            if (msg.status === 'canceled') {
-                                rej(createOperationCanceledError(msg, "The request was canceled by the provider"));
-                                return;
-                            } else if (msg.status === 'failed') {
-                                const errHeader = msg.headers?.error;
-                                const errMessage = typeof errHeader === "string"
-                                    ? errHeader
-                                    : errHeader?.message ?? "Unknown error";
-                                rej(new Error(errMessage, { cause: msg }));
-                                return;
-                            }
-                            res(msg);
-                        } catch (err) {
-                            if (settled) {
-                                return;
-                            }
-                            settled = true;
-                            cleanup?.();
-                            rej(err);
-                        }
-                    }
-                };
-                msg = await dispatch(dispatchParams);
+                        },
+                    };
+                    msg = await dispatch(dispatchParams);
 
-                if (abortSignal) {
-                    let onAbort: () => void = null;
-                    cleanup = () => {
-                        abortSignal.removeEventListener("abort", onAbort);
-                    };
-                    onAbort = () => {
-                        if (settled) {
-                            return
+                    if (abortSignal) {
+                        let onAbort: () => void = null;
+                        cleanup = () => {
+                            abortSignal.removeEventListener('abort', onAbort);
                         };
-                        settled = true;
-                        cleanup();
-                        publish({
-                            address: { channel: params.channel, group: $CG_IN, topic: params.topic },
-                            status: 'canceled' satisfies MsgStatus,
-                            headers: { requestId: msg.headers.requestId }
-                        });
-                        rej(createOperationCanceledError(abortSignal.reason, "The request was canceled by the caller"));
-                    };
-                    if (abortSignal.aborted) {
-                        onAbort();
-                        return;
+                        onAbort = () => {
+                            if (settled) {
+                                return;
+                            }
+                            settled = true;
+                            cleanup();
+                            publish({
+                                address: {
+                                    channel: params.channel,
+                                    group: $CG_IN,
+                                    topic: params.topic,
+                                },
+                                status: 'canceled' satisfies MsgStatus,
+                                headers: { requestId: msg.headers.requestId },
+                            });
+                            rej(
+                                createOperationCanceledError(
+                                    abortSignal.reason,
+                                    'The request was canceled by the caller',
+                                ),
+                            );
+                        };
+                        if (abortSignal.aborted) {
+                            onAbort();
+                            return;
+                        }
+                        abortSignal.addEventListener('abort', onAbort);
                     }
-                    abortSignal.addEventListener("abort", onAbort);
+                } catch (err) {
+                    rej(err);
                 }
-            } catch (err) {
-                rej(err);
-            }
-        })]);
+            }),
+        ]);
     }
 
     async function* requestStream(params: MsgRequestStreamParams<TStructN>) {
@@ -594,7 +656,9 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
         if (!inSubject.observed) {
             if (getGlobalFlags().debug) {
-                console.warn(`[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`);
+                console.warn(
+                    `[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`,
+                );
             }
             if (params.options?.throwIfNoProvider || channelConfig?.mandatoryProvider) {
                 throw new NoProviderError(channel);
@@ -603,7 +667,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
         const timeout = params.options?.timeout;
         const abortSignal = params.options?.abortSignal;
-        const streamEnd = Symbol("stream-end");
+        const streamEnd = Symbol('stream-end');
         let aborted = false;
 
         let pendingResolve: ((msg: Msg<TStructN> | typeof streamEnd) => void) | null = null;
@@ -640,7 +704,9 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
         let payload: any;
         if (params.payloadFn) {
-            params.payloadFn((...args) => { payload = args; });
+            params.payloadFn((...args) => {
+                payload = args;
+            });
         } else {
             payload = params.payload;
         }
@@ -650,7 +716,9 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
             channel: params.channel,
             group: $CG_OUT,
             topic: params.topic,
-            filter: (outMsg) => outMsg.headers.inResponseToId === requestId && (!params.filter || params.filter(outMsg)),
+            filter: (outMsg) =>
+                outMsg.headers.inResponseToId === requestId &&
+                (!params.filter || params.filter(outMsg)),
             options: {
                 throttle: params.options?.throttle,
                 debounce: params.options?.debounce,
@@ -662,7 +730,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                     pendingResolve = null;
                     pendingReject = null;
                 }
-            }
+            },
         };
 
         const unsubscribe = subscribe(subParams);
@@ -671,13 +739,13 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
             address: {
                 channel: params.channel,
                 group: params.group,
-                topic: params.topic
+                topic: params.topic,
             },
             headers: {
                 requestId,
-                ...params.headers
+                ...params.headers,
             },
-            payload
+            payload,
         });
 
         let onAbort: (() => void) | null = null;
@@ -690,7 +758,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
             if (abortSignal.aborted) {
                 onAbort();
             } else {
-                abortSignal.addEventListener("abort", onAbort);
+                abortSignal.addEventListener('abort', onAbort);
             }
         }
 
@@ -698,20 +766,26 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
         try {
             while ((!fetchCount || messageCount < fetchCount) && !aborted) {
-                const msg = await new Promise<Msg<TStructN> | typeof streamEnd>((resolve, reject) => {
-                    pendingResolve = resolve;
-                    pendingReject = reject;
-                });
+                const msg = await new Promise<Msg<TStructN> | typeof streamEnd>(
+                    (resolve, reject) => {
+                        pendingResolve = resolve;
+                        pendingReject = reject;
+                    },
+                );
 
                 if (msg === streamEnd) break;
 
                 if (msg.status === 'canceled') {
-                    throw createOperationCanceledError(msg, "The request was canceled by the provider");
+                    throw createOperationCanceledError(
+                        msg,
+                        'The request was canceled by the provider',
+                    );
                 } else if (msg.status === 'failed') {
                     const errHeader = msg.headers?.error;
-                    const errMessage = typeof errHeader === "string"
-                        ? errHeader
-                        : errHeader?.message ?? "Unknown error";
+                    const errMessage =
+                        typeof errHeader === 'string'
+                            ? errHeader
+                            : (errHeader?.message ?? 'Unknown error');
                     throw new Error(errMessage, { cause: msg });
                 }
 
@@ -721,7 +795,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         } finally {
             if (timeoutId) clearTimeout(timeoutId);
             if (onAbort && abortSignal) {
-                abortSignal.removeEventListener("abort", onAbort);
+                abortSignal.removeEventListener('abort', onAbort);
             }
             unsubscribe();
         }
@@ -731,7 +805,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
     async function* stream(params: MsgStreamParams<TStructN>) {
         const timeout = params.options?.timeout;
         const abortSignal = params.options?.abortSignal;
-        const streamEnd = Symbol("stream-end"); // sentinel
+        const streamEnd = Symbol('stream-end'); // sentinel
         let aborted = false;
 
         let pendingResolve: ((msg: Msg<TStructN> | typeof streamEnd) => void) | null = null;
@@ -767,7 +841,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         const subParams: MsgSubParams<TStructN> = {
             ...params,
             options: {
-                ...params.options
+                ...params.options,
             },
             callback: (msg) => {
                 resetTimeout();
@@ -776,7 +850,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                     pendingResolve = null;
                     pendingReject = null;
                 }
-            }
+            },
         };
 
         const unsubscribe = subscribe(subParams);
@@ -791,7 +865,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
             if (abortSignal.aborted) {
                 onAbort();
             } else {
-                abortSignal.addEventListener("abort", onAbort);
+                abortSignal.addEventListener('abort', onAbort);
             }
         }
 
@@ -799,10 +873,12 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
 
         try {
             while ((!fetchCount || messageCount < fetchCount) && !aborted) {
-                const msg = await new Promise<Msg<TStructN> | typeof streamEnd>((resolve, reject) => {
-                    pendingResolve = resolve;
-                    pendingReject = reject;
-                });
+                const msg = await new Promise<Msg<TStructN> | typeof streamEnd>(
+                    (resolve, reject) => {
+                        pendingResolve = resolve;
+                        pendingReject = reject;
+                    },
+                );
 
                 if (msg === streamEnd) {
                     break;
@@ -815,7 +891,7 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
                 clearTimeout(timeoutId);
             }
             if (onAbort && abortSignal) {
-                abortSignal.removeEventListener("abort", onAbort);
+                abortSignal.removeEventListener('abort', onAbort);
             }
             unsubscribe();
         }
@@ -829,46 +905,10 @@ export function createMsgBus<TStruct extends MsgStructBase, THeaders extends Msg
         provide: provide as MsgProvider<TStructN, THeaders>,
         send: dispatch as MsgSender<TStructN, THeaders>,
         request: request as MsgRequestDispatcher<TStructN, THeaders>,
-        requestStream: requestStream as MsgRequestStream<TStructN, THeaders>
+        requestStream: requestStream as MsgRequestStream<TStructN, THeaders>,
     };
 
     // msgBus[$subjects] = subjects;
 
     return msgBus;
 }
-
-// TODO: support persistence
-// TODO: support unsubscribe (abort) alias (like in hooks)
-// TODO: support msg ack via custom RepeatSubject and MsgRecord: (no acked messages in queue, auto ack on publish to "out" channel, + "ack" group?)
-// TODO: support rate limiting (for single channel) and backpressure (for "in" and "out" channel pair), real send promise
-// TODO: support TTL, maxBufferLength
-// TODO:
-// TODO: Point-to-Point (P2P): direct messaging with targeted, address delivery (exactly one recipient)
-// TODO: Broadcast
-// TODO: Queue group: Load Balancing, Round-Robin, Fan-out, Fan-in
-// TODO: QoS
-// TODO: Cross-tab message delivery:
-// https://www.sitepen.com/blog/cross-tab-synchronization-with-the-web-locks-api
-// https://developer.mozilla.org/en-US/docs/Web/API/Broadcast_Channel_API
-// https://github.com/GoogleChromeLabs/comlink
-
-/*
-class RepeatSubject<T> {
-  private buffer: Msg<T>[] = [];
-  private subject = new Subject<Msg<T>>();
-
-  next(msg: Msg<T>) {
-    this.buffer.push(msg);
-    this.subject.next(msg);
-  }
-
-  subscribe(
-    observer: (msg: Msg<T>) => void,
-    filterFn?: (msg: Msg<T>) => boolean
-  ) { 
-    this.buffer.filter(filterFn ?? (() => true)).forEach(observer);
-    
-    return this.subject.subscribe(observer);
-  }
-}
-*/

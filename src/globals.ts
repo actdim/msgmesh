@@ -1,18 +1,17 @@
-export { };
+export {};
 
 export type GlobalFlags = {
     debug?: boolean;
 };
 
 const defaultGlobalFlags: GlobalFlags = {
-    debug: false
-}
+    debug: false,
+};
 
 declare global {
     interface Window {
         __MSGMESH__?: GlobalFlags;
     }
-
 }
 
 // getUserFlags

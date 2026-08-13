@@ -9,36 +9,36 @@
 - [Quick Start](#quick-start)
 - [Installation](#installation)
 - [Overview](#overview)
-  - [The Challenge](#the-challenge)
-  - [Analysis of Existing Solutions](#analysis-of-existing-solutions)
-  - [The Solution](#the-solution-actdimmsgmesh)
-  - [Implementation Foundation](#implementation-foundation)
-  - [Key Design Goals](#key-design-goals)
+    - [The Challenge](#the-challenge)
+    - [Analysis of Existing Solutions](#analysis-of-existing-solutions)
+    - [The Solution](#the-solution-actdimmsgmesh)
+    - [Implementation Foundation](#implementation-foundation)
+    - [Key Design Goals](#key-design-goals)
 - [Architecture](#architecture)
-  - [Message Structure](#message-structure)
-  - [Type Definition Example](#type-definition-example)
+    - [Message Structure](#message-structure)
+    - [Type Definition Example](#type-definition-example)
 - [Usage Patterns](#usage-patterns)
-  - [Global vs Local Usage](#global-vs-local-usage)
-  - [Creating a Message Bus](#creating-a-message-bus)
-  - [Type Utilities](#type-utilities)
+    - [Global vs Local Usage](#global-vs-local-usage)
+    - [Creating a Message Bus](#creating-a-message-bus)
+    - [Type Utilities](#type-utilities)
 - [API Reference](#api-reference)
-  - [Configuration](#configuration)
-  - [`send()`](#sending-messages-send)
-  - [`on()`](#subscribing-to-messages-on)
-  - [`once()`](#awaiting-a-single-message-once)
-  - [`stream()`](#streaming-messages-stream)
-  - [`provide()`](#providing-response-handlers-provide)
-    - [Provider-Side Cancellation](#cancellation-handling)
-  - [`request()`](#request-response-pattern-request)
-    - [Request Cancellation](#cancellation)
-  - [`requestStream()`](#fan-in-streaming-pattern-requeststream)
+    - [Configuration](#configuration)
+    - [`send()`](#sending-messages-send)
+    - [`on()`](#subscribing-to-messages-on)
+    - [`once()`](#awaiting-a-single-message-once)
+    - [`stream()`](#streaming-messages-stream)
+    - [`provide()`](#providing-response-handlers-provide)
+        - [Provider-Side Cancellation](#cancellation-handling)
+    - [`request()`](#request-response-pattern-request)
+        - [Request Cancellation](#cancellation)
+    - [`requestStream()`](#fan-in-streaming-pattern-requeststream)
 - [Advanced Features](#advanced-features)
-  - [Message Replay](#message-replay)
-  - [Throttling and Debouncing](#throttling-and-debouncing)
-  - [Chain of Responsibility](#chain-of-responsibility)
-  - [Error Handling](#error-handling)
-  - [Headers and Metadata](#headers-and-metadata)
-  - [Service Adapters](#service-adapters)
+    - [Message Replay](#message-replay)
+    - [Throttling and Debouncing](#throttling-and-debouncing)
+    - [Chain of Responsibility](#chain-of-responsibility)
+    - [Error Handling](#error-handling)
+    - [Headers and Metadata](#headers-and-metadata)
+    - [Service Adapters](#service-adapters)
 - [Comparison](#comparison-with-other-solutions)
 
 ## Quick Start
@@ -195,7 +195,7 @@ Groups define message roles within a channel. There are two semantic kinds:
 This distinction maps directly to whether you care about the `out` group:
 
 - **[`send()`](#sending-messages-send)** — publishes to the channel's input group and returns immediately. No waiting for any handler. Use when you only care that the event was dispatched.
-- **[`request()`](#request-response-pattern-request) / [`requestStream()`](#fan-in-streaming-pattern-requeststream)** — publishes and **awaits the handler's response** via the `out` group. Even when `out: void`, this confirms the message was *processed*, not just published. Use when you need to know the work completed.
+- **[`request()`](#request-response-pattern-request) / [`requestStream()`](#fan-in-streaming-pattern-requeststream)** — publishes and **awaits the handler's response** via the `out` group. Even when `out: void`, this confirms the message was _processed_, not just published. Use when you need to know the work completed.
 
 A handler registered with [`provide()`](#providing-response-handlers-provide) can **skip** individual messages by setting `msgOut.status = 'skipped'`, leaving them for another handler on the same channel (see [Chain of Responsibility](#chain-of-responsibility)). A skipped message produces no `out` response from that handler.
 
@@ -298,14 +298,14 @@ type Behavior = {
 
 ## API Reference
 
-| Method | Description |
-|--------|-------------|
-| `send()` | Publish a message to a channel |
-| `on()` | Subscribe to messages on a channel |
-| `once()` | Await a single message (Promise-based) |
-| `stream()` | Consume messages as an async iterable |
-| `provide()` | Register a request handler (auto-responds on `out`) |
-| `request()` | Send a request and await a single response |
+| Method            | Description                                                            |
+| ----------------- | ---------------------------------------------------------------------- |
+| `send()`          | Publish a message to a channel                                         |
+| `on()`            | Subscribe to messages on a channel                                     |
+| `once()`          | Await a single message (Promise-based)                                 |
+| `stream()`        | Consume messages as an async iterable                                  |
+| `provide()`       | Register a request handler (auto-responds on `out`)                    |
+| `request()`       | Send a request and await a single response                             |
 | `requestStream()` | Send a request and consume all responses as an async iterable (Fan-in) |
 
 ### Configuration
@@ -317,7 +317,7 @@ import { MsgBusConfig } from '@actdim/msgmesh';
 
 const config: MsgBusConfig<MyBusStruct> = {
     // Static default config applied to all channels (channel-specific overrides win)
-    "*": {
+    '*': {
         mandatoryProvider: true,
     },
     'TEST.COMPUTE_SUM': {
@@ -342,7 +342,7 @@ You can also pass a function as `"*"` to compute per-channel defaults dynamicall
 
 ```typescript
 const config: MsgBusConfig<MyBusStruct> = {
-    "*": (channel) => ({
+    '*': (channel) => ({
         mandatoryProvider: channel.startsWith('Api.'),
     }),
     'TEST.COMPUTE_SUM': {
@@ -926,8 +926,8 @@ for await (const msg of msgBus.requestStream({
     channel: 'SEARCH.QUERY',
     payload: { term: 'typescript' },
     options: {
-        fetchCount: 10,    // at most 10 results
-        timeout: 3000,     // stop if no new result for 3s
+        fetchCount: 10, // at most 10 results
+        timeout: 3000, // stop if no new result for 3s
     },
 })) {
     displayResult(msg.payload);
@@ -952,12 +952,12 @@ const streamTask = (async () => {
 
 #### Key Differences from `request()`
 
-| | `request()` | `requestStream()` |
-|--|-------------|-------------------|
-| Return | `Promise<Msg>` | `AsyncIterableIterator<Msg>` |
-| Responses | First one wins | All providers respond |
-| Completion | On first response | `fetchCount` / timeout / abort |
-| Use case | Single provider RPC | Fan-in / multi-provider aggregation |
+|            | `request()`         | `requestStream()`                   |
+| ---------- | ------------------- | ----------------------------------- |
+| Return     | `Promise<Msg>`      | `AsyncIterableIterator<Msg>`        |
+| Responses  | First one wins      | All providers respond               |
+| Completion | On first response   | `fetchCount` / timeout / abort      |
+| Use case   | Single provider RPC | Fan-in / multi-provider aggregation |
 
 #### Error Handling
 
@@ -1160,8 +1160,12 @@ Automatically register any service object (e.g. a Swagger-generated API client) 
 
 ```typescript
 import {
-    ToMsgChannelPrefix, ToMsgStruct, BaseServiceSuffix,
-    registerAdapters, getMsgChannelSelector, MsgProviderAdapter
+    ToMsgChannelPrefix,
+    ToMsgStruct,
+    BaseServiceSuffix,
+    registerAdapters,
+    getMsgChannelSelector,
+    MsgProviderAdapter,
 } from '@actdim/msgmesh/adapters';
 import { createMsgBus } from '@actdim/msgmesh/core';
 
@@ -1170,9 +1174,15 @@ class OrderApiClient {
     static readonly name = 'OrderApiClient' as const;
     readonly name = 'OrderApiClient' as const;
 
-    createOrder(items: Item[], priority: number): Promise<OrderResult> { /* ... */ }
-    getOrder(id: string): Promise<Order> { /* ... */ }
-    formatResponse() { /* internal — will be skipped */ }
+    createOrder(items: Item[], priority: number): Promise<OrderResult> {
+        /* ... */
+    }
+    getOrder(id: string): Promise<Order> {
+        /* ... */
+    }
+    formatResponse() {
+        /* internal — will be skipped */
+    }
 }
 
 // 2. Derive channel prefix from class name:
@@ -1194,17 +1204,20 @@ const abortController = new AbortController();
 
 registerAdapters(
     msgBus,
-    Object.entries(services).map(([_, service]) => ({
-        service,
-        channelSelector: getMsgChannelSelector(services),
-    }) as MsgProviderAdapter),
+    Object.entries(services).map(
+        ([_, service]) =>
+            ({
+                service,
+                channelSelector: getMsgChannelSelector(services),
+            }) as MsgProviderAdapter,
+    ),
     abortController.signal,
 );
 
 // 5. Call via the bus — fully type-safe, payloadFn matches the original method signature
 const response = await msgBus.request({
     channel: 'API.ORDER.CREATEORDER',
-    payloadFn: fn => fn([{ id: '1', qty: 2 }], 1),
+    payloadFn: (fn) => fn([{ id: '1', qty: 2 }], 1),
 });
 console.log(response.payload); // OrderResult
 
@@ -1221,11 +1234,17 @@ class OrderApiClient {
     static readonly name = 'OrderApiClient' as const;
     readonly name = 'OrderApiClient' as const;
 
-    createOrder(items: Item[], priority: number): Promise<OrderResult> { /* ... */ }
-    getOrder(id: string): Promise<Order> { /* ... */ }
+    createOrder(items: Item[], priority: number): Promise<OrderResult> {
+        /* ... */
+    }
+    getOrder(id: string): Promise<Order> {
+        /* ... */
+    }
 
     // Internal helper — should not be exposed on the bus
-    formatResponse() { /* ... */ }
+    formatResponse() {
+        /* ... */
+    }
 }
 ```
 
@@ -1238,7 +1257,7 @@ import {
     BaseServiceSuffix,
     registerAdapters,
     getMsgChannelSelector,
-    MsgProviderAdapter
+    MsgProviderAdapter,
 } from '@actdim/msgmesh/adapters';
 
 // 1. Generate channel prefix from class name
@@ -1246,8 +1265,8 @@ import {
 type ApiPrefix = 'API';
 type OrderChannelPrefix = ToMsgChannelPrefix<
     typeof OrderApiClient.name, // "OrderApiClient"
-    ApiPrefix,                  // "API"
-    BaseServiceSuffix           // removes CLIENT, API, SERVICE, etc.
+    ApiPrefix, // "API"
+    BaseServiceSuffix // removes CLIENT, API, SERVICE, etc.
 >;
 // Result: "API.ORDER."
 
@@ -1279,10 +1298,13 @@ const services: Record<OrderChannelPrefix, any> = {
     'API.ORDER.': new OrderApiClient(),
 };
 
-const adapters = Object.entries(services).map(([_, service]) => ({
-    service,
-    channelSelector: getMsgChannelSelector(services),
-}) as MsgProviderAdapter);
+const adapters = Object.entries(services).map(
+    ([_, service]) =>
+        ({
+            service,
+            channelSelector: getMsgChannelSelector(services),
+        }) as MsgProviderAdapter,
+);
 
 const msgBus = createMsgBus<OrderApiStruct>();
 const abortController = new AbortController();
@@ -1304,7 +1326,7 @@ Since method parameters are mapped to tuple types in the bus struct, use `payloa
 // Type-safe call — fn signature matches createOrder(items, priority)
 const response = await msgBus.request({
     channel: 'API.ORDER.CREATEORDER',
-    payloadFn: fn => fn([{ id: '1', qty: 2 }], 1),
+    payloadFn: (fn) => fn([{ id: '1', qty: 2 }], 1),
 });
 
 console.log(response.payload); // OrderResult
@@ -1322,20 +1344,20 @@ Example: `OrderApiClient` with base prefix `"API"` and `Skip = "formatResponse"`
 
 `ToMsgChannelPrefix` builds the channel prefix from the class name:
 
-| Step | Value |
-|---|---|
-| Class name | `OrderApiClient` |
-| Strip known suffixes (`Client`, `Api`, …) | `Order` |
-| Uppercase | `ORDER` |
-| Add base prefix + dots | **`"API.ORDER."`** |
+| Step                                      | Value              |
+| ----------------------------------------- | ------------------ |
+| Class name                                | `OrderApiClient`   |
+| Strip known suffixes (`Client`, `Api`, …) | `Order`            |
+| Uppercase                                 | `ORDER`            |
+| Add base prefix + dots                    | **`"API.ORDER."`** |
 
 `ToMsgStruct` maps each method to a bus channel under that prefix:
 
-| Method | Channel | `in` | `out` |
-|---|---|---|---|
+| Method              | Channel                   | `in`                      | `out`                              |
+| ------------------- | ------------------------- | ------------------------- | ---------------------------------- |
 | `createOrder(a, b)` | `"API.ORDER.CREATEORDER"` | `Parameters<createOrder>` | `Awaited<ReturnType<createOrder>>` |
-| `getOrder(id)` | `"API.ORDER.GETORDER"` | `Parameters<getOrder>` | `Awaited<ReturnType<getOrder>>` |
-| `formatResponse()` | — | — | *(skipped via `Skip`)* |
+| `getOrder(id)`      | `"API.ORDER.GETORDER"`    | `Parameters<getOrder>`    | `Awaited<ReturnType<getOrder>>`    |
+| `formatResponse()`  | —                         | —                         | _(skipped via `Skip`)_             |
 
 #### Supported Service Suffixes
 
@@ -1371,6 +1393,7 @@ The message bus serves as a solid foundation for the @actdim/dynstruct architect
 ## Changelog
 
 ### v1.5 — Default channel config & provider context
+
 - `"*"` key in `MsgBusConfig` sets default config for all channels; accepts a static object or a function `(channel) => MsgChannelConfig` for dynamic per-channel defaults. `"*"` is reserved and cannot be used as a channel name.
 - `provide()` callback now receives `msgOut: Msg<..., "out">` as second parameter — the pre-initialized outgoing message. Providers write `msgOut.status = 'skipped'` (chain of responsibility) or `msgOut.status = 'canceled'` (provider-side cancellation) instead of mutating the incoming message.
 - `msg.status` moved to top-level `Msg` (was in `headers`). Renamed `Outcome` → `MsgStatus`: `'pending' | 'handled' | 'failed' | 'canceled' | 'skipped' | 'timeout'`.
@@ -1378,32 +1401,33 @@ The message bus serves as a solid foundation for the @actdim/dynstruct architect
 - Chain of responsibility: multiple providers on the same channel; skip by setting `msgOut.status = 'skipped'`.
 
 ### v1.4 — `requestStream()` & error propagation
+
 - Added `requestStream()`: fan-in pattern — one request, all registered providers respond, consumed as an async iterable.
 - Provider errors propagate immediately to `request()` instead of waiting for timeout.
 - Default request timeout reduced to 5 seconds (`defaultPromiseTimeout`, globally overridable).
 
 ### v1.3 — Service adapters
+
 - Added `adapters.ts`: `registerAdapters`, `ToMsgStruct`, `ToMsgChannelPrefix`, `getMsgChannelSelector` — auto-wire any service class as bus providers with compile-time type safety.
 - `payloadFn` parameter on `send()` / `request()` for tuple-typed payloads.
 
 ### v1.2 — Cancellation & `NoProviderError`
+
 - Cooperative request cancellation via `AbortSignal` — cancel message delivered to provider with `msg.status === 'canceled'`.
 - `NoProviderError` on `throwIfNoProvider: true` or `mandatoryProvider: true` in channel config.
 - `MsgStruct<>` factory enforces explicit `in`/`out` declarations; adds implicit `error` group to every channel.
 
 ### v1.0 — Headers, errors & type system
+
 - `MsgHeaders`: `requestId`, `inResponseToId`, `correlationId`, `traceId`, `sourceId`, `priority`, `ttl`, `tags`, `timestamp`.
 - Custom error types: `TimeoutError`, `AbortError`, `OperationCanceledError` with type guards.
 - Per-channel config: `replayBufferSize`, `replayWindowTime`, `throttle`, `debounce`, `delay`.
 
 ### v0.9 — Initial release
+
 - Core pub/sub: `send()`, `on()`, `once()`, `stream()`, `provide()`, `request()`.
 - Channel → group → topic addressing with regex topic matching.
 - Replay buffer via `ReplaySubject`.
-
-## TODO
-
-- rate limiting (for single channel, using signal after auto-'ack') and backpressure (for "in" and "out" channel pair), real send promise
 
 ## Further Reading
 

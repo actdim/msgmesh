@@ -2,20 +2,20 @@
 //# Copyright (c) Pavel Borodaev 2022                                         #
 //##############################################################################
 // SafeBus
-import { HasKeys, IsTuple, MaybePromise } from "@actdim/utico/typeCore";
-import { ThrottleOptions } from "@/util";
+import { HasKeys, IsTuple, MaybePromise } from '@actdim/utico/typeCore';
+import { ThrottleOptions } from '@/util';
 
-export const $CG_IN = "in" as const;
+export const $CG_IN = 'in' as const;
 
-export const $CG_OUT = "out" as const;
+export const $CG_OUT = 'out' as const;
 
-export const $CG_ERROR = "error" as const;
+export const $CG_ERROR = 'error' as const;
 
-export const $C_ERROR = "MSGBUS.ERROR" as const;
+export const $C_ERROR = 'MSGBUS.ERROR' as const;
 
-export const $C_ANY = "*" as const; // $C_ALL
+export const $C_ANY = '*' as const; // $C_ALL
 
-export const $SYSTEM_TOPIC = "msgbus" as const;
+export const $SYSTEM_TOPIC = 'msgbus' as const;
 
 export type ErrorPayload = {
     error: any;
@@ -23,12 +23,12 @@ export type ErrorPayload = {
     handled?: boolean;
 };
 
-export const TIMEOUT_ERROR_NAME = "TimeoutError" as const;
-export const ABORT_ERROR_NAME = "AbortError" as const;
-export const OPERATION_CANCELED_ERROR_NAME = "OperationCanceledError" as const;
-export const $isTimeoutError = Symbol("isTimeoutError");
-export const $isAbortError = Symbol("isAbortError");
-export const $isOperationCanceledError = Symbol("isOperationCanceledError");
+export const TIMEOUT_ERROR_NAME = 'TimeoutError' as const;
+export const ABORT_ERROR_NAME = 'AbortError' as const;
+export const OPERATION_CANCELED_ERROR_NAME = 'OperationCanceledError' as const;
+export const $isTimeoutError = Symbol('isTimeoutError');
+export const $isAbortError = Symbol('isAbortError');
+export const $isOperationCanceledError = Symbol('isOperationCanceledError');
 
 export class BaseError extends Error {
     readonly name: string = 'BaseError';
@@ -37,7 +37,7 @@ export class BaseError extends Error {
         message: string,
         options?: {
             cause?: unknown;
-        }
+        },
     ) {
         super(message, options);
         Object.setPrototypeOf(this, new.target.prototype);
@@ -49,7 +49,7 @@ export class TimeoutError extends BaseError {
 
     constructor(message?: string, cause?: unknown) {
         // Operation
-        super(message || "Timeout exceeded", { cause });
+        super(message || 'Timeout exceeded', { cause });
     }
 }
 
@@ -58,7 +58,7 @@ export class AbortError extends BaseError {
     readonly [$isAbortError] = true as const;
 
     constructor(message?: string, cause?: unknown) {
-        super(message || "Operation aborted", { cause });
+        super(message || 'Operation aborted', { cause });
     }
 }
 
@@ -67,24 +67,24 @@ export class OperationCanceledError extends BaseError {
     readonly [$isOperationCanceledError] = true as const;
 
     constructor(message?: string, cause?: unknown) {
-        super(message || "Operation canceled", { cause });
+        super(message || 'Operation canceled', { cause });
     }
 }
 
 export function isTimeoutError(error: unknown): error is TimeoutError {
-    return typeof error === "object" && error !== null && $isTimeoutError in error;
+    return typeof error === 'object' && error !== null && $isTimeoutError in error;
 }
 
 export function isAbortError(error: unknown): error is AbortError {
-    return typeof error === "object" && error !== null && $isAbortError in error;
+    return typeof error === 'object' && error !== null && $isAbortError in error;
 }
 
 export function isOperationCanceledError(error: unknown): error is OperationCanceledError {
-    return typeof error === "object" && error !== null && $isOperationCanceledError in error;
+    return typeof error === 'object' && error !== null && $isOperationCanceledError in error;
 }
 
-export const NO_PROVIDER_ERROR_NAME = "NoProviderError" as const;
-export const $isNoProviderError = Symbol("isNoProviderError");
+export const NO_PROVIDER_ERROR_NAME = 'NoProviderError' as const;
+export const $isNoProviderError = Symbol('isNoProviderError');
 
 export class NoProviderError extends BaseError {
     readonly name: string = NO_PROVIDER_ERROR_NAME;
@@ -98,7 +98,7 @@ export class NoProviderError extends BaseError {
 }
 
 export function isNoProviderError(error: unknown): error is NoProviderError {
-    return typeof error === "object" && error !== null && $isNoProviderError in error;
+    return typeof error === 'object' && error !== null && $isNoProviderError in error;
 }
 
 export type InChannelStruct = {
@@ -124,29 +124,40 @@ export type SystemMsgStruct = {
     [$C_ERROR]?: {
         [$CG_IN]: ErrorPayload;
     };
-    "*"?: never;
+    '*'?: never;
 };
 
 export type MsgStructBase = Record<string, MsgChannelStruct> & SystemMsgStruct;
 
 // Factory type
 export type MsgStruct<TStruct extends MsgStructBase = MsgStructBase> = {
-    [C in keyof TStruct]: TStruct[C] & Partial<ErrorChannelStruct> &
-    (typeof $CG_OUT extends keyof TStruct[C] ? {} : {
-        // unknown?
-        [$CG_OUT]?: void // enforces explicit out type declaration when payload matters
-    }) &
-    (typeof $CG_IN extends keyof TStruct[C] ? {} : {
-        // unknown?
-        [$CG_IN]?: void // enforces explicit in type declaration when payload matters
-    });
+    [C in keyof TStruct]: TStruct[C] &
+        Partial<ErrorChannelStruct> &
+        (typeof $CG_OUT extends keyof TStruct[C]
+            ? {}
+            : {
+                  // unknown?
+                  [$CG_OUT]?: void; // enforces explicit out type declaration when payload matters
+              }) &
+        (typeof $CG_IN extends keyof TStruct[C]
+            ? {}
+            : {
+                  // unknown?
+                  [$CG_IN]?: void; // enforces explicit in type declaration when payload matters
+              });
 } & SystemMsgStruct;
 
-export type InStruct<TStruct extends MsgStructBase, TChannel extends keyof TStruct> = TStruct[TChannel] extends InChannelStruct
+export type InStruct<
+    TStruct extends MsgStructBase,
+    TChannel extends keyof TStruct,
+> = TStruct[TChannel] extends InChannelStruct
     ? TStruct[TChannel][keyof InChannelStruct]
     : undefined;
 
-export type OutStruct<TStruct extends MsgStructBase, TChannel extends keyof TStruct> = TStruct[TChannel] extends OutChannelStruct
+export type OutStruct<
+    TStruct extends MsgStructBase,
+    TChannel extends keyof TStruct,
+> = TStruct[TChannel] extends OutChannelStruct
     ? TStruct[TChannel][keyof OutChannelStruct]
     : undefined;
 
@@ -161,7 +172,7 @@ export type MsgChannelConfig<TChannel> = {
     // requireAck: boolean;
     // noAck?: boolean; // noAutoAck
     // manualAck?: boolean;
-    // prefetchCount?: number; // for manual acknowledgment (max messages in flight without ack)    
+    // prefetchCount?: number; // for manual acknowledgment (max messages in flight without ack)
     // maxSubscribers?: number;
     replayBufferSize?: number;
     replayWindowTime?: number;
@@ -169,7 +180,7 @@ export type MsgChannelConfig<TChannel> = {
     mandatoryProvider?: boolean;
 
     delay?: number;
-    throttle?: number | (ThrottleOptions & { duration: number; });
+    throttle?: number | (ThrottleOptions & { duration: number });
     debounce?: number;
 };
 
@@ -177,7 +188,7 @@ export type MsgSubOptions = {
     fetchCount?: number;
     abortSignal?: AbortSignal;
 
-    throttle?: number | (ThrottleOptions & { duration: number; });
+    throttle?: number | (ThrottleOptions & { duration: number });
     debounce?: number;
 
     priority?: number;
@@ -199,7 +210,7 @@ export type MsgBusConfig<TStruct extends MsgStructBase> = {
 export type MsgAddress<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
-    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel]
+    TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
 > = {
     channel: TChannel;
     group?: TGroup;
@@ -218,7 +229,6 @@ export type MsgStatus =
     | 'pending';
 
 export type MsgHeaders = {
-
     // similar to inReplyToId
     inResponseToId?: string;
     version?: string; // schemaVersion
@@ -268,9 +278,9 @@ export type MsgHeaders = {
     // outcome
     // code
     // category
-    // group    
+    // group
     // subject
-    // audience            
+    // audience
     // schema
     // scope
     // ownerId
@@ -278,20 +288,20 @@ export type MsgHeaders = {
     // accessLevel
     // presentation
 
-    error?: string | {
-        code?: string | number;
-        message?: string;
-    }
+    error?:
+        | string
+        | {
+              code?: string | number;
+              message?: string;
+          };
 };
 
-// TODO: support ack/nack
-// TODO: integrate with https://github.com/connor4312/cockatiel
 // MsgEnvelope
 export type Msg<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = {
     /** Stable unique id for deduplication, updates, and dismissal. */
     id?: string;
@@ -305,10 +315,10 @@ export type MsgSubBaseParams<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = MsgAddress<TStruct, TChannel, TGroup> & {
     channelSelector?: string | ((channel: string) => boolean);
-    // topicSelector?: string | ((channel: string) => boolean);    
+    // topicSelector?: string | ((channel: string) => boolean);
     filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
 };
 
@@ -316,18 +326,15 @@ export type MsgSubParams<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = MsgSubBaseParams<TStruct, TChannel, TGroup, THeaders> & {
     callback?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => void;
     options?: MsgSubOptions;
 };
 
-export type MsgSub<
-    TStruct extends MsgStructBase,
-    THeaders extends MsgHeaders = MsgHeaders
-> = {
+export type MsgSub<TStruct extends MsgStructBase, THeaders extends MsgHeaders = MsgHeaders> = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
-        params: MsgSubParams<TStruct, TChannel, TGroup, THeaders>
+        params: MsgSubParams<TStruct, TChannel, TGroup, THeaders>,
     ): void;
 };
 
@@ -340,17 +347,14 @@ export type MsgStreamParams<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = MsgSubBaseParams<TStruct, TChannel, TGroup, THeaders> & {
     options?: MsgStreamOptions;
 };
 
-export type MsgStream<
-    TStruct extends MsgStructBase,
-    THeaders extends MsgHeaders = MsgHeaders
-> = {
+export type MsgStream<TStruct extends MsgStructBase, THeaders extends MsgHeaders = MsgHeaders> = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
-        params: MsgStreamParams<TStruct, TChannel, TGroup, THeaders>
+        params: MsgStreamParams<TStruct, TChannel, TGroup, THeaders>,
     ): AsyncIterableIterator<Msg<TStruct, TChannel, TGroup, THeaders>>;
 };
 
@@ -358,17 +362,17 @@ export type AwaitableMsgSubParams<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = MsgSubBaseParams<TStruct, TChannel, TGroup, THeaders> & {
     options?: AwaitableMsgSubOptions;
 };
 
 export type AwaitableMsgSub<
     TStruct extends MsgStructBase,
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
-        params: AwaitableMsgSubParams<TStruct, TChannel, TGroup, THeaders>
+        params: AwaitableMsgSubParams<TStruct, TChannel, TGroup, THeaders>,
     ): Promise<Msg<TStruct, TChannel, TGroup, THeaders>>;
 }; // TGroup extends undefined ? typeof $CG_IN : TGroup
 
@@ -378,19 +382,19 @@ export type MsgProviderParams<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = MsgSubBaseParams<TStruct, TChannel, TGroup, THeaders> & {
-    callback?: (inMsg: Msg<TStruct, TChannel, TGroup, THeaders>, outMsg: Msg<TStruct, TChannel, keyof OutChannelStruct, THeaders>) => MaybePromise<OutStruct<TStruct, TChannel> | undefined>;
+    callback?: (
+        inMsg: Msg<TStruct, TChannel, TGroup, THeaders>,
+        outMsg: Msg<TStruct, TChannel, keyof OutChannelStruct, THeaders>,
+    ) => MaybePromise<OutStruct<TStruct, TChannel> | undefined>;
     options?: MsgProviderOptions;
     headers?: THeaders;
 };
 
-export type MsgProvider<
-    TStruct extends MsgStructBase,
-    THeaders extends MsgHeaders = MsgHeaders
-> = {
+export type MsgProvider<TStruct extends MsgStructBase, THeaders extends MsgHeaders = MsgHeaders> = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
-        params: MsgProviderParams<TStruct, TChannel, TGroup, THeaders>
+        params: MsgProviderParams<TStruct, TChannel, TGroup, THeaders>,
     ): void;
 };
 
@@ -400,25 +404,30 @@ export type MsgSenderParams<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = MsgAddress<TStruct, TChannel, TGroup> & {
     channelSelector?: string | ((channel: string) => boolean);
     // topicSelector?: string | ((channel: string) => boolean);
     payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
-    payloadFn?: IsTuple<TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]> extends true
-    ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
-    : never;
+    payloadFn?: IsTuple<
+        TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]
+    > extends true
+        ? (
+              fn: (
+                  ...args: TGroup extends undefined
+                      ? InStruct<TStruct, TChannel>
+                      : TStruct[TChannel][TGroup]
+              ) => void,
+          ) => void
+        : never;
     options?: MsgSenderOptions;
     filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
     headers?: THeaders;
 };
 
-export type MsgSender<
-    TStruct extends MsgStructBase,
-    THeaders extends MsgHeaders = MsgHeaders
-> = {
+export type MsgSender<TStruct extends MsgStructBase, THeaders extends MsgHeaders = MsgHeaders> = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
-        params: MsgSenderParams<TStruct, TChannel, TGroup, THeaders>
+        params: MsgSenderParams<TStruct, TChannel, TGroup, THeaders>,
     ): Promise<Msg<TStruct, TChannel, TGroup, THeaders>>;
 };
 
@@ -436,14 +445,22 @@ export type MsgRequestDispatcherParams<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = MsgAddress<TStruct, TChannel, TGroup> & {
     channelSelector?: string | ((channel: string) => boolean);
     // topicSelector?: string | ((channel: string) => boolean);
     payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
-    payloadFn?: IsTuple<TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]> extends true
-    ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
-    : never;
+    payloadFn?: IsTuple<
+        TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]
+    > extends true
+        ? (
+              fn: (
+                  ...args: TGroup extends undefined
+                      ? InStruct<TStruct, TChannel>
+                      : TStruct[TChannel][TGroup]
+              ) => void,
+          ) => void
+        : never;
     options?: MsgRequestOptions;
     filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
     headers?: THeaders;
@@ -451,10 +468,10 @@ export type MsgRequestDispatcherParams<
 
 export type MsgRequestDispatcher<
     TStruct extends MsgStructBase,
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
-        params: MsgRequestDispatcherParams<TStruct, TChannel, TGroup, THeaders>
+        params: MsgRequestDispatcherParams<TStruct, TChannel, TGroup, THeaders>,
     ): Promise<Msg<TStruct, TChannel, keyof OutChannelStruct>>;
 };
 
@@ -462,13 +479,21 @@ export type MsgRequestStreamParams<
     TStruct extends MsgStructBase = MsgStructBase,
     TChannel extends keyof TStruct = keyof TStruct,
     TGroup extends keyof TStruct[TChannel] = keyof TStruct[TChannel],
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = MsgAddress<TStruct, TChannel, TGroup> & {
     channelSelector?: string | ((channel: string) => boolean);
     payload?: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup];
-    payloadFn?: IsTuple<TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]> extends true
-    ? (fn: (...args: TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]) => void) => void
-    : never;
+    payloadFn?: IsTuple<
+        TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]
+    > extends true
+        ? (
+              fn: (
+                  ...args: TGroup extends undefined
+                      ? InStruct<TStruct, TChannel>
+                      : TStruct[TChannel][TGroup]
+              ) => void,
+          ) => void
+        : never;
     options?: MsgRequestStreamOptions;
     filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
     headers?: THeaders;
@@ -476,10 +501,10 @@ export type MsgRequestStreamParams<
 
 export type MsgRequestStream<
     TStruct extends MsgStructBase,
-    THeaders extends MsgHeaders = MsgHeaders
+    THeaders extends MsgHeaders = MsgHeaders,
 > = {
     <TChannel extends keyof TStruct, TGroup extends keyof TStruct[TChannel] = undefined>(
-        params: MsgRequestStreamParams<TStruct, TChannel, TGroup, THeaders>
+        params: MsgRequestStreamParams<TStruct, TChannel, TGroup, THeaders>,
     ): AsyncIterableIterator<Msg<TStruct, TChannel, keyof OutChannelStruct>>;
 };
 
@@ -488,11 +513,13 @@ export type MsgChannelStructNormalized<TStruct extends MsgChannelStruct> = {
 };
 
 export type MsgStructNormalized<TStruct extends MsgStructBase> = {
-    [C in keyof TStruct as HasKeys<TStruct[C]> extends false ? never : C]: MsgChannelStructNormalized<TStruct[C]>;
+    [C in keyof TStruct as HasKeys<TStruct[C]> extends false
+        ? never
+        : C]: MsgChannelStructNormalized<TStruct[C]>;
 };
 
-export const $TypeArgStruct = Symbol("<TStruct>");
-export const $TypeArgHeaders = Symbol("<THeaders>");
+export const $TypeArgStruct = Symbol('<TStruct>');
+export const $TypeArgHeaders = Symbol('<THeaders>');
 
 export type MsgBus<TStruct extends MsgStructBase, THeaders extends MsgHeaders = MsgHeaders> = {
     readonly config: MsgBusConfig<MsgStructNormalized<TStruct>>;

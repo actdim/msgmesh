@@ -1,4 +1,4 @@
-import { asyncScheduler, Observable, SchedulerLike, Subscriber, timer, UnaryFunction } from "rxjs";
+import { asyncScheduler, Observable, SchedulerLike, Subscriber, timer, UnaryFunction } from 'rxjs';
 
 export function identity<T>(x: T): T {
     return x;
@@ -21,12 +21,12 @@ export function pipeFromArray<T, R>(fns: Array<UnaryFunction<T, R>>): UnaryFunct
 export type ThrottleOptions = {
     leading?: boolean;
     trailing?: boolean;
-}
+};
 
 export function throttleOp<T>(
     duration: number,
     options: ThrottleOptions = { leading: true, trailing: true },
-    scheduler: SchedulerLike = asyncScheduler
+    scheduler: SchedulerLike = asyncScheduler,
 ) {
     const { leading = true, trailing = false } = options;
 
@@ -71,7 +71,7 @@ export function throttleOp<T>(
                         subscriber.next(lastValue);
                     }
                     subscriber.complete();
-                }
+                },
             });
 
             return () => {

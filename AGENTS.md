@@ -1,3 +1,65 @@
+<!-- BEGIN ACTDIM-AGENTS-PROTOCOL root (managed by init-agents — do not edit by hand) -->
+
+# ACTDIM-AGENTS-PROTOCOL
+
+This repo carries its own agent context, provider-agnostically. Follow it every session, whatever tool you are.
+
+## Scope & precedence
+
+- Any folder may carry its own `AGENTS.md` + `.agents/`; they apply to that folder and everything under it. Use the NEAREST ones for the area you're working in; higher-level ones add broader context. On conflict, the more specific wins.
+- Global/user config still applies as defaults (Claude auto-loads `~/.claude/CLAUDE.md`, Codex `~/.codex/AGENTS.md`, Antigravity `~/.gemini/config/GEMINI.md`). Precedence: nearest > higher-level > global.
+
+## At session start — read these yourself (they are NOT auto-loaded)
+
+Use the NEAREST `.agents/` for the area you're working in (fall back to a higher-level one if the folder has none):
+
+1. `AGENTS.md` (nearest) — conventions to follow.
+2. `.agents/CONTEXT.md` — current state.
+3. `.agents/ISSUES.md` — active issue board.
+4. `.agents/DECISIONS.md` — don't contradict.
+   Also, when relevant: `.agents/VISION.md`, `.agents/GLOSSARY.md`, and the `.agents/ISSUES/<type>--<slug>.md` you'll work on. These reflect the state WHEN WRITTEN — verify any named file/API/flag against the real code first.
+
+## Issues
+
+- One file per issue, formatted as `.agents/ISSUES/<type>--<slug>.md` (slug = lowercase kebab-case, 2–5 words).
+- Supported types (`<type>`): `feat` (feature), `bug` (bug fix), `debt` (tech debt / refactoring), `task` (general task), `docs` (documentation).
+- Issue YAML front-matter: `slug`, `type`, `status` (`open` | `in-progress` | `blocked` | `done`), `priority` (`critical` | `high` | `medium` | `low`), `created`, `updated`.
+- `.agents/ISSUES.md` is the compact board read every session (`## Active`, `## Backlog`, `## Done (recent)`).
+- On completion, MOVE the file to `.agents/ISSUES/done/<type>--<slug>.md` and update the board.
+
+## While working
+
+- Follow the conventions in `AGENTS.md`.
+- `DECISIONS.md` is APPEND-ONLY: add a new dated entry per non-trivial architectural decision; never edit past ones — mark a replaced one "Superseded by #N".
+- Add any new/clarified domain term to `.agents/GLOSSARY.md`.
+- Keep the issue you touch current (its `status`/`updated` + board line); new work found = a new issue file.
+
+## Stage Completion Triggers
+
+A **Stage** (or milestone phase) is a meaningful, verified unit of work. An agent MUST recognize that a Stage is complete when:
+
+1. **Issue Acceptance Met**: An active Issue (`.agents/ISSUES/<type>--<slug>.md`) has satisfied its acceptance criteria and passes verification.
+2. **Plan Milestone Reached**: A distinct phase of an implementation plan agreed with the user is complete.
+3. **Explicit Request**: The user asks to wrap up, checkpoint, or complete the current stage.
+
+## Stage & Session Wrap-up Protocol (Update in order)
+
+When a Stage or session completes, perform the following steps:
+
+1. **Documentation & Protocol Check** — Review if `README.md`, `AGENTS.md` (project conventions), or project guides need updates following the completed stage/task. Update them or report required doc updates.
+2. **Session log** — Write a new session file `.agents/SESSIONS/<YYYY>/<YYYY-MM-DD>--<short-slug>.md` (slug 2–5 words; if it exists, suffix `-02`…). Begin with YAML front-matter (`date`, `slug`, `agent` = tool/model, `branch`, `commit`, `summary`), then a body: what changed & why, files touched, decisions (by slug/#N), issues advanced, gaps/follow-ups.
+3. **CONTEXT** — Rewrite `.agents/CONTEXT.md` to the new state — a SHORT snapshot, not a log; history goes to the session file.
+4. **ISSUES** — Update `.agents/ISSUES.md` (+ move any completed issue to `ISSUES/done/`).
+5. **HISTORY** — Append one line to `.agents/HISTORY.md`: `<YYYY-MM-DD> — <slug> — <agent> — <summary> — <link>`.
+6. **VISION** — Touch `.agents/VISION.md` only if scope/roadmap changed.
+
+## Rules
+
+- Windows-safe filenames: dates `YYYY-MM-DD` (no `:`), date first. Issue files keep a stable `<type>--<slug>.md` name; the only move is open → `ISSUES/done/`.
+- Keep `CONTEXT.md` and `ISSUES.md` compact — they cost context every session.
+- Never write secrets/credentials/tokens/keys into these files; they are committed.
+  <!-- END ACTDIM-AGENTS-PROTOCOL -->
+
 # AGENTS.md — AI Context for @actdim/msgmesh
 
 ## Project
@@ -41,8 +103,9 @@ Solution-style split — do not collapse it back into one config:
 - `tsconfig.dev.json` — editor/dev + tests; broad `types` (node, vitest/globals, vite/client, …).
 
 Rules:
-- Root Node files (`packageConfig.ts`, `vite.config.ts`, `vitest*.config.ts`) get node types via `types: ["node"]` in the build/dev projects — NOT by editing includes elsewhere or adding `node` to a shared `types` array (that leaks node globals into browser `src`). If the editor shows "Cannot find name 'path'/'__dirname'" on such a file, it means the file isn't routed to a project — check the `references` chain, don't hack the source with `/// <reference>`.
-- Always type-check the solution with `tsc -b` (build mode), never `tsc -p` — `-p` sees `files: []` and checks nothing. Both `typecheck` and `build` scripts already use `tsc -b tsconfig.json --noEmit`.
+
+- Root Node files (`packageConfig.ts`, `vite.config.ts`, `vitest*.config.ts`) get node types via `types: ["node"]` in the build/dev projects — NOT by editing includes elsewhere or adding `node` to a shared `types` array (that leaks node globals into browser `src`). If the editor shows "Cannot find name 'path'/'\_\_dirname'" on such a file, it means the file isn't routed to a project — check the `references` chain, don't hack the source with `/// <reference>`.
+- Always type-check the solution with `tsc -b` (build mode), never `tsc -p` — `-p` sees `files: []` and checks nothing. Both `typecheck` and `build` scripts already use `tsc -b tsconfig.json`.
 
 ## Architecture
 
@@ -52,12 +115,12 @@ Every message has an address: `{ channel, group, topic }`.
 
 - **Channel** — logical namespace (e.g. `"User.Login"`, `"Api.FetchData"`). String with dot notation.
 - **Group** — defines message role within a channel. Two semantic kinds:
-  - **Input groups** — any name except `"out"` and `"error"`. Declare the payload type coming *into* the channel.
-    - `"in"` — conventional primary input group; used as default in `send`, `on`, `provide`, `request` when group is omitted.
-    - Custom names (`"in1"`, `"in2"`, etc.) — additional input payload types on the same channel (**input type overloading**). Each input group is an independent subscription target; a `provide()` handler must specify which group it listens to.
-  - **Output group** — always named `"out"`. Declares the payload type of the channel's response. One per channel, shared across all input groups. If omitted, `MsgStruct<>` adds `out?: void` implicitly.
-  - `"error"` — reserved; auto-published on provider throw.
-  - **`send()` vs `request()`**: `send()` publishes and returns immediately (fire-and-forget — no confirmation of handling). `request()` / `requestStream()` awaits the handler's response via `out`. Even `out: void` is meaningful: it confirms the message was *processed*, not just dispatched. A handler can set `msgOut.status = 'skipped'` to produce no `out` response and let another handler take it (chain of responsibility).
+    - **Input groups** — any name except `"out"` and `"error"`. Declare the payload type coming _into_ the channel.
+        - `"in"` — conventional primary input group; used as default in `send`, `on`, `provide`, `request` when group is omitted.
+        - Custom names (`"in1"`, `"in2"`, etc.) — additional input payload types on the same channel (**input type overloading**). Each input group is an independent subscription target; a `provide()` handler must specify which group it listens to.
+    - **Output group** — always named `"out"`. Declares the payload type of the channel's response. One per channel, shared across all input groups. If omitted, `MsgStruct<>` adds `out?: void` implicitly.
+    - `"error"` — reserved; auto-published on provider throw.
+    - **`send()` vs `request()`**: `send()` publishes and returns immediately (fire-and-forget — no confirmation of handling). `request()` / `requestStream()` awaits the handler's response via `out`. Even `out: void` is meaningful: it confirms the message was _processed_, not just dispatched. A handler can set `msgOut.status = 'skipped'` to produce no `out` response and let another handler take it (chain of responsibility).
 - **Topic** — optional sub-filter. Exact match by default. Regex if wrapped in slashes: `"/^task-.*/"`.
 - **Reserved**: `"MSGBUS.ERROR"` channel for system-level errors.
 
@@ -67,9 +130,9 @@ Bus should be defined via generic `MsgStruct<...>` — it augments your structur
 
 ```typescript
 type MyBus = MsgStruct<{
-    "Order.Create": {
-        in: { items: Item[] };    // request payload
-        out: OrderResult;         // response payload
+    'Order.Create': {
+        in: { items: Item[] }; // request payload
+        out: OrderResult; // response payload
     };
 }>;
 ```
@@ -77,6 +140,7 @@ type MyBus = MsgStruct<{
 `out` types should NOT be wrapped in `Promise` — async is handled at the API level.
 
 `MsgStruct<>` adds three implicit groups to every channel if not declared explicitly:
+
 - `error?: ErrorPayload` — always added (channel-specific errors)
 - `out?: void` — added when `out` is missing; `void` enforces explicit type declaration when payload matters
 - `in?: void` — added when `in` is missing; same rationale
@@ -87,15 +151,15 @@ This means `group: "out"` is always a valid subscription target even if `out` is
 
 Both `send()` and `request()` use internal `dispatch()`. `publish()` is a lower-level internal function.
 
-| Public method | Internal function | Notes |
-|--------------|-------------------|-------|
-| `send()` | `dispatch()` | Effectively just publish (no `callback` in `MsgSenderParams`, so `dispatch` skips `out` subscription). Generates `requestId` in headers |
-| `on()` | `subscribe()` | Direct subscription |
-| `once()` | `subscribe()` with `fetchCount: 1` + Promise wrapper |
-| `stream()` | `subscribe()` + async generator with manual Promise queue |
-| `provide()` | `subscribe()` + auto-publish to `out` |
-| `request()` | `dispatch()` + Promise.race with timeout |
-| `requestStream()` | `subscribe(out)` + `publish(in)` + async generator | Generates `requestId` upfront; subscribes to `out` filtered by `requestId` before publishing; no `fetchCount: 1` on subscription — all provider responses flow through |
+| Public method     | Internal function                                         | Notes                                                                                                                                                                  |
+| ----------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `send()`          | `dispatch()`                                              | Effectively just publish (no `callback` in `MsgSenderParams`, so `dispatch` skips `out` subscription). Generates `requestId` in headers                                |
+| `on()`            | `subscribe()`                                             | Direct subscription                                                                                                                                                    |
+| `once()`          | `subscribe()` with `fetchCount: 1` + Promise wrapper      |
+| `stream()`        | `subscribe()` + async generator with manual Promise queue |
+| `provide()`       | `subscribe()` + auto-publish to `out`                     |
+| `request()`       | `dispatch()` + Promise.race with timeout                  |
+| `requestStream()` | `subscribe(out)` + `publish(in)` + async generator        | Generates `requestId` upfront; subscribes to `out` filtered by `requestId` before publishing; no `fetchCount: 1` on subscription — all provider responses flow through |
 
 `publish()` is a purely internal function — not exposed in the public API. It generates `msg.id`, sets `publishedAt`, and calls `Subject.next()`. It does not set a default `status`.
 
@@ -107,7 +171,7 @@ Both `send()` and `request()` use internal `dispatch()`. `publish()` is a lower-
 
 ```typescript
 const base = config?.[$C_ANY];
-const defaults = typeof base === "function" ? base(channel) : base;
+const defaults = typeof base === 'function' ? base(channel) : base;
 return { ...defaults, ...config?.[channel] };
 ```
 
@@ -116,14 +180,14 @@ return { ...defaults, ...config?.[channel] };
 ```typescript
 // Static default
 createMsgBus<MyStruct>({
-    "*": { mandatoryProvider: true },
-    "Order.Create": { mandatoryProvider: false } // overrides for this channel
+    '*': { mandatoryProvider: true },
+    'Order.Create': { mandatoryProvider: false }, // overrides for this channel
 });
 
 // Dynamic default — function receives the channel name
 createMsgBus<MyStruct>({
-    "*": (channel) => ({ mandatoryProvider: channel.startsWith("Api.") }),
-    "Order.Create": { mandatoryProvider: false }
+    '*': (channel) => ({ mandatoryProvider: channel.startsWith('Api.') }),
+    'Order.Create': { mandatoryProvider: false },
 });
 ```
 
@@ -157,6 +221,7 @@ The `asyncScheduler` ensures message delivery is always async (never synchronous
 #### dispatch() — Critical Ordering
 
 `dispatch()` (which is exposed as public `send()`):
+
 1. **First**: subscribes to `out` group with filter `outMsg.headers.inResponseToId === msg.headers.requestId`
 2. **Then**: publishes message to `in` group via `publish()`
 3. Returns the published message (with `headers.requestId`)
@@ -166,14 +231,15 @@ This order is critical — subscribing after publishing could miss the response 
 #### provide() — Headers Merge & Cancel Logic
 
 ```typescript
-const msgOut: Msg<TStructN, keyof TStructN, "out"> = {
-    address: { channel: msgIn.address.channel, group: "out", topic: msgIn.address.topic },
-    headers: { ...msgIn.headers, ...params.headers, inResponseToId: msgIn.headers?.requestId }
+const msgOut: Msg<TStructN, keyof TStructN, 'out'> = {
+    address: { channel: msgIn.address.channel, group: 'out', topic: msgIn.address.topic },
+    headers: { ...msgIn.headers, ...params.headers, inResponseToId: msgIn.headers?.requestId },
 };
 // msgIn.headers first, then provider's static headers override, inResponseToId always wins
 ```
 
 On cancel: `provide()` **awaits** the callback, then checks `msgIn.status === 'canceled'` OR `msgOut.status === 'skipped'` OR `msgOut.status === 'canceled'` and does NOT publish `out`:
+
 ```typescript
 const payload = await Promise.resolve(params.callback(msgIn, msgOut));
 if (msgIn.status === 'canceled' || msgOut.status === 'skipped' || msgOut.status === 'canceled') {
@@ -202,6 +268,7 @@ This is a synchronous snapshot check — it does not guarantee delivery. Use ack
 #### request() — Response Handling
 
 `request()` checks response `status` in this order:
+
 1. `'canceled'` → reject with `OperationCanceledError`
 2. `'error'` → reject with `Error` (message from `headers.error`)
 3. Else → set `status = 'ok'`, resolve
@@ -215,6 +282,7 @@ Abort listener is set up AFTER `await dispatch()` completes (not before). Then c
 #### Error Routing
 
 On error in `provide()` callback, errors are published to BOTH:
+
 1. `channel:error` group (channel-specific, topic: `"msgbus"`)
 2. `MSGBUS.ERROR:in` channel (global, topic: `"msgbus"`)
 
@@ -246,10 +314,11 @@ Set by `provide()` on the `out` response headers: `msgOut.headers.inResponseToId
 5. `request()` rejects with `OperationCanceledError`
 
 Provider-side pattern for cancelable work:
+
 ```typescript
 const activeRequests = new Map<string, AbortController>();
 msgBus.provide({
-    channel: "...",
+    channel: '...',
     callback: async (msg, msgOut) => {
         if (msg.status === 'canceled') {
             activeRequests.get(msg.headers.requestId)?.abort();
@@ -263,7 +332,7 @@ msgBus.provide({
         } finally {
             activeRequests.delete(msg.headers.requestId);
         }
-    }
+    },
 });
 ```
 
@@ -300,6 +369,7 @@ All extend `BaseError`. Use `isTimeoutError()`, `isAbortError()`, `isOperationCa
 Fan-in pattern: one request, multiple provider responses collected as an async stream.
 
 **Critical ordering** (same invariant as `dispatch()`):
+
 1. Generate `requestId` upfront (`params.headers?.requestId ?? uuid()`)
 2. **Subscribe to `out`** with filter `inResponseToId === requestId` — no `fetchCount: 1`, all provider responses pass through
 3. **Publish to `in`** — providers receive the message and each publishes their response to `out`
@@ -308,6 +378,7 @@ Fan-in pattern: one request, multiple provider responses collected as an async s
 This subscribe-before-publish order is critical — reversing it would miss responses that arrive synchronously.
 
 **Response status handling** (checked per message, unlike `request()` which checks once):
+
 - `status: 'error'` → throw `Error`, stop iteration
 - `status: 'canceled'` → throw `OperationCanceledError`, stop iteration
 
@@ -320,10 +391,16 @@ This subscribe-before-publish order is critical — reversing it would miss resp
 Multiple providers on the same channel each get an independent copy of the message envelope (via `structuredClone` on the envelope — payload is shared by reference). A provider can opt out of handling by setting `msgOut.status = 'skipped'` — `provide()` will skip publishing `out` for that invocation, and the next provider handles normally.
 
 ```typescript
-msgBus.provide({ channel: "Order.Create", callback: (msg, msgOut) => {
-    if (!canHandle(msg.payload)) { msgOut.status = 'skipped'; return; }
-    return handle(msg.payload);
-}});
+msgBus.provide({
+    channel: 'Order.Create',
+    callback: (msg, msgOut) => {
+        if (!canHandle(msg.payload)) {
+            msgOut.status = 'skipped';
+            return;
+        }
+        return handle(msg.payload);
+    },
+});
 ```
 
 ### settled Pattern
@@ -335,6 +412,7 @@ msgBus.provide({ channel: "Order.Create", callback: (msg, msgOut) => {
 Automatically wraps a service object (e.g. Swagger-generated API client) as a bus provider. All wiring is compile-time type-safe.
 
 **Type transformation chain:**
+
 ```
 Class: OrderApiClient                    Bus struct:
   .createOrder(a: Item[], b: number)  →  "API.ORDER.CREATEORDER": { in: [Item[], number]; out: OrderResult }
@@ -342,19 +420,22 @@ Class: OrderApiClient                    Bus struct:
 ```
 
 Key types:
+
 - `ToMsgChannelPrefix<ClassName, Prefix, Suffix>` — generates channel prefix from class name. Removes known suffixes (CLIENT, API, SERVICE, etc.), uppercases. E.g. `"OrderApiClient"` + `"API"` → `"API.ORDER."`
 - `ToMsgStruct<Service, Prefix, Skip>` — maps service methods to bus struct. Method params → `in` tuple (`Parameters<>`), return type → `out` (`ReturnType<>`). `Skip` excludes methods from the type.
 - `MsgStruct<T>` — adds system channel groups (including `error`) to each channel in struct
 
 Runtime:
+
 - `registerAdapters(msgBus, adapters, abortSignal?)` — registers each method as `provide()` handler. Callback spreads `msg.payload` tuple as method arguments: `service[method](...msg.payload)`
 - `getMsgChannelSelector(services)` — creates a channel resolver from service map
 
 **Important**: `ToMsgStruct` enforces type safety at compile time (wrong channel names won't compile), but `registerAdapters` registers ALL methods at runtime (including skipped ones). The `Skip` parameter only affects the TypeScript type, not runtime registration.
 
 `payloadFn` is the natural way to call adapted methods since payload types are tuples:
+
 ```typescript
-msgBus.request({ channel: "API.ORDER.CREATEORDER", payloadFn: fn => fn(items, priority) });
+msgBus.request({ channel: 'API.ORDER.CREATEORDER', payloadFn: (fn) => fn(items, priority) });
 ```
 
 ## Code Conventions
@@ -374,10 +455,10 @@ Tests are in `tests/msgBus.test.ts`. Test domain defined in `tests/testDomain.ts
 
 ```typescript
 type TestBusStruct = {
-    "Test.ComputeSum": { in: { a: number; b: number }; out: number };
-    "Test.DoSomeWork": { in: string; out: void };
-    "Test.TestTaskWithRepeat": { in: string; out: void };
-    "Test.Multiplexer": { in1: string; in2: number; out: number };
+    'Test.ComputeSum': { in: { a: number; b: number }; out: number };
+    'Test.DoSomeWork': { in: string; out: void };
+    'Test.TestTaskWithRepeat': { in: string; out: void };
+    'Test.Multiplexer': { in1: string; in2: number; out: number };
 };
 ```
 

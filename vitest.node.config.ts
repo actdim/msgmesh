@@ -1,36 +1,34 @@
-import { defineConfig } from "vitest/config";
-import tsConfigPaths from "vite-tsconfig-paths";
+import { defineConfig } from 'vitest/config';
+import tsConfigPaths from 'vite-tsconfig-paths';
 import { resolve } from 'path';
-import config from "./packageConfig";
+import config from './packageConfig';
 
 export default defineConfig({
     test: {
         watch: false,
         reporters: 'verbose',
-        name: "node",
+        name: 'node',
         globals: true,
-        setupFiles: [
-            resolve('./vitest.setup.ts')
-        ],
+        setupFiles: [resolve('./vitest.setup.ts')],
         // In watch mode you can keep the debugger open during test re-runs by using the --isolate false options.
         isolate: false,
         // maxConcurrency: 1,
         // maxWorkers: 1,
         // pool: "threads",
-        pool: "forks", // for debug
+        pool: 'forks', // for debug
         environment: 'node',
-        include: ["tests/**/*.{test,spec}.ts"],
-        includeSource: ["src/**/*.ts"],
+        include: ['tests/**/*.{test,spec}.ts'],
+        includeSource: ['src/**/*.ts'],
         typecheck: {
             tsconfig: 'tsconfig.dev.json',
         },
         root: resolve('.'),
     },
     resolve: {
-        alias: config.resolveAliases()
+        alias: config.resolveAliases(),
     },
     plugins: [
         // tsConfigPaths(),
     ],
-    base: "./",
+    base: './',
 });

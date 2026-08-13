@@ -7,7 +7,7 @@
 //   globEager(pattern: string, options?: any): Record<string, any>;
 // }
 
-mocha.setup("bdd");
+mocha.setup('bdd');
 
 import 'mocha/mocha.css';
 import 'mocha/mocha.js';
