@@ -1,0 +1,18 @@
+# Code Review Graph Exclusions
+node_modules/
+dist/
+build/
+out/
+.next/
+.nuxt/
+vendor/
+tmp/
+temp/
+coverage/
+.git/
+.agents/SESSIONS/
+*.min.js
+*.bundle.js
+*.map
+*.pyc
+__pycache__/
