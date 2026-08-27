@@ -1,4 +1,5 @@
 import { defineConfig } from 'vite';
+import * as path from 'path';
 import config from './packageConfig';
 import dts from 'vite-plugin-dts';
 import tsConfigPaths from 'vite-tsconfig-paths';
@@ -55,6 +56,16 @@ export default defineConfig({
             include: ['src/**/*.ts'],
             rollupTypes: false,
             insertTypesEntry: false,
+            beforeWriteFile: (filePath, content) => {
+                const relAgents = path.relative(path.dirname(filePath), path.resolve(__dirname, 'AGENTS.md')).replace(/\\/g, '/');
+                const relLlms = path.relative(path.dirname(filePath), path.resolve(__dirname, 'llms.txt')).replace(/\\/g, '/');
+                const repoUrl = packageJson.repository?.url?.replace(/\.git$/, '') ?? 'https://github.com/actdim';
+                const header = `/**\n * @packageDocumentation\n * @see {@link ${relAgents}} AI Agent Guidelines (${repoUrl})\n * @see {@link ${relLlms}} LLM Summary\n */\n`;
+                return {
+                    filePath,
+                    content: header + content,
+                };
+            },
         }),
         {
             name: 'postBuild',
