@@ -56,6 +56,7 @@ export type BaseServiceSuffix =
     | 'LOADER'
     | 'REPOSITORY'
     | 'PROVIDER';
+
 export type BaseWordSeparator = '.'; // "/"
 
 // const suffixes = ['CLIENT', 'API', 'SERVICE'] satisfies Uppercase<BaseServiceSuffix>[];
@@ -80,8 +81,8 @@ export type ToMsgStruct<
     TMsgStructSource = ToMsgStructSource<TService, TPrefix, TSkip>,
 > = MsgStruct<{
     [K in keyof TMsgStructSource as TMsgStructSource[K] extends Func
-        ? Uppercase<K extends string ? K : never>
-        : never]: {
+    ? Uppercase<K extends string ? K : never>
+    : never]: {
         in: TMsgStructSource[K] extends Func ? Parameters<TMsgStructSource[K]> : never;
         out: TMsgStructSource[K] extends Func ? ReturnType<TMsgStructSource[K]> : never;
     };
