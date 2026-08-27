@@ -4,6 +4,10 @@
 
 ## Backlog
 
+- [ ] `feat--middleware-and-metrics.md` — Interceptor/Middleware pipeline, built-in metrics calculation, and auto-tracing (priority: high)
+- [ ] `feat--livestore-event-sourcing-adapter.md` — LiveStore event sourcing adapter and reactive sync (priority: high)
+- [ ] `feat--cep-and-rules-engine-integration.md` — Complex Event Processing (CEP-JS / Nools / RxJS CEP) integration (priority: medium)
+- [ ] `feat--analytics-and-telemetry-product.md` — Real-time Analytics & Observability Dashboard solution (MsgMesh + LiveStore + Dynstruct) (priority: medium)
 - [ ] `feat--ack-nack-support.md` — Support ACK / NACK and MsgRecord tracking (priority: high)
 - [ ] `feat--backpressure-and-rate-limiting.md` — Rate limiting and backpressure support (priority: high)
 - [ ] `feat--p2p-and-queue-groups.md` — Support P2P delivery, Queue Groups, and Broadcast (priority: high)
