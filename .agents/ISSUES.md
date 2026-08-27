@@ -4,6 +4,7 @@
 
 ## Backlog
 
+- [ ] (feat) [kubb-orval-service-adapters](file://.agents/ISSUES/feat--kubb-orval-service-adapters.md) — Service Adapters for Kubb, Orval, and React Query OpenAPI Generators (priority: medium)
 - [ ] `feat--middleware-and-metrics.md` — Interceptor/Middleware pipeline, built-in metrics calculation, and auto-tracing (priority: high)
 - [ ] `feat--livestore-event-sourcing-adapter.md` — LiveStore event sourcing adapter and reactive sync (priority: high)
 - [ ] `feat--cep-and-rules-engine-integration.md` — Complex Event Processing (CEP-JS / Nools / RxJS CEP) integration (priority: medium)
