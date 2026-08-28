@@ -5,12 +5,12 @@ type: feat
 status: open
 priority: high
 created: 2026-08-27
-updated: 2026-08-27
+updated: 2026-08-28
 agent: antigravity
-tags: []
+tags: [livestore, event-sourcing, persistence, cross-tab, sqlite, opfs]
 milestone: v2.0.0-along-transition
 blocked_by: []
-related: []
+related: [feat--message-persistence, feat--cross-tab-synchronization]
 ---
 
 # LiveStore event sourcing adapter and reactive sync
@@ -20,7 +20,7 @@ related: []
 
 ## Context
 
-LiveStore is a reactive event-sourcing data store (often SQLite / WASM in-memory / OPFS) that builds reactive materialized views over an append-only event stream. Connecting MsgMesh streams to LiveStore allows instant event persistence, local-first querying, and zero-latency reactive UI updates.
+LiveStore is a reactive event-sourcing data store (SQLite / WASM / OPFS / IndexedDB) that builds reactive materialized views over an append-only event stream. Connecting MsgMesh streams to LiveStore provides durable local persistence and automatic cross-tab state replication across browser instances sharing the database.
 
 ## Requirements
 
@@ -28,3 +28,5 @@ LiveStore is a reactive event-sourcing data store (often SQLite / WASM in-memory
 - Support channel filtering, topic matching, and payload sanitization (masking sensitive fields / PII).
 - Provide helper schemas for common event projections (rolling metrics, request logs, user journeys).
 - Document patterns for reactive subscriptions and SQL queries over ingested bus events.
+- Leverage LiveStore's shared storage engine for automatic multi-tab synchronization and offline replay.
+
