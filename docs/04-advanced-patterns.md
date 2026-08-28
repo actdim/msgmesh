@@ -38,7 +38,7 @@ const msgBus = createMsgBus<AppBusStruct>({
 });
 
 // Subscription-level configuration (overrides/augments channel config)
-msgBus.listen({
+msgBus.on({
     channel: 'UI.SEARCH_INPUT',
     options: {
         debounce: 200,
