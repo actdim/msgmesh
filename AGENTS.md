@@ -354,28 +354,90 @@ msgBus.provide({
 
 ### Service Adapters (adapters.ts)
 
-Automatically wraps a service object (e.g. Swagger-generated API client) as a bus provider. All wiring is compile-time type-safe.
+Automatically wraps a service object (e.g. NSwag / Swagger generated API client or custom service class) as a bus provider. All wiring is compile-time type-safe.
+
+**DO NOT create manual MsgStruct interfaces or custom channelSelector functions for API services.** Use `ToMsgStruct` + `getMsgChannelSelector` + `registerAdapters`.
 
 **Type transformation chain:**
 
 ```
 Class: OrderApiClient                    Bus struct:
-  .createOrder(a: Item[], b: number)  →  "API.ORDER.CREATEORDER": { in: [Item[], number]; out: OrderResult }
-  .getOrder(id: string)               →  "API.ORDER.GETORDER": { in: [string]; out: Order }
+  .createOrder(a: Item[], b: number)  ->  "API.ORDER.CREATEORDER": { in: [Item[], number]; out: Promise<OrderResult> }
+  .getOrder(id: string)               ->  "API.ORDER.GETORDER": { in: [string]; out: Promise<Order> }
 ```
 
 Key types:
 
-- `ToMsgChannelPrefix<ClassName, Prefix, Suffix>` — generates channel prefix from class name. Removes known suffixes (CLIENT, API, SERVICE, etc.), uppercases. E.g. `"OrderApiClient"` + `"API"` → `"API.ORDER."`
-- `ToMsgStruct<Service, Prefix, Skip>` — maps service methods to bus struct. Method params → `in` tuple (`Parameters<>`), return type → `out` (`ReturnType<>`). `Skip` excludes methods from the type.
-- `MsgStruct<T>` — adds system channel groups (including `error`) to each channel in struct
+- `ToMsgChannelPrefix<ServiceName, Prefix, Suffix>` - generates channel prefix from a string literal or class name. Removes known suffixes (CLIENT, API, SERVICE, etc.) and uppercases. E.g. `ToMsgChannelPrefix<'OrderApiClient', 'API'>` -> `"API.ORDER."`. Static `.name` property on the class is NOT required.
+- `ToMsgStruct<Service, Prefix, Skip>` - maps service methods to bus struct. Method params -> `in` tuple (`Parameters<>`), return type -> `out` (`ReturnType<>`). `Skip` excludes methods from the type.
+- `MsgStruct<T>` - adds system channel groups (including `error`) to each channel in struct.
 
 Runtime:
 
-- `registerAdapters(msgBus, adapters, abortSignal?)` — registers each method as `provide()` handler. Callback spreads `msg.payload` tuple as method arguments: `service[method](...msg.payload)`
-- `getMsgChannelSelector(services)` — creates a channel resolver from service map
+- `getMsgChannelSelector(services)` - creates a channel resolver from service map (`Record<Prefix, ServiceInstance>`).
+- `registerAdapters(msgBus, adapters, abortSignal?)` - registers each method as `provide()` handler. Callback spreads `msg.payload` tuple as method arguments: `service[method](...msg.payload)`.
 
-**Important**: `ToMsgStruct` enforces type safety at compile time (wrong channel names won't compile), but `registerAdapters` registers ALL methods at runtime (including skipped ones). The `Skip` parameter only affects the TypeScript type, not runtime registration.
+**Standard Adapter Recipe for AI Agents:**
+
+```typescript
+import { createMsgBus } from '@actdim/msgmesh';
+import {
+    ToMsgChannelPrefix,
+    ToMsgStruct,
+    getMsgChannelSelector,
+    registerAdapters,
+    type MsgProviderAdapter,
+} from '@actdim/msgmesh/adapters';
+
+// 1. Any service class (generated or handwritten)
+export class MediaApiClient {
+    getStreamUrl(mediaId: string): Promise<string> { ... }
+}
+
+// 2. Generate prefix and bus struct at compile time (zero manual channel typing)
+type MediaPrefix = ToMsgChannelPrefix<'MediaApiClient', 'API'>; // 'API.MEDIA.'
+type MediaBusStruct = ToMsgStruct<MediaApiClient, MediaPrefix>;
+
+// 3. Register service on bus
+const services: Record<MediaPrefix, any> = {
+    'API.MEDIA.': new MediaApiClient(),
+};
+const adapters = Object.entries(services).map(([prefix, service]) => ({
+    service,
+    channelSelector: getMsgChannelSelector(services),
+})) as MsgProviderAdapter[];
+
+const msgBus = createMsgBus<MediaBusStruct>();
+registerAdapters(msgBus, adapters);
+
+// 4. Request via typed channel using payloadFn for tuple arguments
+const streamUrl = await msgBus.request({
+    channel: 'API.MEDIA.GETSTREAMURL',
+    payloadFn: (fn) => fn('video-42'),
+});
+```
+
+**Functional API Modules (Orval / Kubb style):**
+
+For modules with standalone exported functions (`import * as MediaApi from './mediaApi'`), name the namespace in PascalCase and use `typeof MediaApi`:
+
+```typescript
+import * as MediaApi from './mediaApi';
+
+type MediaPrefix = ToMsgChannelPrefix<'MediaApi', 'API'>; // 'API.MEDIA.'
+type MediaBusStruct = ToMsgStruct<typeof MediaApi, MediaPrefix>;
+
+const services: Record<MediaPrefix, any> = { 'API.MEDIA.': MediaApi };
+const adapters = Object.entries(services).map(([prefix, service]) => ({
+    service,
+    channelSelector: getMsgChannelSelector(services),
+})) as MsgProviderAdapter[];
+
+const msgBus = createMsgBus<MediaBusStruct>();
+registerAdapters(msgBus, adapters);
+```
+
+**Important**: `ToMsgStruct` enforces type safety at compile time (wrong channel names will not compile), but `registerAdapters` registers ALL prototype/own methods at runtime (including skipped ones). The `Skip` parameter only affects the TypeScript type, not runtime registration.
 
 `payloadFn` is the natural way to call adapted methods since payload types are tuples:
 

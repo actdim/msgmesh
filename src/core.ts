@@ -466,7 +466,9 @@ export function createMsgBus<
                                 inResponseToId: inMsg.headers?.requestId,
                             } as Msg<TStructN>['headers'],
                         };
-                        const payload = await Promise.resolve(params.callback(inMsg, outMsg));
+                        const payload = params.callback
+                            ? await Promise.resolve(params.callback(inMsg, outMsg))
+                            : undefined;
                         if (
                             inMsg.status === 'canceled' ||
                             outMsg.status === 'skipped' ||
@@ -474,8 +476,12 @@ export function createMsgBus<
                         ) {
                             return;
                         }
-                        outMsg.payload = payload;
-                        if (outMsg.status == null) outMsg.status = 'handled';
+                        if (payload !== undefined) {
+                            outMsg.payload = payload;
+                        }
+                        if (outMsg.status == null) {
+                            outMsg.status = 'handled';
+                        }
                         publish(outMsg);
                     } catch (err) {
                         handleError(inMsg, err, true);

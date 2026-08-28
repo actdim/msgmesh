@@ -1,7 +1,3 @@
-//##############################################################################
-//# Copyright (c) Pavel Borodaev 2022                                         #
-//##############################################################################
-// SafeBus
 import { HasKeys, IsTuple, MaybePromise } from '@actdim/utico/typeCore';
 import { ThrottleOptions } from '@/util';
 
@@ -132,19 +128,19 @@ export type MsgStructBase = Record<string, MsgChannelStruct> & SystemMsgStruct;
 // Factory type
 export type MsgStruct<TStruct extends MsgStructBase = MsgStructBase> = {
     [C in keyof TStruct]: TStruct[C] &
-        Partial<ErrorChannelStruct> &
-        (typeof $CG_OUT extends keyof TStruct[C]
-            ? {}
-            : {
-                  // unknown?
-                  [$CG_OUT]?: void; // enforces explicit out type declaration when payload matters
-              }) &
-        (typeof $CG_IN extends keyof TStruct[C]
-            ? {}
-            : {
-                  // unknown?
-                  [$CG_IN]?: void; // enforces explicit in type declaration when payload matters
-              });
+    Partial<ErrorChannelStruct> &
+    (typeof $CG_OUT extends keyof TStruct[C]
+        ? {}
+        : {
+            // unknown?
+            [$CG_OUT]?: void; // enforces explicit out type declaration when payload matters
+        }) &
+    (typeof $CG_IN extends keyof TStruct[C]
+        ? {}
+        : {
+            // unknown?
+            [$CG_IN]?: void; // enforces explicit in type declaration when payload matters
+        });
 } & SystemMsgStruct;
 
 export type InStruct<
@@ -289,11 +285,11 @@ export type MsgHeaders = {
     // presentation
 
     error?:
-        | string
-        | {
-              code?: string | number;
-              message?: string;
-          };
+    | string
+    | {
+        code?: string | number;
+        message?: string;
+    };
 };
 
 // MsgEnvelope
@@ -387,7 +383,7 @@ export type MsgProviderParams<
     callback?: (
         inMsg: Msg<TStruct, TChannel, TGroup, THeaders>,
         outMsg: Msg<TStruct, TChannel, keyof OutChannelStruct, THeaders>,
-    ) => MaybePromise<OutStruct<TStruct, TChannel> | undefined>;
+    ) => MaybePromise<OutStruct<TStruct, TChannel> | undefined | void>;
     options?: MsgProviderOptions;
     headers?: THeaders;
 };
@@ -412,14 +408,14 @@ export type MsgSenderParams<
     payloadFn?: IsTuple<
         TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]
     > extends true
-        ? (
-              fn: (
-                  ...args: TGroup extends undefined
-                      ? InStruct<TStruct, TChannel>
-                      : TStruct[TChannel][TGroup]
-              ) => void,
-          ) => void
-        : never;
+    ? (
+        fn: (
+            ...args: TGroup extends undefined
+                ? InStruct<TStruct, TChannel>
+                : TStruct[TChannel][TGroup]
+        ) => void,
+    ) => void
+    : never;
     options?: MsgSenderOptions;
     filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
     headers?: THeaders;
@@ -453,14 +449,14 @@ export type MsgRequestDispatcherParams<
     payloadFn?: IsTuple<
         TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]
     > extends true
-        ? (
-              fn: (
-                  ...args: TGroup extends undefined
-                      ? InStruct<TStruct, TChannel>
-                      : TStruct[TChannel][TGroup]
-              ) => void,
-          ) => void
-        : never;
+    ? (
+        fn: (
+            ...args: TGroup extends undefined
+                ? InStruct<TStruct, TChannel>
+                : TStruct[TChannel][TGroup]
+        ) => void,
+    ) => void
+    : never;
     options?: MsgRequestOptions;
     filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
     headers?: THeaders;
@@ -486,14 +482,14 @@ export type MsgRequestStreamParams<
     payloadFn?: IsTuple<
         TGroup extends undefined ? InStruct<TStruct, TChannel> : TStruct[TChannel][TGroup]
     > extends true
-        ? (
-              fn: (
-                  ...args: TGroup extends undefined
-                      ? InStruct<TStruct, TChannel>
-                      : TStruct[TChannel][TGroup]
-              ) => void,
-          ) => void
-        : never;
+    ? (
+        fn: (
+            ...args: TGroup extends undefined
+                ? InStruct<TStruct, TChannel>
+                : TStruct[TChannel][TGroup]
+        ) => void,
+    ) => void
+    : never;
     options?: MsgRequestStreamOptions;
     filter?: (msg: Msg<TStruct, TChannel, TGroup, THeaders>) => boolean;
     headers?: THeaders;
@@ -514,8 +510,8 @@ export type MsgChannelStructNormalized<TStruct extends MsgChannelStruct> = {
 
 export type MsgStructNormalized<TStruct extends MsgStructBase> = {
     [C in keyof TStruct as HasKeys<TStruct[C]> extends false
-        ? never
-        : C]: MsgChannelStructNormalized<TStruct[C]>;
+    ? never
+    : C]: MsgChannelStructNormalized<TStruct[C]>;
 };
 
 export const $TypeArgStruct = Symbol('<TStruct>');

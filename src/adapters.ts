@@ -1,11 +1,30 @@
 import { MsgBus, MsgStruct, MsgStructBase } from '@/contracts';
 import { AddPrefix, Filter, Func, RemoveSuffix, Skip, ToUpper } from '@actdim/utico/typeCore';
 
-const getMethodNames = (client: any) => {
-    // return new Set(...)
-    return Object.getOwnPropertyNames(client).filter(
-        (name) => name !== 'constructor' && typeof client[name] === 'function',
-    );
+const getMethodNames = (client: any): string[] => {
+    if (!client) {
+        return [];
+    }
+    const methods = new Set<string>();
+
+    // 1. Own properties (plain objects, namespace imports: import * as api)
+    for (const name of Object.getOwnPropertyNames(client)) {
+        if (name !== 'constructor' && typeof client[name] === 'function') {
+            methods.add(name);
+        }
+    }
+
+    // 2. Prototype properties (class instances)
+    const proto = Object.getPrototypeOf(client);
+    if (proto && proto !== Object.prototype) {
+        for (const name of Object.getOwnPropertyNames(proto)) {
+            if (name !== 'constructor' && typeof client[name] === 'function') {
+                methods.add(name);
+            }
+        }
+    }
+
+    return Array.from(methods);
 };
 
 // const baseMethodNames = getMethodNames(ClientBase.prototype);
@@ -28,7 +47,7 @@ export function registerAdapters(
             if (!service || !channelSelector) {
                 throw new Error('Service and channelSelector are required for an adapter');
             }
-            for (const methodName of getMethodNames(Object.getPrototypeOf(service))) {
+            for (const methodName of getMethodNames(service)) {
                 const channel = channelSelector?.(service, methodName);
                 if (channel) {
                     msgBus.provide({

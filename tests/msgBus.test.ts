@@ -19,6 +19,7 @@ import {
     ToMsgChannelPrefix,
     ToMsgStruct,
 } from '@/adapters';
+import * as FunctionalApi from './functionalApiClient';
 import { getGlobalFlags } from '@/globals';
 
 getGlobalFlags().debug = true;
@@ -1023,6 +1024,111 @@ describe('msgBus', () => {
         expect(response.payload).toBe(30);
     });
 
+    it('can use service->msgbus adapter with explicit string literal name (no static name on class)', async () => {
+        // Standard service class (e.g. from NSwag or handmade) without static properties
+        class UserServiceClient {
+            getUser(id: string) {
+                return Promise.resolve({ id, name: `User_${id}` });
+            }
+
+            createUser(name: string, age: number) {
+                return Promise.resolve({ id: '99', name, age });
+            }
+        }
+
+        // 1. Generate channel prefix using explicit string literal name
+        type UserChannelPrefix = ToMsgChannelPrefix<'UserServiceClient', 'API'>; // -> 'API.USER.'
+
+        // 2. Automatically generate type-safe MsgStruct from service methods
+        type UserApiMsgStruct = ToMsgStruct<UserServiceClient, UserChannelPrefix>;
+
+        // 3. Service instance map with prefix
+        const services: Record<UserChannelPrefix, any> = {
+            'API.USER.': new UserServiceClient(),
+        };
+
+        // 4. Create adapters using getMsgChannelSelector
+        const adapters = Object.entries(services).map(
+            (entry) =>
+                ({
+                    service: entry[1],
+                    channelSelector: getMsgChannelSelector(services),
+                }) as MsgProviderAdapter,
+        );
+
+        const msgBus = createMsgBus<UserApiMsgStruct>();
+        const abortController = new AbortController();
+
+        registerAdapters(msgBus, adapters, abortController.signal);
+
+        // 5. Invoke methods via bus with compile-time type safety for arguments and return value
+        const userResp = await msgBus.request({
+            channel: 'API.USER.GETUSER',
+            payloadFn: (fn) => fn('42'),
+        });
+        expect(userResp.payload).toEqual({ id: '42', name: 'User_42' });
+
+        const createResp = await msgBus.request({
+            channel: 'API.USER.CREATEUSER',
+            payloadFn: (fn) => fn('Alice', 30),
+        });
+        expect(createResp.payload).toEqual({ id: '99', name: 'Alice', age: 30 });
+
+        abortController.abort();
+    });
+
+    it('can use service->msgbus adapter with functional API modules (Orval / Kubb style)', async () => {
+        // 1. Channel prefix for functional API module
+        type FunctionalApiPrefix = ToMsgChannelPrefix<'UserApi', 'API'>; // -> 'API.USER.'
+
+        // 2. Automatically generate type-safe MsgStruct from module namespace type (typeof FunctionalApi)
+        type FunctionalApiMsgStruct = ToMsgStruct<typeof FunctionalApi, FunctionalApiPrefix>;
+
+        // 3. Service instance map using imported module namespace object
+        const services: Record<FunctionalApiPrefix, any> = {
+            'API.USER.': FunctionalApi,
+        };
+
+        // 4. Create adapters using getMsgChannelSelector
+        const adapters = Object.entries(services).map(
+            (entry) =>
+                ({
+                    service: entry[1],
+                    channelSelector: getMsgChannelSelector(services),
+                }) as MsgProviderAdapter,
+        );
+
+        const msgBus = createMsgBus<FunctionalApiMsgStruct>();
+        const abortController = new AbortController();
+
+        registerAdapters(msgBus, adapters, abortController.signal);
+
+        // 5. Request through bus with compile-time type safety
+        const userResp = await msgBus.request({
+            channel: 'API.USER.GETUSER',
+            payloadFn: (fn) => fn('101'),
+        });
+        expect(userResp.payload).toEqual({ id: '101', name: 'User_101' });
+
+        const listResp = await msgBus.request({
+            channel: 'API.USER.LISTUSERS',
+            payloadFn: (fn) => fn(3),
+        });
+        expect(listResp.payload).toEqual([
+            { id: '1', name: 'User_1' },
+            { id: '2', name: 'User_2' },
+            { id: '3', name: 'User_3' },
+        ]);
+
+        const deleteResp = await msgBus.request({
+            channel: 'API.USER.DELETEUSER',
+            payloadFn: (fn) => fn('101'),
+        });
+        expect(deleteResp.payload).toBe(true);
+
+        abortController.abort();
+    });
+
     it('throws NoProviderError when throwIfNoProvider and no provider', async () => {
         const msgBus = createTestMsgBus();
 
@@ -1432,6 +1538,20 @@ describe('msgBus', () => {
         const msg = await msgBus.request({ channel: 'Test.ComputeSum', payload: { a: 3, b: 7 } });
         expect(msg.payload).toBe(10);
         expect(msg.headers?.sourceId).toBe('provider-tag');
+    });
+
+    it('provide() allows directly setting outMsg.payload without returning a value', async () => {
+        const msgBus = createTestMsgBus();
+
+        msgBus.provide({
+            channel: 'Test.ComputeSum',
+            callback: (msg, msgOut) => {
+                msgOut.payload = msg.payload.a + msg.payload.b;
+            },
+        });
+
+        const msg = await msgBus.request({ channel: 'Test.ComputeSum', payload: { a: 4, b: 8 } });
+        expect(msg.payload).toBe(12);
     });
 
     it("request() rejects with Error when provider sets msgOut.status = 'failed'", async () => {

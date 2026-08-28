@@ -62,28 +62,118 @@ msgBus.send({
 
 ## Service Adapters (NSwag / OpenAPI / gRPC Automation)
 
-The `@actdim/msgmesh/adapters` module transforms standard TypeScript service classes (such as NSwag-generated REST API clients or gRPC clients) into typed message bus providers automatically.
+The `@actdim/msgmesh/adapters` module automatically transforms standard TypeScript service classes (such as NSwag-generated REST API clients, gRPC clients, or custom service classes) into typed message bus providers at compile-time.
+
+**You do NOT need to write manual MsgStruct channels or custom channel selectors for API services.**
 
 ### How It Works:
-1. Every public method on a service class becomes a channel name (e.g. `getDataItems` → `API.TEST.GETDATAITEMS`).
-2. Input argument types become the `in` payload type.
-3. Return types become the `out` payload type.
+1. Every public method on a service class becomes a channel name (e.g. `getUser` on `UserServiceClient` with prefix `'API.USER.'` becomes `'API.USER.GETUSER'`).
+2. Input argument types become a typed tuple for `in` payload (`Parameters<Method>`).
+3. Return type becomes the `out` payload (`ReturnType<Method>`).
+4. `getMsgChannelSelector(services)` and `registerAdapters(msgBus, adapters, signal)` wire all methods to the bus automatically.
+
+### Complete Example:
 
 ```typescript
-import { ToMsgChannelPrefix, ToMsgStruct } from '@actdim/msgmesh/adapters';
+import { createMsgBus } from '@actdim/msgmesh';
+import {
+    ToMsgChannelPrefix,
+    ToMsgStruct,
+    getMsgChannelSelector,
+    registerAdapters,
+    type MsgProviderAdapter,
+} from '@actdim/msgmesh/adapters';
 
-export class UserApiClient {
-    static readonly name = 'UserApiClient' as const;
-    readonly name = 'UserApiClient' as const;
-
+// 1. Any regular service class (no static properties or special base class required)
+export class UserServiceClient {
     getUser(id: string): Promise<{ id: string; name: string }> {
-        return fetch(`/api/users/${id}`).then(r => r.json());
+        return fetch(`/api/users/${id}`).then((r) => r.json());
+    }
+
+    updateUser(id: string, name: string): Promise<boolean> {
+        return fetch(`/api/users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name }),
+        }).then((r) => r.ok);
     }
 }
 
-// Automatically generates channel 'API.USER.GETUSER' with typed input & output!
-type ApiChannels = ToMsgChannelPrefix<typeof UserApiClient.name, 'API'>;
-type ApiMsgStruct = ToMsgStruct<UserApiClient, ApiChannels>;
+// 2. Generate prefix: 'UserServiceClient' + 'API' -> 'API.USER.' (suffix 'Client' is stripped automatically)
+type UserPrefix = ToMsgChannelPrefix<'UserServiceClient', 'API'>; // 'API.USER.'
+
+// 3. Automatically compile-time map methods to typed bus struct:
+//    - 'API.USER.GETUSER': { in: [id: string]; out: Promise<{ id: string; name: string }> }
+//    - 'API.USER.UPDATEUSER': { in: [id: string, name: string]; out: Promise<boolean> }
+type ApiMsgStruct = ToMsgStruct<UserServiceClient, UserPrefix>;
+
+// 4. Map service instances to their prefix
+const services: Record<UserPrefix, any> = {
+    'API.USER.': new UserServiceClient(),
+};
+
+// 5. Build adapters and register them on the bus
+const adapters = Object.entries(services).map(
+    (entry) =>
+        ({
+            service: entry[1],
+            channelSelector: getMsgChannelSelector(services),
+        }) as MsgProviderAdapter,
+);
+
+const msgBus = createMsgBus<ApiMsgStruct>();
+const abortController = new AbortController();
+
+registerAdapters(msgBus, adapters, abortController.signal);
+
+// 6. Invoke API methods through the bus with 100% type safety
+const user = await msgBus.request({
+    channel: 'API.USER.GETUSER',
+    payloadFn: (fn) => fn('usr-123'), // type-safe arguments tuple!
+});
+
+console.log(user.payload.name);
+```
+
+### Functional API Modules (Orval / Kubb style):
+
+If your generator outputs standalone exported functions instead of ES classes (common in Orval, Kubb, and OpenAPI-TS generators), import the module with `import * as api` and pass `typeof api` directly to `ToMsgStruct`:
+
+```typescript
+// 1. Module file: userApi.ts (standalone exported functions)
+// export async function getUser(id: string) { ... }
+// export async function listUsers(limit?: number) { ... }
+
+import * as UserApi from './userApi';
+import { createMsgBus } from '@actdim/msgmesh';
+import {
+    ToMsgChannelPrefix,
+    ToMsgStruct,
+    getMsgChannelSelector,
+    registerAdapters,
+    type MsgProviderAdapter,
+} from '@actdim/msgmesh/adapters';
+
+// 2. Generate prefix & bus structure from module namespace type
+type UserPrefix = ToMsgChannelPrefix<'UserApi', 'API'>; // 'API.USER.'
+type ApiMsgStruct = ToMsgStruct<typeof UserApi, UserPrefix>;
+
+// 3. Register module namespace object
+const services: Record<UserPrefix, any> = {
+    'API.USER.': UserApi,
+};
+const adapters = Object.entries(services).map(([prefix, service]) => ({
+    service,
+    channelSelector: getMsgChannelSelector(services),
+})) as MsgProviderAdapter[];
+
+const msgBus = createMsgBus<ApiMsgStruct>();
+registerAdapters(msgBus, adapters);
+
+// 4. Request via bus
+const users = await msgBus.request({
+    channel: 'API.USER.LISTUSERS',
+    payloadFn: (fn) => fn(10),
+});
 ```
 
 ---
