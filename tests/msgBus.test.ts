@@ -1607,14 +1607,165 @@ describe('msgBus', () => {
             '*': (channel) => ({ mandatoryProvider: channel.startsWith('Api.') }),
         });
 
-        // Api.Data requires provider — should throw NoProviderError
+        // Api.Data requires provider - should throw NoProviderError
         await expect(msgBus.request({ channel: 'Api.Data', payload: 'q' })).rejects.toThrow(
             NoProviderError,
         );
 
-        // Local.Data does not require provider — should throw TimeoutError (no provider, but no mandatory check)
+        // Local.Data does not require provider - should throw TimeoutError (no provider, but no mandatory check)
         await expect(
             msgBus.request({ channel: 'Local.Data', payload: 'q', options: { timeout: 50 } }),
         ).rejects.toThrow(TimeoutError);
+    });
+
+    it('channel config delay defers message delivery by specified duration', async () => {
+        type TimingStruct = MsgStruct<{
+            'Timed.Channel': { in: string };
+        }>;
+        const msgBus = createMsgBus<TimingStruct>({
+            'Timed.Channel': {
+                delay: 60,
+            },
+        });
+        const received: string[] = [];
+        msgBus.on({
+            channel: 'Timed.Channel',
+            callback: (msg) => {
+                received.push(msg.payload);
+            },
+        });
+
+        msgBus.send({ channel: 'Timed.Channel', payload: 'delayed-msg' });
+
+        // At 20ms, message should not yet be delivered
+        await delay(20);
+        expect(received).toHaveLength(0);
+
+        // At 90ms total, message should have been delivered
+        await delay(70);
+        expect(received).toEqual(['delayed-msg']);
+    });
+
+    it('channel config debounce delivers only last message after silence interval', async () => {
+        type TimingStruct = MsgStruct<{
+            'Search.Input': { in: string };
+        }>;
+        const msgBus = createMsgBus<TimingStruct>({
+            'Search.Input': {
+                debounce: 50,
+            },
+        });
+        const received: string[] = [];
+        msgBus.on({
+            channel: 'Search.Input',
+            callback: (msg) => {
+                received.push(msg.payload);
+            },
+        });
+
+        // Send rapid burst
+        msgBus.send({ channel: 'Search.Input', payload: 'a' });
+        await delay(15);
+        msgBus.send({ channel: 'Search.Input', payload: 'ab' });
+        await delay(15);
+        msgBus.send({ channel: 'Search.Input', payload: 'abc' });
+
+        // At 20ms after last emit, debounce window (50ms) has not elapsed
+        await delay(20);
+        expect(received).toHaveLength(0);
+
+        // At 60ms after last emit, debounce window elapsed -> only 'abc' delivered
+        await delay(40);
+        expect(received).toEqual(['abc']);
+    });
+
+    it('subscription options debounce overrides and debounces per subscriber', async () => {
+        type TimingStruct = MsgStruct<{
+            'Raw.Events': { in: number };
+        }>;
+        const msgBus = createMsgBus<TimingStruct>();
+        const debouncedValues: number[] = [];
+        const rawValues: number[] = [];
+
+        msgBus.on({
+            channel: 'Raw.Events',
+            options: { debounce: 40 },
+            callback: (msg) => {
+                debouncedValues.push(msg.payload);
+            },
+        });
+
+        msgBus.on({
+            channel: 'Raw.Events',
+            callback: (msg) => {
+                rawValues.push(msg.payload);
+            },
+        });
+
+        msgBus.send({ channel: 'Raw.Events', payload: 1 });
+        await delay(10);
+        msgBus.send({ channel: 'Raw.Events', payload: 2 });
+        await delay(10);
+        msgBus.send({ channel: 'Raw.Events', payload: 3 });
+
+        await delay(15);
+        expect(rawValues).toEqual([1, 2, 3]);
+        expect(debouncedValues).toHaveLength(0);
+
+        await delay(45);
+        expect(debouncedValues).toEqual([3]);
+    });
+
+    it('throttle as number limits message rate with leading and trailing by default', async () => {
+        type TimingStruct = MsgStruct<{
+            'Scroll.Stream': { in: number };
+        }>;
+        const msgBus = createMsgBus<TimingStruct>({
+            'Scroll.Stream': {
+                throttle: 40,
+            },
+        });
+        const received: number[] = [];
+        msgBus.on({
+            channel: 'Scroll.Stream',
+            callback: (msg) => {
+                received.push(msg.payload);
+            },
+        });
+
+        // Publish burst synchronously
+        for (let i = 1; i <= 5; i++) {
+            msgBus.send({ channel: 'Scroll.Stream', payload: i });
+        }
+
+        // Wait for scheduler and throttle window to settle
+        await delay(70);
+
+        // Leading (1) and trailing (5) are emitted
+        expect(received).toEqual([1, 5]);
+    });
+
+    it('throttle with leading: true, trailing: false suppresses trailing burst messages', async () => {
+        type TimingStruct = MsgStruct<{
+            'Button.Click': { in: number };
+        }>;
+        const msgBus = createMsgBus<TimingStruct>();
+        const received: number[] = [];
+        msgBus.on({
+            channel: 'Button.Click',
+            options: {
+                throttle: { duration: 50, leading: true, trailing: false },
+            },
+            callback: (msg) => {
+                received.push(msg.payload);
+            },
+        });
+
+        for (let i = 1; i <= 5; i++) {
+            msgBus.send({ channel: 'Button.Click', payload: i });
+        }
+
+        await delay(70);
+        expect(received).toEqual([1]);
     });
 });

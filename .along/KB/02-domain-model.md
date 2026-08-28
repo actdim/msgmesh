@@ -70,18 +70,18 @@ interface Msg<TStruct, TChannel, TGroup, THeaders> {
 
 ### 2.5. Channel Pipeline Configuration (`MsgBusConfig<TStruct>`)
 ```typescript
-interface ChannelConfig {
+type ChannelConfig = {
     replayBufferSize?: number;
     replayWindowTime?: number; // ms
     delay?: number; // ms
-    throttle?: {
+    throttle?: number | {
         duration: number; // ms
         leading?: boolean;
         trailing?: boolean;
     };
     debounce?: number; // ms
     mandatoryProvider?: boolean;
-}
+};
 
 type MsgBusConfig<TStruct> = {
     '*'?: ChannelConfig | ((channel: keyof TStruct) => ChannelConfig);

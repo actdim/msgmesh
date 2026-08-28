@@ -31,6 +31,7 @@ import {
     NoProviderError,
     $C_ANY,
     MsgStatus,
+    MsgChannelConfig,
 } from '@/contracts';
 import { v4 as uuid } from 'uuid';
 import {
@@ -173,7 +174,7 @@ export function createMsgBus<
         const configOrResolver = config?.[$C_ANY];
         const defaults =
             typeof configOrResolver === 'function' ? configOrResolver(channel) : configOrResolver;
-        return { ...defaults, ...config?.[channel] };
+        return { ...defaults, ...config?.[channel] } as MsgChannelConfig<any>;
     }
 
     function getOrCreateSubject(channel: string, group: string): Subject<Msg<TStructN>> {
@@ -280,7 +281,7 @@ export function createMsgBus<
         observable = pipeFromArray(ops)(subject);
 
         if (params.options?.abortSignal?.aborted) {
-            return () => {};
+            return () => { };
         }
 
         const sub = observable.subscribe({

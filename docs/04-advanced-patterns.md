@@ -11,20 +11,41 @@ Replay past messages to new subscribers when subscribing late:
 
 ```typescript
 const msgBus = createMsgBus<AppBusStruct>({
-    replay: {
-        bufferSize: 10, // Keep last 10 messages in memory for new subscribers
+    'CHAT.HISTORY': {
+        replayBufferSize: 10, // Keep last 10 messages in memory for new subscribers
+        replayWindowTime: 60000, // Replay window of 60 seconds
     },
 });
 ```
 
-### 2. Throttling and Debouncing
-Channels can configure rate-limiting behavior:
+### 2. Throttling, Debouncing, and Delay
+Channels and subscriptions can configure rate-limiting, batching, and delivery timing:
 
 ```typescript
+// Channel-level configuration
 const msgBus = createMsgBus<AppBusStruct>({
-    rateLimit: {
-        'UI.SEARCH_INPUT': { debounceMs: 300 },
-        'SCROLL.EVENT': { throttleMs: 100 },
+    'UI.SEARCH_INPUT': {
+        debounce: 300, // Wait for 300ms of silence before delivery
+    },
+    'SCROLL.EVENT': {
+        throttle: 100, // Throttle to at most one message per 100ms
+        // Or with detailed leading/trailing options:
+        // throttle: { duration: 100, leading: true, trailing: false },
+    },
+    'AUDIT.LOG': {
+        delay: 50, // Delay message delivery by 50ms
+    },
+});
+
+// Subscription-level configuration (overrides/augments channel config)
+msgBus.listen({
+    channel: 'UI.SEARCH_INPUT',
+    options: {
+        debounce: 200,
+        throttle: { duration: 100, leading: true, trailing: true },
+    },
+    callback: (msg) => {
+        console.log('Debounced search query:', msg.payload);
     },
 });
 ```
