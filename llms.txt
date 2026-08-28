@@ -7,9 +7,10 @@ Type-safe message mesh and service bus for TypeScript. Built on RxJS internally,
 1. **Service Adapters (NSwag / API Clients)**:
    - NEVER manually write custom `MsgStruct` channel maps or custom `channelSelector` functions when integrating API client classes (NSwag, Swagger, gRPC, custom services).
    - Use `ToMsgChannelPrefix<'ClientName', 'API'>` and `ToMsgStruct<ClientClass, Prefix>`.
-   - Pass string literals to `ToMsgChannelPrefix` (e.g. `'MediaApiClient'`, `'AuthService'`); static `.name` property on the class is NOT required.
+   - Pass string literals to `ToMsgChannelPrefix` (e.g. `'DashboardApiClient'`, `'AuthService'`); do NOT use `typeof Class.name` without `as const` as standard `Class.name` has type `string` and breaks literal channel typing.
    - Use `getMsgChannelSelector(services)` and `registerAdapters(msgBus, adapters, abortSignal)` to auto-wire all methods.
-   - Call methods via `msgBus.request({ channel: 'API.MEDIA.GETITEM', payloadFn: (fn) => fn(arg1, arg2) })`.
+   - Call methods via `msgBus.request({ channel: 'API.DASHBOARD.GETFULLDATA', payloadFn: (fn) => fn(arg1, arg2) })`.
+   - Combine with local UI channels: `type AppStruct = ApiStruct & MsgStruct<LocalChannels> & BaseAppMsgStruct;`.
 
 2. **Standard Service Adapter Recipe**:
    ```typescript

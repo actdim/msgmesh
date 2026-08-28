@@ -356,7 +356,14 @@ msgBus.provide({
 
 Automatically wraps a service object (e.g. NSwag / Swagger generated API client or custom service class) as a bus provider. All wiring is compile-time type-safe.
 
-**DO NOT create manual MsgStruct interfaces or custom channelSelector functions for API services.** Use `ToMsgStruct` + `getMsgChannelSelector` + `registerAdapters`.
+### Strict Rules for Backend / API Client Integration:
+1. **Zero Manual Channels for API**: When connecting REST, FastAPI, OpenAPI, Swagger, or gRPC endpoints to MsgMesh, **NEVER** write manual `MsgStruct` channel maps (`{ in: ..., out: ... }`) and **NEVER** write manual `fetch` / `axios` handlers inside `provide()`.
+2. **Always Use Service Adapters**: Use NSwag, OpenAPI, or gRPC generated client classes combined with `ToMsgChannelPrefix`, `ToMsgStruct`, and `registerAdapters`.
+3. **String Literal in `ToMsgChannelPrefix`**: Always pass an explicit string literal type (e.g. `'DashboardApiClient'`) as the first argument:
+   ```typescript
+   export type DashboardChannelPrefix = ToMsgChannelPrefix<'DashboardApiClient', 'API'>;
+   ```
+   **Important**: Do NOT pass `typeof Class.name` without `as const`, because in standard TypeScript `Class.name` has type `string`, which evaluates to a generic `${string}` and breaks compile-time literal channel resolution.
 
 **Type transformation chain:**
 
@@ -436,6 +443,87 @@ const adapters = Object.entries(services).map(([prefix, service]) => ({
 const msgBus = createMsgBus<MediaBusStruct>();
 registerAdapters(msgBus, adapters);
 ```
+
+**Combining Dynamic API Structs with Local UI Events:**
+
+Complete, canonical recipe for merging NSwag-generated API structs with local UI event channels and `BaseAppMsgStruct`:
+
+```typescript
+import { createMsgBus } from '@actdim/msgmesh';
+import type { MsgBus, MsgStruct } from '@actdim/msgmesh/contracts';
+import {
+    type ToMsgChannelPrefix,
+    type ToMsgStruct,
+    type BaseServiceSuffix,
+    registerAdapters,
+    getMsgChannelSelector,
+    type MsgProviderAdapter,
+} from '@actdim/msgmesh/adapters';
+import { type BaseAppMsgStruct } from '@actdim/dynstruct/appDomain/appContracts';
+import { type KeysOf } from '@actdim/utico/typeCore';
+import { DashboardApiClient } from './api/client'; // NSwag generated client
+
+// 1. Dynamic API prefix: 'DashboardApiClient' + 'API' -> 'API.DASHBOARD.'
+export type ApiPrefix = 'API';
+export type DashboardApiClientName = 'DashboardApiClient';
+export type DashboardChannelPrefix = ToMsgChannelPrefix<
+    DashboardApiClientName,
+    ApiPrefix,
+    BaseServiceSuffix
+>;
+
+// 2. Dynamic API struct: compile-time generated from DashboardApiClient methods
+export type DashboardApiStruct = ToMsgStruct<
+    DashboardApiClient,
+    DashboardChannelPrefix
+>;
+
+// 3. Local UI state and event channels
+export type DashboardLocalChannels = {
+    'APP.DATA.UPDATED': { in: any; out: void };
+    'APP.TAB.SET': { in: string; out: void };
+    'APP.ENTITY.SELECT': { in: { id: string; type?: string }; out: void };
+    'APP.ENTITY.CLOSE': { in: void; out: void };
+    'APP.SSE.STATUS': { in: { connected: boolean }; out: void };
+};
+
+// 4. Combined Application Bus Struct
+export type DashboardAppMsgStruct = DashboardApiStruct &
+    MsgStruct<DashboardLocalChannels> &
+    BaseAppMsgStruct;
+
+export type DashboardMsgChannels<
+    TChannel extends keyof DashboardAppMsgStruct | Array<keyof DashboardAppMsgStruct>,
+> = KeysOf<DashboardAppMsgStruct, TChannel>;
+
+export const dashboardBus: MsgBus<any> = createMsgBus<any>();
+
+// 5. Automatic registration of all API methods
+export function setupApiAdapters(bus: MsgBus<any>) {
+    const services: Record<DashboardChannelPrefix, any> = {
+        'API.DASHBOARD.': new DashboardApiClient(),
+    };
+
+    const adapters = Object.entries(services).map(
+        ([_, service]) =>
+            ({
+                service,
+                channelSelector: getMsgChannelSelector(services),
+            }) as MsgProviderAdapter,
+    );
+
+    registerAdapters(bus, adapters);
+}
+```
+
+**Channel Name Resolution & Invocation Cheatsheet:**
+
+| Service Method | Prefix | Resulting Bus Channel | Invocation Example |
+|---|---|---|---|
+| `getFullData()` | `'API.DASHBOARD.'` | `'API.DASHBOARD.GETFULLDATA'` | `bus.request({ channel: 'API.DASHBOARD.GETFULLDATA' })` |
+| `searchKb(q, tag, type)` | `'API.DASHBOARD.'` | `'API.DASHBOARD.SEARCHKB'` | `bus.request({ channel: 'API.DASHBOARD.SEARCHKB', payload: [q, tag, type] })` |
+| `listIssues(status, ...)` | `'API.DASHBOARD.'` | `'API.DASHBOARD.LISTISSUES'` | `bus.request({ channel: 'API.DASHBOARD.LISTISSUES', payload: ['open'] })` |
+| `getIssue(id)` | `'API.DASHBOARD.'` | `'API.DASHBOARD.GETISSUE'` | `bus.request({ channel: 'API.DASHBOARD.GETISSUE', payload: ['iss-1'] })` |
 
 **Important**: `ToMsgStruct` enforces type safety at compile time (wrong channel names will not compile), but `registerAdapters` registers ALL prototype/own methods at runtime (including skipped ones). The `Skip` parameter only affects the TypeScript type, not runtime registration.
 
