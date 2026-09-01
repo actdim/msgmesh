@@ -1,6 +1,17 @@
+---
+protocol: along
+protocol_version: "2.2.5"
+slug: topic--02-architecture-and-types
+title: Architecture & Types
+type: topic
+created: 2026-08-31
+updated: 2026-08-31
+tags: [02-architecture-and-types]
+---
+
 # Architecture & Types
 
-[← Back to 01. Overview & Analysis](./01-overview-and-analysis.md) | [Next: 03. API Reference →](./03-api-reference.md)
+[← Back to 01. Overview & Analysis](./topic--01-overview-and-analysis.md) | [Next: 03. API Reference →](./topic--03-api-reference.md)
 
 ---
 
@@ -87,5 +98,4 @@ const globalBus = createMsgBus<UnifiedBusStruct>();
 
 ---
 
-[← Back to 01. Overview & Analysis](./01-overview-and-analysis.md) | [Next: 03. API Reference →](./03-api-reference.md)
-
+[← Back to 01. Overview & Analysis](./topic--01-overview-and-analysis.md) | [Next: 03. API Reference →](./topic--03-api-reference.md)
