@@ -1,55 +1,43 @@
-﻿---
+---
 protocol: along
-protocol_version: "2.2.8"
+protocol_version: "2.2.13"
 slug: INDEX
 title: Knowledge Base Topic Index
 type: index
-created: 2026-08-27
+created: 2026-09-02
 updated: 2026-09-02
 tags: [index, kb, topics, map]
 ---
 
 # Knowledge Base Topic Index
 
-Central entry point and cross-linked topic catalog for @actdim/msgmesh documentation.
+Central entry point and cross-linked topic catalog for project documentation:
 
 ## Knowledge Graph & Topic Map
 
 ```mermaid
 flowchart TD
     INDEX["Knowledge Base (INDEX)"]
-    T_OVERVIEW["Overview & Problem Analysis"]
-    INDEX --> T_OVERVIEW
-    T_ARCH_TYPES["Architecture & Types"]
-    INDEX --> T_ARCH_TYPES
-    T_API["API Reference"]
-    INDEX --> T_API
-    T_ADVANCED["Advanced Patterns & Adapters"]
-    INDEX --> T_ADVANCED
-    T_ARCHITECTURE["Architecture"]
+    T_01_OVERVIEW_AND_ANALYSIS["Overview & Problem Analysis"]
+    INDEX --> T_01_OVERVIEW_AND_ANALYSIS
+    T_02_ARCHITECTURE_AND_TYPES["Architecture & Types"]
+    INDEX --> T_02_ARCHITECTURE_AND_TYPES
+    T_03_API_REFERENCE["API Reference"]
+    INDEX --> T_03_API_REFERENCE
+    T_04_ADVANCED_PATTERNS["Advanced Patterns & Adapters"]
+    INDEX --> T_04_ADVANCED_PATTERNS
+    T_ARCHITECTURE["01 Architecture"]
     INDEX --> T_ARCHITECTURE
-    T_DOMAIN["Domain Model"]
-    INDEX --> T_DOMAIN
-    T_SETUP["Setup & Workflow"]
-    INDEX --> T_SETUP
-    T_OVERVIEW -.->|references| T_ARCH_TYPES
-    T_ARCH_TYPES -.->|references| T_OVERVIEW
-    T_ARCH_TYPES -.->|references| T_API
-    T_API -.->|references| T_ARCH_TYPES
-    T_API -.->|references| T_ADVANCED
-    T_ADVANCED -.->|references| T_API
-    T_ARCHITECTURE -.->|references| T_DOMAIN
-    T_ARCHITECTURE -.->|references| T_SETUP
-    T_ARCHITECTURE -.->|references| T_API
-    T_ARCHITECTURE -.->|references| T_ADVANCED
-    T_DOMAIN -.->|references| T_ARCHITECTURE
-    T_DOMAIN -.->|references| T_SETUP
-    T_DOMAIN -.->|references| T_API
-    T_DOMAIN -.->|references| T_ADVANCED
-    T_SETUP -.->|references| T_ARCHITECTURE
-    T_SETUP -.->|references| T_DOMAIN
-    T_SETUP -.->|references| T_API
-    T_SETUP -.->|references| T_ADVANCED
+    T_DOMAIN_MODEL["02 Domain Model"]
+    INDEX --> T_DOMAIN_MODEL
+    T_SETUP_AND_WORKFLOW["03 Setup And Workflow"]
+    INDEX --> T_SETUP_AND_WORKFLOW
+    T_01_OVERVIEW_AND_ANALYSIS -.->|references| T_02_ARCHITECTURE_AND_TYPES
+    T_02_ARCHITECTURE_AND_TYPES -.->|references| T_01_OVERVIEW_AND_ANALYSIS
+    T_02_ARCHITECTURE_AND_TYPES -.->|references| T_03_API_REFERENCE
+    T_03_API_REFERENCE -.->|references| T_02_ARCHITECTURE_AND_TYPES
+    T_03_API_REFERENCE -.->|references| T_04_ADVANCED_PATTERNS
+    T_04_ADVANCED_PATTERNS -.->|references| T_03_API_REFERENCE
 ```
 
 ---
@@ -60,9 +48,9 @@ flowchart TD
 - **[Architecture & Types](./topic--02-architecture-and-types.md)** (topic) `02-architecture-and-types`
 - **[API Reference](./topic--03-api-reference.md)** (topic) `03-api-reference`
 - **[Advanced Patterns & Adapters](./topic--04-advanced-patterns.md)** (topic) `04-advanced-patterns`
-- **[Architecture](./topic--architecture.md)** (topic) `architecture`
-- **[Domain Model](./topic--domain-model.md)** (topic) `domain-model`
-- **[Setup & Workflow](./topic--setup-and-workflow.md)** (topic) `setup-and-workflow`
+- **[01 Architecture](./topic--architecture.md)** (topic) `architecture`
+- **[02 Domain Model](./topic--domain-model.md)** (topic) `domain-model`
+- **[03 Setup And Workflow](./topic--setup-and-workflow.md)** (topic) `setup-and-workflow`
 
 ---
 
