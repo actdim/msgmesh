@@ -1,8 +1,8 @@
 ---
 protocol: along
-protocol_version: "2.2.8"
+protocol_version: "2.2.5"
 slug: architecture
-title: Architecture
+title: 01 Architecture
 type: topic
 created: 2026-08-27
 updated: 2026-09-02
@@ -71,8 +71,8 @@ Every message in the mesh is addressed by three coordinates:
 Multiple providers can register on the same channel. A provider can inspect incoming messages and either process them or set `outMsg.status = 'skipped'`, passing execution to the next provider in the chain.
 
 ## 3. Cross-Links
-- [Knowledge Base Root](./INDEX.md)
-- [Domain Contracts](./topic--domain-model.md)
-- [Setup & Workflow](./topic--setup-and-workflow.md)
-- [API Reference](./topic--03-api-reference.md)
-- [Advanced Patterns](./topic--04-advanced-patterns.md)
+- [[INDEX.md]] - Knowledge Base Root
+- [[02-domain-model.md]] - Domain Contracts and Type Structures
+- [[03-setup-and-workflow.md]] - Setup and Testing Instructions
+- [[04-api-reference.md]] - Complete API Specification
+- [[05-patterns-and-recipes.md]] - Advanced Messaging Recipes and Service Adapters

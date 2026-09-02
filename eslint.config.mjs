@@ -1,10 +1,14 @@
 import eslint from '@eslint/js'; // js
 import { defineConfig } from 'eslint/config';
 import tsEslint from 'typescript-eslint';
-import globals from 'globals';
 import tsParser from '@typescript-eslint/parser';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import prettierPlugin from 'eslint-plugin-prettier';
+import path from 'node:path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 // cmd line: DEBUG=eslint:*
 export default defineConfig(
@@ -50,7 +54,8 @@ export default defineConfig(
                 ecmaVersion: 'latest',
                 // ecmaVersion: 2017,
                 sourceType: 'module',
-                project: './tsconfig.json',
+                project: ['./tsconfig.dev.json'],
+                tsconfigRootDir: __dirname,
             },
             globals: {
                 NodeJS: 'readonly', // or writable

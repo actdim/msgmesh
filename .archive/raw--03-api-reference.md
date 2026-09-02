@@ -1,17 +1,6 @@
----
-protocol: along
-protocol_version: "2.2.5"
-slug: 03-api-reference
-title: API Reference
-type: topic
-created: 2026-08-31
-updated: 2026-09-02
-tags: [03-api-reference]
----
-
 # API Reference
 
-[← Back to 02. Architecture & Types](./topic--02-architecture-and-types.md) | [Next: 04. Advanced Patterns →](./topic--04-advanced-patterns.md)
+[← Back to 02. Architecture & Types](./02-architecture-and-types.md) | [Next: 04. Advanced Patterns →](./04-advanced-patterns.md)
 
 ---
 
@@ -207,4 +196,6 @@ for await (const response of msgBus.requestStream({
 
 ---
 
-[← Back to 02. Architecture & Types](./topic--02-architecture-and-types.md) | [Next: 04. Advanced Patterns →](./topic--04-advanced-patterns.md)
+[← Back to 02. Architecture & Types](./02-architecture-and-types.md) | [Next: 04. Advanced Patterns →](./04-advanced-patterns.md)
+
+

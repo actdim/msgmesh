@@ -70,10 +70,10 @@ Explore the complete guide step-by-step from core concepts to advanced service a
 
 | Section | Description |
 |---|---|
-| 📖 [**01. Overview & Problem Analysis**](./docs/01-overview-and-analysis.md) | Motivation, comparison with EventEmitters, RxJS, and global state managers. |
-| 🧩 [**02. Architecture & Types**](./docs/02-architecture-and-types.md) | Channels, Input/Output groups, type contracts, and bus instantiation. |
-| 🛠️ [**03. API Reference**](./docs/03-api-reference.md) | Complete method reference (`send`, `on`, `once`, `stream`, `provide`, `request`, `requestStream`). |
-| 🚀 [**04. Advanced Patterns & Adapters**](./docs/04-advanced-patterns.md) | Message replay, debouncing, chain-of-responsibility, and automated service adapters. |
+| 📖 [**01. Overview & Problem Analysis**](./docs/topic--01-overview-and-analysis.md) | Motivation, comparison with EventEmitters, RxJS, and global state managers. |
+| 🧩 [**02. Architecture & Types**](./docs/topic--02-architecture-and-types.md) | Channels, Input/Output groups, type contracts, and bus instantiation. |
+| 🛠️ [**03. API Reference**](./docs/topic--03-api-reference.md) | Complete method reference (`send`, `on`, `once`, `stream`, `provide`, `request`, `requestStream`). |
+| 🚀 [**04. Advanced Patterns & Adapters**](./docs/topic--04-advanced-patterns.md) | Message replay, debouncing, chain-of-responsibility, and automated service adapters. |
 
 ---
 

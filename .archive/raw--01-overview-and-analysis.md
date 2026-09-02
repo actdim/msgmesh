@@ -1,17 +1,6 @@
----
-protocol: along
-protocol_version: "2.2.5"
-slug: 01-overview-and-analysis
-title: Overview & Problem Analysis
-type: topic
-created: 2026-08-31
-updated: 2026-09-02
-tags: [01-overview-and-analysis]
----
-
 # Overview & Problem Analysis
 
-[← Back to README](../README.md) | [Next: 02. Architecture & Types →](./topic--02-architecture-and-types.md)
+[← Back to README](../README.md) | [Next: 02. Architecture & Types →](./02-architecture-and-types.md)
 
 ---
 
@@ -71,4 +60,5 @@ When examining popular messaging systems in the frontend ecosystem, several cate
 
 ---
 
-[← Back to README](../README.md) | [Next: 02. Architecture & Types →](./topic--02-architecture-and-types.md)
+[← Back to README](../README.md) | [Next: 02. Architecture & Types →](./02-architecture-and-types.md)
+

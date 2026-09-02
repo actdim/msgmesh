@@ -1,17 +1,6 @@
----
-protocol: along
-protocol_version: "2.2.5"
-slug: 04-advanced-patterns
-title: Advanced Patterns & Adapters
-type: topic
-created: 2026-08-31
-updated: 2026-09-02
-tags: [04-advanced-patterns]
----
-
 # Advanced Patterns & Adapters
 
-[← Back to 03. API Reference](./topic--03-api-reference.md) | [Back to Main README](../README.md)
+[← Back to 03. API Reference](./03-api-reference.md) | [Back to Main README](../README.md)
 
 ---
 
@@ -312,4 +301,5 @@ export function setupApiAdapters(bus: MsgBus<any>) {
 
 ---
 
-[← Back to 03. API Reference](./topic--03-api-reference.md) | [Back to Main README](../README.md)
+[← Back to 03. API Reference](./03-api-reference.md) | [Back to Main README](../README.md)
+

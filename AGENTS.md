@@ -3,9 +3,7 @@ This folder belongs to a repository that uses the ALONG structure. The full work
 guidance + agent-context protocol live once in the nearest ancestor `AGENTS.md` (`../../../AGENTS.md`) -
 read it there. This folder keeps its OWN `.along/` state; use the nearest one.
 Only this folder's specifics follow.
-<!-- END ALONG-PROTOCOL -->
-
-# AGENTS.md — AI Context for @actdim/msgmesh
+<!-- END ALONG-PROTOCOL --># AGENTS.md — AI Context for @actdim/msgmesh
 
 ## Project
 
@@ -382,7 +380,7 @@ Key types:
 Runtime:
 
 - `getMsgChannelSelector(services)` - creates a channel resolver from service map (`Record<Prefix, ServiceInstance>`).
-- `registerAdapters(msgBus, adapters, abortSignal?)` - registers each method as `provide()` handler. Callback spreads `msg.payload` tuple as method arguments: `service[method](...msg.payload)`.
+- `registerAdapters(msgBus, adapters, abortSignal?)` - registers each method as `provide()` handler. Callback spreads `msg.payload` tuple as method arguments: `service[method] (...msg.payload)`.
 
 **Standard Adapter Recipe for AI Agents:**
 
