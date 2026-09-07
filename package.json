@@ -1,6 +1,6 @@
 {
     "name": "@actdim/msgmesh",
-    "version": "1.5.13",
+    "version": "1.5.14",
     "description": "A type-safe, modular message mesh for scalable async communication in TypeScript",
     "author": "Pavel Borodaev",
     "license": "MIT",
@@ -27,8 +27,19 @@
         "dist",
         "docs",
         "README.md",
-        "LICENSE"
+        "LICENSE",
+        "AGENTS.md",
+        "CLAUDE.md",
+        "llms.txt",
+        "llms-full.txt"
     ],
+    "ai": {
+        "instructions": "./AGENTS.md",
+        "docs": "./docs",
+        "llms": "./llms.txt",
+        "llms-full": "./llms-full.txt"
+    },
+    "llms": "./llms.txt",
     "exports": {
         "./*": {
             "types": "./dist/*.d.ts",

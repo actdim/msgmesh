@@ -85,6 +85,12 @@ Try `@actdim/msgmesh` instantly in StackBlitz:
 
 ---
 
+## AI-Assisted Development
+
+Developed with [Along](https://github.com/actdim/along) - a provider-agnostic context and memory system for AI coding agents.
+
+---
+
 ## License
 
 MIT License. See [LICENSE](LICENSE) for details.

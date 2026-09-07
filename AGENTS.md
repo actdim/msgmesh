@@ -594,3 +594,11 @@ If change affects API shape or build artifacts, also run:
 - **Provider exceptions propagate to `request()`**: `provide()` catch publishes to `out` with `status: 'error'` when `requestId` is present, so `request()` rejects immediately instead of timing out. Same for `requestStream()` — a provider error throws from the generator and stops iteration.
 - **`requestStream()` subscribe-before-publish**: `requestId` is generated upfront so the `out` subscription filter can be set before publishing to `in`. Reversing this order would miss synchronous responses.
 - **`requestStream()` vs `request()`**: `request()` uses `fetchCount: 1` on the subscription (takes first response only). `requestStream()` has no `fetchCount` on the subscription — all provider responses arrive; `fetchCount` in options controls how many the generator yields before stopping.
+
+## Project specifics
+
+<!-- BEGIN ALONG-RULES -->
+See the following engineering guidelines:
+- `[languages/typescript.md](.along/rules/languages/typescript.md)`
+- `[platforms/web.md](.along/rules/platforms/web.md)`
+<!-- END ALONG-RULES -->

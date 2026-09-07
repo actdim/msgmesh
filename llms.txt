@@ -1,0 +1,19 @@
+# @actdim/msgmesh
+
+> **Type-Safe Async Message Mesh & Service Bus for Scalable TypeScript Applications**
+
+## Documentation Links
+- [README.md](README.md): Overview, quick installation, and full skill list.
+- [AGENTS.md](AGENTS.md): Active ALONG-PROTOCOL conventions and instructions.
+- [docs/INDEX.md](docs/INDEX.md): Central Knowledge Base topic catalog.
+- [docs/topic--01-overview-and-analysis.md](docs/topic--01-overview-and-analysis.md): Overview & Problem Analysis.
+- [docs/topic--02-architecture-and-types.md](docs/topic--02-architecture-and-types.md): Architecture & Types.
+- [docs/topic--03-api-reference.md](docs/topic--03-api-reference.md): API Reference.
+- [docs/topic--04-advanced-patterns.md](docs/topic--04-advanced-patterns.md): Advanced Patterns & Adapters.
+- [docs/topic--architecture.md](docs/topic--architecture.md): 01 Architecture.
+- [docs/topic--domain-model.md](docs/topic--domain-model.md): 02 Domain Model.
+- [docs/topic--setup-and-workflow.md](docs/topic--setup-and-workflow.md): 03 Setup And Workflow.
+
+## Optional
+- [Full Documentation Context](llms-full.txt): Complete concatenated documentation in a single file.
+
