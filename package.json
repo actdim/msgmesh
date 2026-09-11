@@ -1,6 +1,6 @@
 {
     "name": "@actdim/msgmesh",
-    "version": "1.7.0",
+    "version": "1.7.1",
     "description": "High-performance, type-safe message bus for TypeScript. Pub/sub, async/await RPC, streaming, and channel-based routing powered by RxJS.",
     "author": "Pavel Borodaev",
     "license": "MIT",
@@ -86,7 +86,7 @@
         "docs:preview": "vitepress preview docs"
     },
     "peerDependencies": {
-        "@actdim/utico": ">=1.7.0",
+        "@actdim/utico": ">=1.7.1",
         "rxjs": ">=7.8.0",
         "uuid": ">=13.0.0"
     },
