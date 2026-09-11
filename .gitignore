@@ -132,3 +132,7 @@ dist
 .continue/
 .venv/
 package-lock.json
+
+# VitePress
+docs/.vitepress/dist
+docs/.vitepress/cache

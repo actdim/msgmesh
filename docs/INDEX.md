@@ -58,6 +58,7 @@ flowchart TD
 - **[01 Architecture](./topic--architecture.md)** (topic) `architecture`
 - **[02 Domain Model](./topic--domain-model.md)** (topic) `domain-model`
 - **[03 Setup And Workflow](./topic--setup-and-workflow.md)** (topic) `setup-and-workflow`
+- **[License](./topic--license.md)** (license) `license`
 
 ---
 

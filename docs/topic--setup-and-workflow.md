@@ -43,10 +43,12 @@ pnpm add @actdim/utico rxjs@^7.8.0
 - **Unit Testing Bus Streams**: `tests/msgBus.test.ts` validates concurrency, debouncing, throttling, and request cancellation.
 - **Provider Chain Testing**: Tests verify fallback behavior and skipping (`status = 'skipped'`).
 - **Timing and Replay**: Tests verify that late subscribers receive buffered events within `replayWindowTime`.
-
 ## 4. Cross-Links
-- [[INDEX.md]] - Knowledge Base Root
-- [[01-[architecture](./topic--architecture.md).md]] - System Architecture
-- [[02-[domain-model](./topic--domain-model.md).md]] - Domain Model
-- [[04-api-reference.md]] - Exhaustive [API Reference](./topic--03-api-reference.md)
-- [[05-patterns-and-recipes.md]] - Practical Recipes and Messaging Patterns
+
+- [Knowledge Base Index](./INDEX.md) - Knowledge Base Root
+- [01 Architecture](./topic--architecture.md) - System Architecture
+- [02 Domain Model](./topic--domain-model.md) - Domain Model
+- [API Reference](./topic--03-api-reference.md) - Exhaustive API Reference
+- [Advanced Patterns & Adapters](./topic--04-advanced-patterns.md) - Practical Recipes and Messaging Patterns
+- [License](./topic--license.md) - License Information
+

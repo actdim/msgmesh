@@ -1,0 +1,1601 @@
+# @actdim/msgmesh - Full Documentation Context
+
+> **Type-Safe Async Message Mesh & Service Bus for Scalable TypeScript Applications**
+
+---
+
+## Document: README.md (Overview)
+
+# @actdim/msgmesh
+
+> **Type-Safe Async Message Mesh & Service Bus for Scalable TypeScript Applications**
+
+[![npm version](https://img.shields.io/npm/v/@actdim/msgmesh.svg)](https://www.npmjs.com/package/@actdim/msgmesh)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9+-blue.svg)](https://www.typescriptlang.org/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/~/github.com/actdim/msgmesh)
+
+---
+
+## What is MsgMesh?
+
+**`@actdim/msgmesh`** is a high-performance, type-safe messaging framework and service mesh for TypeScript. It bridges the gap between raw `EventEmitter` callbacks, complex RxJS streams, and tightly-coupled state managers by providing a unified message bus for **Pub/Sub Events**, **RPC Request/Response**, **Fan-in Streams**, and **Automated Service Adapters**.
+
+### The Problem It Solves
+- **Untyped Events**: Fatigued by string typos, missing payload types, and runtime crashes when emitting events?
+- **RxJS Complexity Overload**: Want the power of reactive streams and debouncing without forcing your entire team into complex RxJS operators?
+- **Tightly-Coupled Services**: Want UI components to invoke backend APIs or cross-module services without hard-coded class imports or prop callback chains?
+
+### The Output You Get
+- 🔒 **100% Compile-Time Verification**: Channels, input/output groups, and headers are checked by TypeScript with full IDE autocomplete.
+- ⚡ **RPC & Cancellation**: Built-in `request()` / `provide()` with `AbortSignal` cancellation support out-of-the-box.
+- 🔌 **Service Adapters**: Automatically wrap NSwag / OpenAPI / gRPC API clients directly into typed message channels.
+- 🚀 **Built on RxJS**: Enterprise-grade scheduler under the hood, clean imperative API on top.
+
+---
+
+## 15-Second Code Snippet
+
+```typescript
+import { MsgStruct, createMsgBus } from '@actdim/msgmesh';
+
+// 1. Declare contract (Channels, Inputs, Outputs)
+type AppBusStruct = MsgStruct<{
+    'USER.GET_PROFILE': { in: { userId: string }; out: { name: string; email: string } };
+}>;
+
+// 2. Instantiate bus
+const msgBus = createMsgBus<AppBusStruct>();
+
+// 3. Register RPC provider
+msgBus.provide({
+    channel: 'USER.GET_PROFILE',
+    callback: async (msg) => ({ name: 'Alice', email: 'alice@example.com' }),
+});
+
+// 4. Request data from anywhere in the app with 100% type safety
+const profile = await msgBus.request({
+    channel: 'USER.GET_PROFILE',
+    payload: { userId: 'usr-123' },
+});
+
+console.log(profile.payload.name); // "Alice"
+```
+
+---
+
+## Installation
+
+```bash
+pnpm add @actdim/msgmesh @actdim/utico rxjs
+```
+
+---
+
+## Documentation Index
+
+Explore the complete guide step-by-step from core concepts to advanced service adapters:
+
+| Section | Description |
+|---|---|
+| 📖 [**01. Overview & Problem Analysis**](./docs/topic--01-overview-and-analysis.md) | Motivation, comparison with EventEmitters, RxJS, and global state managers. |
+| 🧩 [**02. Architecture & Types**](./docs/topic--02-architecture-and-types.md) | Channels, Input/Output groups, type contracts, and bus instantiation. |
+| 🛠️ [**03. API Reference**](./docs/topic--03-api-reference.md) | Complete method reference (`send`, `on`, `once`, `stream`, `provide`, `request`, `requestStream`). |
+| 🚀 [**04. Advanced Patterns & Adapters**](./docs/topic--04-advanced-patterns.md) | Message replay, debouncing, chain-of-responsibility, and automated service adapters. |
+
+---
+
+## Interactive Browser Sandbox
+
+Try `@actdim/msgmesh` instantly in StackBlitz:
+
+[![Open in StackBlitz](https://developer.stackblitz.com/img/open_in_stackblitz.svg)](https://stackblitz.com/~/github.com/actdim/msgmesh)
+
+---
+
+## AI-Assisted Development
+
+Developed with [Along](https://github.com/actdim/along) - a provider-agnostic context and memory system for AI coding agents.
+
+---
+
+## License
+
+MIT License. See [LICENSE](LICENSE) for details.
+
+---
+
+## Document: AGENTS.md (Agent Conventions & Protocol)
+
+<!-- BEGIN ALONG-PROTOCOL ref=../../../AGENTS.md (managed by along-init - do not edit by hand) -->
+This folder belongs to a repository that uses the ALONG structure. The full working
+guidance + agent-context protocol live once in the nearest ancestor `AGENTS.md` (`../../../AGENTS.md`) -
+read it there. This folder keeps its OWN `.along/` state; use the nearest one.
+Only this folder's specifics follow.
+<!-- END ALONG-PROTOCOL --># AGENTS.md — AI Context for @actdim/msgmesh
+
+## Project
+
+Type-safe message bus for TypeScript. Built on RxJS (Subjects + pipe operators), but RxJS is an implementation detail — the public API is simple pub/sub + request/response.
+
+Part of the @actdim/dynstruct architectural framework.
+
+## File Structure
+
+```
+src/
+  contracts.ts   — All types, interfaces, error classes (MsgStruct, MsgBus, MsgHeaders, Msg, etc.)
+  core.ts        — Implementation (createMsgBus): publish, subscribe, provide, dispatch, request, requestStream, stream
+  adapters.ts    — Service adapter system: registerAdapters, ToMsgStruct, ToMsgChannelPrefix, getMsgChannelSelector
+  util.ts        — Helpers (delay, throttle options)
+tests/
+  msgBus.test.ts — Main test suite (vitest)
+  testDomain.ts  — Test bus structure (TestBusStruct) and shared bus instance
+```
+
+## Commands
+
+```bash
+pnpm test              # Run tests (vitest)
+pnpm test:w            # Watch mode
+pnpm build             # type-check (build mode) + Vite build → dist/
+pnpm typecheck         # type-check (build mode)
+pnpm lint              # ESLint (max-warnings 0)
+pnpm format            # Prettier write
+pnpm format:check      # Prettier check
+```
+
+## TypeScript Config Layout
+
+Solution-style split — do not collapse it back into one config:
+
+- `tsconfig.base.json` — shared `compilerOptions` only. `moduleResolution: "bundler"` (this is a Vite package; do NOT switch to `"node"`/`node10` (deprecated) or `nodenext` (would force `.js` import extensions)). No `baseUrl` (deprecated in TS 6.0) — `paths` targets are relative: `"@/*": ["./src/*"]`. `extends` inherits only `compilerOptions`, not `include`/`files`/`references`.
+- `tsconfig.json` — pure orchestrator: `{ "files": [], "references": [...] }`. It compiles nothing itself; it only wires the leaf projects.
+- `tsconfig.build.json` — library build; emits `.d.ts` to `dist`. Consumed by `vite-plugin-dts` via its `tsconfigPath` (must stay a config WITHOUT `references`, else the plugin emits zero declarations).
+- `tsconfig.dev.json` — editor/dev + tests; broad `types` (node, vitest/globals, vite/client, …).
+
+Rules:
+
+- Root Node files (`packageConfig.ts`, `vite.config.ts`, `vitest*.config.ts`) get node types via `types: ["node"]` in the build/dev projects — NOT by editing includes elsewhere or adding `node` to a shared `types` array (that leaks node globals into browser `src`). If the editor shows "Cannot find name 'path'/'\_\_dirname'" on such a file, it means the file isn't routed to a project — check the `references` chain, don't hack the source with `/// <reference>`.
+- Always type-check the solution with `tsc -b` (build mode), never `tsc -p` — `-p` sees `files: []` and checks nothing. Both `typecheck` and `build` scripts already use `tsc -b tsconfig.json`.
+
+## Architecture
+
+### Message Addressing: Channel → Group → Topic
+
+Every message has an address: `{ channel, group, topic }`.
+
+- **Channel** — logical namespace (e.g. `"User.Login"`, `"Api.FetchData"`). String with dot notation.
+- **Group** — defines message role within a channel. Two semantic kinds:
+    - **Input groups** — any name except `"out"` and `"error"`. Declare the payload type coming _into_ the channel.
+        - `"in"` — conventional primary input group; used as default in `send`, `on`, `provide`, `request` when group is omitted.
+        - Custom names (`"in1"`, `"in2"`, etc.) — additional input payload types on the same channel (**input type overloading**). Each input group is an independent subscription target; a `provide()` handler must specify which group it listens to.
+    - **Output group** — always named `"out"`. Declares the payload type of the channel's response. One per channel, shared across all input groups. If omitted, `MsgStruct<>` adds `out?: void` implicitly.
+    - `"error"` — reserved; auto-published on provider throw.
+    - **`send()` vs `request()`**: `send()` publishes and returns immediately (fire-and-forget — no confirmation of handling). `request()` / `requestStream()` awaits the handler's response via `out`. Even `out: void` is meaningful: it confirms the message was _processed_, not just dispatched. A handler can set `msgOut.status = 'skipped'` to produce no `out` response and let another handler take it (chain of responsibility).
+- **Topic** — optional sub-filter. Exact match by default. Regex if wrapped in slashes: `"/^task-.*/"`.
+- **Reserved**: `"MSGBUS.ERROR"` channel for system-level errors.
+
+### Type Structure
+
+Bus should be defined via generic `MsgStruct<...>` — it augments your structure with system channel groups (for example, `error`) and is the same base type used across the API:
+
+```typescript
+type MyBus = MsgStruct<{
+    'Order.Create': {
+        in: { items: Item[] }; // request payload
+        out: OrderResult; // response payload
+    };
+}>;
+```
+
+`out` types should NOT be wrapped in `Promise` — async is handled at the API level.
+
+`MsgStruct<>` adds three implicit groups to every channel if not declared explicitly:
+
+- `error?: ErrorPayload` — always added (channel-specific errors)
+- `out?: void` — added when `out` is missing; `void` enforces explicit type declaration when payload matters
+- `in?: void` — added when `in` is missing; same rationale
+
+This means `group: "out"` is always a valid subscription target even if `out` is not in the channel struct.
+
+### Public API vs Internal Functions
+
+Both `send()` and `request()` use internal `dispatch()`. `publish()` is a lower-level internal function.
+
+| Public method     | Internal function                                         | Notes                                                                                                                                                                  |
+| ----------------- | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `send()`          | `dispatch()`                                              | Effectively just publish (no `callback` in `MsgSenderParams`, so `dispatch` skips `out` subscription). Generates `requestId` in headers                                |
+| `on()`            | `subscribe()`                                             | Direct subscription                                                                                                                                                    |
+| `once()`          | `subscribe()` with `fetchCount: 1` + Promise wrapper      |
+| `stream()`        | `subscribe()` + async generator with manual Promise queue |
+| `provide()`       | `subscribe()` + auto-publish to `out`                     |
+| `request()`       | `dispatch()` + Promise.race with timeout                  |
+| `requestStream()` | `subscribe(out)` + `publish(in)` + async generator        | Generates `requestId` upfront; subscribes to `out` filtered by `requestId` before publishing; no `fetchCount: 1` on subscription — all provider responses flow through |
+
+`publish()` is a purely internal function — not exposed in the public API. It generates `msg.id`, sets `publishedAt`, and calls `Subject.next()`. It does not set a default `status`.
+
+### Internal Flow
+
+#### Channel Config Inheritance
+
+`getChannelConfig(channel)` merges `config["*"]` (base) with `config[channel]` (specific). Channel-specific always wins:
+
+```typescript
+const base = config?.[$C_ANY];
+const defaults = typeof base === 'function' ? base(channel) : base;
+return { ...defaults, ...config?.[channel] };
+```
+
+`$C_ANY` is the exported constant for the `"*"` key. Use it, or write `"*"` directly in the config object, to set defaults for all channels:
+
+```typescript
+// Static default
+createMsgBus<MyStruct>({
+    '*': { mandatoryProvider: true },
+    'Order.Create': { mandatoryProvider: false }, // overrides for this channel
+});
+
+// Dynamic default — function receives the channel name
+createMsgBus<MyStruct>({
+    '*': (channel) => ({ mandatoryProvider: channel.startsWith('Api.') }),
+    'Order.Create': { mandatoryProvider: false },
+});
+```
+
+`"*"` is reserved — cannot be used as a channel name. Enforced at the type level via `"*"?: never` in `SystemMsgStruct`.
+
+#### Subject Routing
+
+Messages are routed via RxJS Subjects stored in `Map<string, Subject>`.
+
+- **Routing key**: `"channel:group"` (e.g. `"User.Login:in"`, `"User.Login:out"`)
+- One Subject per channel+group pair, created lazily by `getOrCreateSubject()`
+- `ReplaySubject` used when config has `replayBufferSize` or `replayWindowTime`; plain `Subject` otherwise
+
+#### Pipe Chain Order
+
+Each subscription builds an RxJS pipe chain in this exact order:
+
+```
+filter(topic match + custom filter)
+  → channel throttle (from config)
+    → subscription throttle (from options)
+      → channel debounce (from config)
+        → subscription debounce (from options)
+          → channel delay (from config)
+            → observeOn(asyncScheduler)
+              → take(fetchCount)
+```
+
+The `asyncScheduler` ensures message delivery is always async (never synchronous in the same microtask as `publish()`).
+
+#### dispatch() — Critical Ordering
+
+`dispatch()` (which is exposed as public `send()`):
+
+1. **First**: subscribes to `out` group with filter `outMsg.headers.inResponseToId === msg.headers.requestId`
+2. **Then**: publishes message to `in` group via `publish()`
+3. Returns the published message (with `headers.requestId`)
+
+This order is critical — subscribing after publishing could miss the response if it arrives synchronously.
+
+#### provide() — Headers Merge & Cancel Logic
+
+```typescript
+const msgOut: Msg<TStructN, keyof TStructN, 'out'> = {
+    address: { channel: msgIn.address.channel, group: 'out', topic: msgIn.address.topic },
+    headers: { ...msgIn.headers, ...params.headers, inResponseToId: msgIn.headers?.requestId },
+};
+// msgIn.headers first, then provider's static headers override, inResponseToId always wins
+```
+
+On cancel: `provide()` **awaits** the callback, then checks `msgIn.status === 'canceled'` OR `msgOut.status === 'skipped'` OR `msgOut.status === 'canceled'` and does NOT publish `out`:
+
+```typescript
+const payload = await Promise.resolve(params.callback(msgIn, msgOut));
+if (msgIn.status === 'canceled' || msgOut.status === 'skipped' || msgOut.status === 'canceled') {
+    return; // skip publish to out
+}
+msgOut.payload = payload;
+publish(msgOut);
+```
+
+Provider-initiated cancellation: set `msgOut.status = 'canceled'` inside the callback — `provide()` will skip publishing `out`, and `request()` will reject with `OperationCanceledError`.
+
+Chain of responsibility: set `msgOut.status = 'skipped'` — `provide()` skips publishing, the next provider handles the message.
+
+#### request() — No-Provider Check
+
+Before setting up the timeout/promise, `request()` checks for a registered provider if either `options.throwIfNoProvider` is set or the channel config has `mandatoryProvider: true`:
+
+```typescript
+if (options.throwIfNoProvider || channelConfig.mandatoryProvider) {
+    if (!inSubject.observed) throw new NoProviderError(channel);
+}
+```
+
+This is a synchronous snapshot check — it does not guarantee delivery. Use ack for delivery guarantees (planned).
+
+#### request() — Response Handling
+
+`request()` checks response `status` in this order:
+
+1. `'canceled'` → reject with `OperationCanceledError`
+2. `'error'` → reject with `Error` (message from `headers.error`)
+3. Else → set `status = 'ok'`, resolve
+
+**Default timeout**: 5 seconds (`defaultPromiseTimeout = 1000 * 5`). Override globally: `import { defaultPromiseTimeout } from '@actdim/msgmesh/core'; defaultPromiseTimeout = 10000;`
+
+#### request() — Abort Timing
+
+Abort listener is set up AFTER `await dispatch()` completes (not before). Then checks `abortSignal.aborted` for early abort. This means: if abort fires during publish, it's caught by the `aborted` check after dispatch returns.
+
+#### Error Routing
+
+On error in `provide()` callback, errors are published to BOTH:
+
+1. `channel:error` group (channel-specific, topic: `"msgbus"`)
+2. `MSGBUS.ERROR:in` channel (global, topic: `"msgbus"`)
+
+AND — if the message had a `requestId` — also published to `out` with `status: 'error'` so `request()` rejects immediately instead of timing out.
+
+On error in `subscribe()` callback, only routes to error channels (no `out` response).
+
+Payload: `{ error, source: { id, address, headers } }`
+
+## Key Concepts
+
+### msg.id vs headers.requestId
+
+- `msg.id` — **transport ID**. Unique per published message. Generated by `publish()`. Every message gets a new one.
+- `headers.requestId` — **logical request ID**. Generated once per `dispatch()` call: `params.headers?.requestId || uuid()`. Shared between the original request and its cancel message. Used to correlate request → response.
+
+The cancel message has the SAME `requestId` as the original but a DIFFERENT `msg.id`.
+
+### headers.inResponseToId
+
+Set by `provide()` on the `out` response headers: `msgOut.headers.inResponseToId = msgIn.headers.requestId`. This is how `dispatch()` filters the correct response for a given request.
+
+### Cancellation Flow
+
+1. Caller calls `request({ ..., options: { abortSignal } })`
+2. On abort: `request()` publishes a cancel message to `in` group with `{ requestId: <same>, status: 'canceled' }` — so the provider can stop in-flight work
+3. `provide()` callback receives the cancel message — provider can clean up (e.g. abort fetch)
+4. `provide()` does NOT publish `out` for cancel messages
+5. `request()` rejects with `OperationCanceledError`
+
+Provider-side pattern for cancelable work:
+
+```typescript
+const activeRequests = new Map<string, AbortController>();
+msgBus.provide({
+    channel: '...',
+    callback: async (msg, msgOut) => {
+        if (msg.status === 'canceled') {
+            activeRequests.get(msg.headers.requestId)?.abort();
+            activeRequests.delete(msg.headers.requestId);
+            return;
+        }
+        const ctrl = new AbortController();
+        activeRequests.set(msg.headers.requestId, ctrl);
+        try {
+            return await doWork({ signal: ctrl.signal });
+        } finally {
+            activeRequests.delete(msg.headers.requestId);
+        }
+    },
+});
+```
+
+### msg.status (MsgStatus)
+
+`'handled' | 'failed' | 'canceled' | 'skipped' | 'timeout' | 'pending'`
+
+`status` lives on the top-level `Msg` object, not in `headers`.
+
+- `publish()` sets no default status (undefined by default)
+- `request()` sends `status: 'canceled'` on abort (cancel message to provider)
+- `provide()` errors set `status: 'failed'` and publish to `out` with `inResponseToId` — so `request()` rejects with `Error` (message from `headers.error`)
+- Provider can set `msgOut.status = 'canceled'` to initiate provider-side cancellation — `provide()` will skip publishing `out`, and `request()` will reject with `OperationCanceledError`
+- Provider can set `msgOut.status = 'skipped'` to skip publishing — lets the next provider handle the message (chain of responsibility)
+
+### Error Types
+
+- `TimeoutError` — timeout exceeded (request, once). Default: 5 seconds (`defaultPromiseTimeout`).
+- `AbortError` — subscription aborted via AbortSignal (on, once, stream)
+- `OperationCanceledError` — request canceled (request with abortSignal)
+- `NoProviderError` — no provider registered on channel at time of request. Has `.channel` property.
+
+All extend `BaseError`. Use `isTimeoutError()`, `isAbortError()`, `isOperationCanceledError()`, `isNoProviderError()` type guards.
+
+### stream() Specifics
+
+- Async generator (`async function*`) with manual Promise-based message queue
+- Uses sentinel value `Symbol("stream-end")` for clean shutdown
+- **Timeout is inactivity timeout** (resets on each message), NOT total duration
+- Supports `fetchCount` (max messages) and `abortSignal`
+
+### requestStream() Specifics
+
+Fan-in pattern: one request, multiple provider responses collected as an async stream.
+
+**Critical ordering** (same invariant as `dispatch()`):
+
+1. Generate `requestId` upfront (`params.headers?.requestId ?? uuid()`)
+2. **Subscribe to `out`** with filter `inResponseToId === requestId` — no `fetchCount: 1`, all provider responses pass through
+3. **Publish to `in`** — providers receive the message and each publishes their response to `out`
+4. Yield each response through the async generator
+
+This subscribe-before-publish order is critical — reversing it would miss responses that arrive synchronously.
+
+**Response status handling** (checked per message, unlike `request()` which checks once):
+
+- `status: 'error'` → throw `Error`, stop iteration
+- `status: 'canceled'` → throw `OperationCanceledError`, stop iteration
+
+**Timeout** is inactivity timeout (same as `stream()`): resets on each received response. Use `AbortSignal.timeout()` for a hard total limit.
+
+**`throwIfNoProvider`** works the same as in `request()`: synchronous snapshot check on `inSubject.observed`. Also triggered by `mandatoryProvider: true` in channel config.
+
+### Chain of Responsibility
+
+Multiple providers on the same channel each get an independent copy of the message envelope (via `structuredClone` on the envelope — payload is shared by reference). A provider can opt out of handling by setting `msgOut.status = 'skipped'` — `provide()` will skip publishing `out` for that invocation, and the next provider handles normally.
+
+```typescript
+msgBus.provide({
+    channel: 'Order.Create',
+    callback: (msg, msgOut) => {
+        if (!canHandle(msg.payload)) {
+            msgOut.status = 'skipped';
+            return;
+        }
+        return handle(msg.payload);
+    },
+});
+```
+
+### settled Pattern
+
+`once()` and `request()` use a `settled` boolean flag to prevent double resolution of the Promise. Always check `if (settled) return` before resolving/rejecting, and set `settled = true` immediately after.
+
+### Service Adapters (adapters.ts)
+
+Automatically wraps a service object (e.g. NSwag / Swagger generated API client or custom service class) as a bus provider. All wiring is compile-time type-safe.
+
+### Strict Rules for Backend / API Client Integration:
+1. **Zero Manual Channels for API**: When connecting REST, FastAPI, OpenAPI, Swagger, or gRPC endpoints to MsgMesh, **NEVER** write manual `MsgStruct` channel maps (`{ in: ..., out: ... }`) and **NEVER** write manual `fetch` / `axios` handlers inside `provide()`.
+2. **Always Use Service Adapters**: Use NSwag, OpenAPI, or gRPC generated client classes combined with `ToMsgChannelPrefix`, `ToMsgStruct`, and `registerAdapters`.
+3. **String Literal in `ToMsgChannelPrefix`**: Always pass an explicit string literal type (e.g. `'DashboardApiClient'`) as the first argument:
+   ```typescript
+   export type DashboardChannelPrefix = ToMsgChannelPrefix<'DashboardApiClient', 'API'>;
+   ```
+   **Important**: Do NOT pass `typeof Class.name` without `as const`, because in standard TypeScript `Class.name` has type `string`, which evaluates to a generic `${string}` and breaks compile-time literal channel resolution.
+
+**Type transformation chain:**
+
+```
+Class: OrderApiClient                    Bus struct:
+  .createOrder(a: Item[], b: number)  ->  "API.ORDER.CREATEORDER": { in: [Item[], number]; out: Promise<OrderResult> }
+  .getOrder(id: string)               ->  "API.ORDER.GETORDER": { in: [string]; out: Promise<Order> }
+```
+
+Key types:
+
+- `ToMsgChannelPrefix<ServiceName, Prefix, Suffix>` - generates channel prefix from a string literal or class name. Removes known suffixes (CLIENT, API, SERVICE, etc.) and uppercases. E.g. `ToMsgChannelPrefix<'OrderApiClient', 'API'>` -> `"API.ORDER."`. Static `.name` property on the class is NOT required.
+- `ToMsgStruct<Service, Prefix, Skip>` - maps service methods to bus struct. Method params -> `in` tuple (`Parameters<>`), return type -> `out` (`ReturnType<>`). `Skip` excludes methods from the type.
+- `MsgStruct<T>` - adds system channel groups (including `error`) to each channel in struct.
+
+Runtime:
+
+- `getMsgChannelSelector(services)` - creates a channel resolver from service map (`Record<Prefix, ServiceInstance>`).
+- `registerAdapters(msgBus, adapters, abortSignal?)` - registers each method as `provide()` handler. Callback spreads `msg.payload` tuple as method arguments: `service[method] (...msg.payload)`.
+
+**Standard Adapter Recipe for AI Agents:**
+
+```typescript
+import { createMsgBus } from '@actdim/msgmesh';
+import {
+    ToMsgChannelPrefix,
+    ToMsgStruct,
+    getMsgChannelSelector,
+    registerAdapters,
+    type MsgProviderAdapter,
+} from '@actdim/msgmesh/adapters';
+
+// 1. Any service class (generated or handwritten)
+export class MediaApiClient {
+    getStreamUrl(mediaId: string): Promise<string> { ... }
+}
+
+// 2. Generate prefix and bus struct at compile time (zero manual channel typing)
+type MediaPrefix = ToMsgChannelPrefix<'MediaApiClient', 'API'>; // 'API.MEDIA.'
+type MediaBusStruct = ToMsgStruct<MediaApiClient, MediaPrefix>;
+
+// 3. Register service on bus
+const services: Record<MediaPrefix, any> = {
+    'API.MEDIA.': new MediaApiClient(),
+};
+const adapters = Object.entries(services).map(([prefix, service]) => ({
+    service,
+    channelSelector: getMsgChannelSelector(services),
+})) as MsgProviderAdapter[];
+
+const msgBus = createMsgBus<MediaBusStruct>();
+registerAdapters(msgBus, adapters);
+
+// 4. Request via typed channel using payloadFn for tuple arguments
+const streamUrl = await msgBus.request({
+    channel: 'API.MEDIA.GETSTREAMURL',
+    payloadFn: (fn) => fn('video-42'),
+});
+```
+
+**Functional API Modules (Orval / Kubb style):**
+
+For modules with standalone exported functions (`import * as MediaApi from './mediaApi'`), name the namespace in PascalCase and use `typeof MediaApi`:
+
+```typescript
+import * as MediaApi from './mediaApi';
+
+type MediaPrefix = ToMsgChannelPrefix<'MediaApi', 'API'>; // 'API.MEDIA.'
+type MediaBusStruct = ToMsgStruct<typeof MediaApi, MediaPrefix>;
+
+const services: Record<MediaPrefix, any> = { 'API.MEDIA.': MediaApi };
+const adapters = Object.entries(services).map(([prefix, service]) => ({
+    service,
+    channelSelector: getMsgChannelSelector(services),
+})) as MsgProviderAdapter[];
+
+const msgBus = createMsgBus<MediaBusStruct>();
+registerAdapters(msgBus, adapters);
+```
+
+**Combining Dynamic API Structs with Local UI Events:**
+
+Complete, canonical recipe for merging NSwag-generated API structs with local UI event channels and `BaseAppMsgStruct`:
+
+```typescript
+import { createMsgBus } from '@actdim/msgmesh';
+import type { MsgBus, MsgStruct } from '@actdim/msgmesh/contracts';
+import {
+    type ToMsgChannelPrefix,
+    type ToMsgStruct,
+    type BaseServiceSuffix,
+    registerAdapters,
+    getMsgChannelSelector,
+    type MsgProviderAdapter,
+} from '@actdim/msgmesh/adapters';
+import { type BaseAppMsgStruct } from '@actdim/dynstruct/appDomain/appContracts';
+import { type KeysOf } from '@actdim/utico/typeCore';
+import { DashboardApiClient } from './api/client'; // NSwag generated client
+
+// 1. Dynamic API prefix: 'DashboardApiClient' + 'API' -> 'API.DASHBOARD.'
+export type ApiPrefix = 'API';
+export type DashboardApiClientName = 'DashboardApiClient';
+export type DashboardChannelPrefix = ToMsgChannelPrefix<
+    DashboardApiClientName,
+    ApiPrefix,
+    BaseServiceSuffix
+>;
+
+// 2. Dynamic API struct: compile-time generated from DashboardApiClient methods
+export type DashboardApiStruct = ToMsgStruct<
+    DashboardApiClient,
+    DashboardChannelPrefix
+>;
+
+// 3. Local UI state and event channels
+export type DashboardLocalChannels = {
+    'APP.DATA.UPDATED': { in: any; out: void };
+    'APP.TAB.SET': { in: string; out: void };
+    'APP.ENTITY.SELECT': { in: { id: string; type?: string }; out: void };
+    'APP.ENTITY.CLOSE': { in: void; out: void };
+    'APP.SSE.STATUS': { in: { connected: boolean }; out: void };
+};
+
+// 4. Combined Application Bus Struct
+export type DashboardAppMsgStruct = DashboardApiStruct &
+    MsgStruct<DashboardLocalChannels> &
+    BaseAppMsgStruct;
+
+export type DashboardMsgChannels<
+    TChannel extends keyof DashboardAppMsgStruct | Array<keyof DashboardAppMsgStruct>,
+> = KeysOf<DashboardAppMsgStruct, TChannel>;
+
+export const dashboardBus: MsgBus<any> = createMsgBus<any>();
+
+// 5. Automatic registration of all API methods
+export function setupApiAdapters(bus: MsgBus<any>) {
+    const services: Record<DashboardChannelPrefix, any> = {
+        'API.DASHBOARD.': new DashboardApiClient(),
+    };
+
+    const adapters = Object.entries(services).map(
+        ([_, service]) =>
+            ({
+                service,
+                channelSelector: getMsgChannelSelector(services),
+            }) as MsgProviderAdapter,
+    );
+
+    registerAdapters(bus, adapters);
+}
+```
+
+**Channel Name Resolution & Invocation Cheatsheet:**
+
+| Service Method | Prefix | Resulting Bus Channel | Invocation Example |
+|---|---|---|---|
+| `getFullData()` | `'API.DASHBOARD.'` | `'API.DASHBOARD.GETFULLDATA'` | `bus.request({ channel: 'API.DASHBOARD.GETFULLDATA' })` |
+| `searchKb(q, tag, type)` | `'API.DASHBOARD.'` | `'API.DASHBOARD.SEARCHKB'` | `bus.request({ channel: 'API.DASHBOARD.SEARCHKB', payload: [q, tag, type] })` |
+| `listIssues(status, ...)` | `'API.DASHBOARD.'` | `'API.DASHBOARD.LISTISSUES'` | `bus.request({ channel: 'API.DASHBOARD.LISTISSUES', payload: ['open'] })` |
+| `getIssue(id)` | `'API.DASHBOARD.'` | `'API.DASHBOARD.GETISSUE'` | `bus.request({ channel: 'API.DASHBOARD.GETISSUE', payload: ['iss-1'] })` |
+
+**Important**: `ToMsgStruct` enforces type safety at compile time (wrong channel names will not compile), but `registerAdapters` registers ALL prototype/own methods at runtime (including skipped ones). The `Skip` parameter only affects the TypeScript type, not runtime registration.
+
+`payloadFn` is the natural way to call adapted methods since payload types are tuples:
+
+```typescript
+msgBus.request({ channel: 'API.ORDER.CREATEORDER', payloadFn: (fn) => fn(items, priority) });
+```
+
+## Code Conventions
+
+- TypeScript strict mode
+- Vitest for tests
+- Path alias `@/` → `src/`
+- RxJS is internal only — never exposed in public API
+- All public API is on the `MsgBus` interface returned by `createMsgBus<TStruct>(config?)`
+- Generic type parameters: `TStruct` (bus structure), `TStructN` (normalized, Awaited), `TChannel`, `TGroup`, `THeaders`
+- Payload types are resolved from the struct: `in` group → `InStruct<TStruct, TChannel>`, `out` group → `OutStruct<TStruct, TChannel>`
+- `MsgStructNormalized<TStruct>` applies `Awaited<>` to all payload types (unwraps Promises)
+
+## Testing
+
+Tests are in `tests/msgBus.test.ts`. Test domain defined in `tests/testDomain.ts`:
+
+```typescript
+type TestBusStruct = {
+    'Test.ComputeSum': { in: { a: number; b: number }; out: number };
+    'Test.DoSomeWork': { in: string; out: void };
+    'Test.TestTaskWithRepeat': { in: string; out: void };
+    'Test.Multiplexer': { in1: string; in2: number; out: number };
+};
+```
+
+`createTestMsgBus()` creates a fresh bus instance. `sharedMsgBus` is a shared instance used across tests.
+
+Ignore `mocha.test.ts` — it's a legacy file, fails with "describe is not defined" (Mocha globals not available in vitest). Not related to the library.
+
+## Change Policy
+
+1. Prefer minimal diffs that preserve public API compatibility.
+2. Do not expose RxJS types/operators in external API contracts.
+3. Keep cancellation and timeout semantics backward-compatible.
+4. Add/adjust tests in `tests/msgBus.test.ts` for any behavioral changes.
+5. If changing typings, ensure tests and typecheck still pass.
+
+## Validation Checklist
+
+Before finishing any task, run:
+
+1. `pnpm run typecheck`
+2. `pnpm run test`
+
+If change affects API shape or build artifacts, also run:
+
+3. `pnpm run build`
+
+## Common Pitfalls
+
+- **`send()` uses `dispatch()` internally** but without callback — so it's effectively just a publish with `requestId` generation. The `out` subscription in `dispatch()` only activates when `request()` passes a callback.
+- **Headers spread order in `provide()`**: `{ ...inMsg.headers, ...params.headers, inResponseToId }` — provider's static headers override incoming, but `inResponseToId` always wins.
+- **`provide()` callback signature**: second parameter is `msgOut: Msg<TStruct, TChannel, "out">` — the pre-initialized outgoing message. Write `msgOut.status = 'skipped'` or `msgOut.status = 'canceled'` to control publish behavior. Cancel check is `msgIn.status === 'canceled'` (on the incoming message), not `msgOut.status`.
+- **Message envelope is cloned per subscriber**: `subscribe()` calls `structuredClone` on the message envelope (everything except `payload`) before delivering to each callback. Mutations to `msg.status`, `msg.headers`, `msg.address` do not leak between subscribers. `payload` is the same reference for all.
+- **Cancel message has no payload**: only `{ requestId, status: 'canceled' }` in headers. Provider must handle `msg.payload` being `undefined` for cancel messages.
+- **`throwIfNoProvider`** in `request()` options and **`mandatoryProvider`** in channel config both cause immediate `NoProviderError` if no provider is subscribed at call time. They check `subject.observed` — a snapshot, not a delivery guarantee.
+- **`dispatch()` subscribe-before-publish**: changing this order breaks request-response correlation.
+- **`request()` abort after dispatch**: abort listener is attached after `await dispatch()`, not before. Immediate abort is handled by checking `abortSignal.aborted`.
+- **`asyncScheduler` makes delivery async**: callbacks are never called synchronously within the same `publish()` call. Tests use `await delay()` to let the scheduler process messages.
+- **Conflating `msg.id` with `headers.requestId`**: `msg.id` is transport ID (unique per publish), `requestId` is logical request ID (shared between request and its cancel message).
+- **`stream()` timeout is inactivity timeout**, not total duration — resets on each received message. Same applies to `requestStream()`.
+- **Provider exceptions propagate to `request()`**: `provide()` catch publishes to `out` with `status: 'error'` when `requestId` is present, so `request()` rejects immediately instead of timing out. Same for `requestStream()` — a provider error throws from the generator and stops iteration.
+- **`requestStream()` subscribe-before-publish**: `requestId` is generated upfront so the `out` subscription filter can be set before publishing to `in`. Reversing this order would miss synchronous responses.
+- **`requestStream()` vs `request()`**: `request()` uses `fetchCount: 1` on the subscription (takes first response only). `requestStream()` has no `fetchCount` on the subscription — all provider responses arrive; `fetchCount` in options controls how many the generator yields before stopping.
+
+## Project specifics
+
+<!-- BEGIN ALONG-RULES -->
+See the following engineering guidelines:
+- `[languages/typescript.md](.along/rules/languages/typescript.md)`
+- `[platforms/web.md](.along/rules/platforms/web.md)`
+<!-- END ALONG-RULES -->
+
+---
+
+## Document: docs/topic--01-overview-and-analysis.md (Overview & Problem Analysis)
+
+# Overview & Problem Analysis
+
+[← Back to README](../README.md) | [Next: 02. Architecture & Types →](./topic--02-architecture-and-types.md)
+
+---
+
+## The Challenge in Modern TypeScript Apps
+
+Modern client-side TypeScript applications require robust event handling mechanisms. Events may be needed within a single component or for communication between components, serving as a decoupling layer independent of component hierarchy. 
+
+As applications grow in complexity and scale, the convenience, performance, and flexibility of the event system become critical factors. A well-designed messaging system enables extensibility, maintainability, and scalability without losing control over component interactions or system observability.
+
+---
+
+## Analysis of Existing Solutions
+
+When examining popular messaging systems in the frontend ecosystem, several categories emerge:
+
+### 1. Simple Event Emitters (`EventEmitter`)
+- **Pros**: Simple to understand, typically local in scope.
+- **Cons**: Limited scalability, weak support for interaction structures, poor type safety (fictitious typing), incomplete Promise integration, lack of abstraction levels.
+
+### 2. Generic Message Buses
+- **Pros**: Reduce component coupling, beneficial for development and testing.
+- **Cons**: Underdeveloped type system despite TypeScript's power, complex to maintain, lack of built-in adapters for rate-limiting, debouncing, or service RPC.
+
+### 3. Reactive Streams (RxJS / Observer Pattern)
+- **Pros**: Extremely powerful for data transformations and stream composition.
+- **Cons**: Complex to maintain and debug, requires a steep paradigm shift across the entire team, creates hard dependencies in DI, error handling, and code style.
+
+### 4. React State Management (Redux, Zustand, Recoil)
+- **Pros**: Purpose-built for the React render lifecycle.
+- **Cons**: Tight coupling with React (hooks, lifecycle), making usage outside components difficult. Enforces immutability paradigms that add unnecessary wrapper boilerplate for messaging.
+
+---
+
+## The Solution: `@actdim/msgmesh`
+
+`@actdim/msgmesh` addresses these shortcomings by providing a message mesh that is:
+
+- 🔒 **100% Type-Safe**: Scoped channels and message contracts verified at compile-time.
+- ⚡ **Flexible & Extensible**: Adapts to pub/sub, RPC request/response, and fan-in streaming without rigid constraints.
+- 🧩 **Minimally Opinionated**: Doesn't force your team into functional reactive programming.
+- 🔍 **Observable**: Built-in header tracking, replay buffers, and full message lifecycle visibility.
+- 🚀 **Powered by RxJS Under the Hood**: Leverages RxJS for high-performance scheduling and queuing while exposing a simple, intuitive API.
+
+---
+
+## Key Design Goals
+
+### Observability
+- Comprehensive logging and tracing capabilities.
+- Ability to monitor or subscribe to any channel on the mesh.
+- Maintained control and visibility over message payloads.
+
+### Lifecycle & Cleanup Management
+- Convenient subscription and unsubscription (`on()`, `once()`, `stream()`).
+- Support for standard `AbortSignal` and `AbortController` cancellation patterns.
+- Automatic cleanup when integrated into component frameworks like `@actdim/dynstruct`.
+
+---
+
+[← Back to README](../README.md) | [Next: 02. Architecture & Types →](./topic--02-architecture-and-types.md)
+
+---
+
+## Document: docs/topic--02-architecture-and-types.md (Architecture & Types)
+
+# Architecture & Types
+
+[← Back to 01. Overview & Analysis](./topic--01-overview-and-analysis.md) | [Next: 03. API Reference →](./topic--03-api-reference.md)
+
+---
+
+## Message Structure
+
+`@actdim/msgmesh` structures all messaging around a 3-level hierarchy:
+
+### 1. Channels
+Channels organize messages by domain, service, or event type. Dot notation is recommended for namespacing (e.g. `'API.USER.GET'`, `'APP.NAV.GOTO'`).
+
+- **System Channel**: `MSGBUS.ERROR` is reserved for system-level errors.
+
+### 2. Groups
+Groups define payload roles within a channel. There are two semantic kinds:
+
+- **Input Groups** (`in`, `in1`, `in2`): Payload types entering the channel. Default is `"in"`. Multiple input groups enable **input type overloading** on a single channel.
+- **Output Group** (`out`): Response payload type returned by the channel handler.
+  - If `out` is omitted, `out?: void` is implied (handler confirmation with no return data).
+  - Do NOT wrap `out` types in `Promise` — async resolution is handled automatically by the API.
+
+### 3. Message Types
+Each group declares a TypeScript type. Use `MsgStruct<...>` to wrap your channel dictionary.
+
+---
+
+## Type Definition Example
+
+```typescript
+import { MsgStruct } from '@actdim/msgmesh';
+
+export type AppBusStruct = MsgStruct<{
+    'USER.COMPUTE_SUM': {
+        in: { a: number; b: number };
+        out: number;
+    };
+    'USER.LOGOUT': {
+        in: { reason: string };
+        out: void;
+    };
+    'MULTIPLEXER.CALCULATE': {
+        in1: string;
+        in2: number;
+        out: number;
+    };
+}>;
+```
+
+---
+
+## `send()` vs `request()`
+
+- **`send()` (Fire-and-forget)**: Publishes to the input group and returns immediately. Does not wait for handlers. Use for notifications and events.
+- **`request()` (RPC Awaited Response)**: Publishes to the input group and **awaits the `out` response** from a registered provider (`provide()`). Even when `out: void`, `request()` confirms that the handler finished executing.
+
+---
+
+## Bus Instantiation & Headers
+
+Create a typed message bus instance:
+
+```typescript
+import { createMsgBus, MsgBus } from '@actdim/msgmesh';
+
+// Basic bus instantiation
+export const msgBus = createMsgBus<AppBusStruct>();
+
+// Bus with custom headers
+type CustomHeaders = {
+    userId?: string;
+    correlationId?: string;
+};
+
+export const scopedMsgBus = createMsgBus<AppBusStruct, CustomHeaders>();
+```
+
+### Scope & Structure Composition
+
+A single message bus instance can handle messages across multiple channel structures as long as channel names are unique:
+
+```typescript
+type UnifiedBusStruct = ComponentBusStruct & ApiBusStruct;
+const globalBus = createMsgBus<UnifiedBusStruct>();
+```
+
+---
+
+[← Back to 01. Overview & Analysis](./topic--01-overview-and-analysis.md) | [Next: 03. API Reference →](./topic--03-api-reference.md)
+
+---
+
+## Document: docs/topic--03-api-reference.md (API Reference)
+
+# API Reference
+
+[← Back to 02. Architecture & Types](./topic--02-architecture-and-types.md) | [Next: 04. Advanced Patterns →](./topic--04-advanced-patterns.md)
+
+---
+
+## Bus Configuration (`MsgBusConfig`)
+
+Configure channel behaviors and pipeline defaults when creating the message bus instance:
+
+```typescript
+import { createMsgBus, MsgStruct, $C_ERROR } from '@actdim/msgmesh';
+
+const msgBus = createMsgBus<AppBusStruct>({
+    // 1. Channel-specific configuration
+    'USER.GET_PROFILE': {
+        mandatoryProvider: true, // Throws NoProviderError if requested with no provider
+        delay: 50, // Delivery delay in ms
+        debounce: 200, // Debounce in ms
+        throttle: 100, // Throttle duration in ms (or { duration: 100, leading: true, trailing: true })
+        replayBufferSize: 10, // Replay last N messages to new subscribers
+        replayWindowTime: 60000, // Replay window in ms
+    },
+
+    // 2. Wildcard default configuration for all channels
+    '*': {
+        mandatoryProvider: false,
+    },
+});
+
+// System errors (e.g. unhandled provider errors) are published to the system channel MSGBUS.ERROR
+msgBus.on({
+    channel: 'MSGBUS.ERROR',
+    callback: (msg) => {
+        console.error('System error on channel:', msg.payload.source, msg.payload.error);
+    },
+});
+```
+
+---
+
+## Core Methods
+
+### 1. `send()` - Fire-and-Forget Message
+Dispatches a message to a channel input group. Returns a Promise that resolves with the sent message once dispatched.
+
+```typescript
+const sentMsg = await msgBus.send({
+    channel: 'USER.LOGOUT',
+    payload: { reason: 'User clicked logout' },
+});
+```
+
+### 2. `on()` - Subscribe to Messages
+Registers a long-running subscriber for messages matching a channel. Returns an unsubscribe closure `() => void`.
+
+```typescript
+// Basic subscription
+const unsubscribe = msgBus.on({
+    channel: 'USER.LOGOUT',
+    callback: (msg) => {
+        console.log('User logged out:', msg.payload.reason);
+        console.log('Correlation ID:', msg.headers?.correlationId);
+    },
+});
+
+// Unsubscribe manually
+unsubscribe();
+
+// Or pass an AbortSignal for automatic cancellation:
+const controller = new AbortController();
+msgBus.on({
+    channel: 'USER.LOGOUT',
+    options: {
+        abortSignal: controller.signal,
+        debounce: 200,
+        throttle: { duration: 100, leading: true, trailing: true },
+    },
+    callback: (msg) => {
+        console.log('Filtered message:', msg.payload);
+    },
+});
+```
+
+### 3. `once()` - Await Single Message
+Subscribes and resolves a Promise upon receiving the first matching message, then automatically unsubscribes.
+
+```typescript
+const controller = new AbortController();
+
+const msg = await msgBus.once({
+    channel: 'USER.LOGOUT',
+    options: {
+        timeout: 5000, // Throws TimeoutError if no message arrives in 5000ms
+        abortSignal: controller.signal, // Throws AbortError if aborted
+    },
+});
+
+console.log('Received message:', msg.payload);
+```
+
+### 4. `stream()` - Async Generator Stream
+Returns an `AsyncGenerator` allowing you to iterate over incoming messages using standard `for await (... of ...)` syntax.
+
+```typescript
+const controller = new AbortController();
+
+for await (const msg of msgBus.stream({
+    channel: 'USER.LOGOUT',
+    options: {
+        timeout: 5000, // Inactivity timeout between messages
+        fetchCount: 10, // Automatically ends after 10 messages
+        abortSignal: controller.signal,
+    },
+})) {
+    console.log('Streamed message:', msg.payload);
+}
+```
+
+---
+
+## Request-Response & RPC
+
+### 5. `provide()` - Register RPC Response Handler
+Registers a provider that handles incoming `request()` calls and returns an `out` payload.
+
+```typescript
+msgBus.provide({
+    channel: 'USER.COMPUTE_SUM',
+    callback: async (inMsg, outMsg) => {
+        const { a, b } = inMsg.payload;
+        return a + b; // Returned to caller as response.payload
+    },
+});
+```
+
+#### Provider Cancellation & Status Control
+Providers can inspect `inMsg.headers`, set custom `outMsg.headers`, skip handling via `outMsg.status = 'skipped'`, or listen to cancellation:
+
+```typescript
+msgBus.provide({
+    channel: 'USER.COMPUTE_SUM',
+    options: {
+        abortSignal: controller.signal, // Unregister provider when signal aborts
+    },
+    callback: async (inMsg, outMsg) => {
+        if (inMsg.headers?.skip) {
+            outMsg.status = 'skipped'; // Chain of responsibility: allows next provider to handle
+            return;
+        }
+        outMsg.headers = { computedBy: 'Worker-1' };
+        return inMsg.payload.a + inMsg.payload.b;
+    },
+});
+```
+
+### 6. `request()` - RPC Call
+Sends a request and awaits the provider's response (`out` group). Returns `Promise<Msg<...>>`.
+
+```typescript
+const controller = new AbortController();
+
+const response = await msgBus.request({
+    channel: 'USER.COMPUTE_SUM',
+    payload: { a: 10, b: 20 },
+    options: {
+        timeout: 3000, // Max wait time for response
+        throwIfNoProvider: true, // Throws NoProviderError if no provider is active
+        abortSignal: controller.signal,
+    },
+});
+
+console.log('Result payload:', response.payload); // 30
+console.log('Response headers:', response.headers);
+```
+
+---
+
+## Fan-In Streaming
+
+### 7. `requestStream()` - Multi-Provider Response Stream
+Sends a request and streams responses from one or more registered providers as an `AsyncGenerator`.
+
+```typescript
+for await (const response of msgBus.requestStream({
+    channel: 'METRICS.COLLECT',
+    payload: { timestamp: Date.now() },
+    options: {
+        timeout: 2000,
+        fetchCount: 5,
+    },
+})) {
+    console.log('Metric slice from provider:', response.payload);
+}
+```
+
+---
+
+[← Back to 02. Architecture & Types](./topic--02-architecture-and-types.md) | [Next: 04. Advanced Patterns →](./topic--04-advanced-patterns.md)
+
+---
+
+## Document: docs/topic--04-advanced-patterns.md (Advanced Patterns & Adapters)
+
+# Advanced Patterns & Adapters
+
+[← Back to 03. API Reference](./topic--03-api-reference.md) | [Back to Main README](../README.md)
+
+---
+
+## Advanced Features
+
+### 1. Message Replay
+Replay past messages to new subscribers when subscribing late:
+
+```typescript
+const msgBus = createMsgBus<AppBusStruct>({
+    'CHAT.HISTORY': {
+        replayBufferSize: 10, // Keep last 10 messages in memory for new subscribers
+        replayWindowTime: 60000, // Replay window of 60 seconds
+    },
+});
+```
+
+### 2. Throttling, Debouncing, and Delay
+Channels and subscriptions can configure rate-limiting, batching, and delivery timing:
+
+```typescript
+// Channel-level configuration
+const msgBus = createMsgBus<AppBusStruct>({
+    'UI.SEARCH_INPUT': {
+        debounce: 300, // Wait for 300ms of silence before delivery
+    },
+    'SCROLL.EVENT': {
+        throttle: 100, // Throttle to at most one message per 100ms
+        // Or with detailed leading/trailing options:
+        // throttle: { duration: 100, leading: true, trailing: false },
+    },
+    'AUDIT.LOG': {
+        delay: 50, // Delay message delivery by 50ms
+    },
+});
+
+// Subscription-level configuration (overrides/augments channel config)
+msgBus.on({
+    channel: 'UI.SEARCH_INPUT',
+    options: {
+        debounce: 200,
+        throttle: { duration: 100, leading: true, trailing: true },
+    },
+    callback: (msg) => {
+        console.log('Debounced search query:', msg.payload);
+    },
+});
+```
+
+### 3. Chain of Responsibility
+Handlers can choose to process or skip messages by setting `msgOut.status = 'skipped'`, allowing downstream handlers to handle the message.
+
+```typescript
+msgBus.provide({
+    channel: 'AUTH.VALIDATE',
+    callback: (msg, msgOut) => {
+        if (!canHandle(msg.payload)) {
+            msgOut.status = 'skipped';
+            return;
+        }
+        return true; // or return payload directly
+    },
+});
+```
+
+### 4. Headers and Metadata
+Attach cross-cutting tracking metadata (correlation IDs, auth tokens, client metrics) to any message:
+
+```typescript
+msgBus.send({
+    channel: 'USER.UPDATE',
+    payload: { name: 'Bob' },
+    headers: {
+        correlationId: 'req-98765',
+        timestamp: Date.now(),
+    },
+});
+```
+
+---
+
+## Service Adapters (NSwag / OpenAPI / gRPC Automation)
+
+The `@actdim/msgmesh/adapters` module automatically transforms standard TypeScript service classes (such as NSwag-generated REST API clients, gRPC clients, or custom service classes) into typed message bus providers at compile-time.
+
+### Strict Rules for Backend / API Client Integration:
+1. **Zero Manual Channels for API**: When connecting REST, FastAPI, OpenAPI, Swagger, or gRPC endpoints to MsgMesh, **NEVER** write manual `MsgStruct` channel maps (`{ in: ..., out: ... }`) and **NEVER** write manual `fetch` / `axios` handlers inside `provide()`.
+2. **Always Use Service Adapters**: Use NSwag, OpenAPI, or gRPC generated client classes combined with `ToMsgChannelPrefix`, `ToMsgStruct`, and `registerAdapters`.
+3. **String Literal in `ToMsgChannelPrefix`**: Always pass an explicit string literal type (e.g. `'DashboardApiClient'`) as the first argument:
+   ```typescript
+   export type DashboardChannelPrefix = ToMsgChannelPrefix<'DashboardApiClient', 'API'>;
+   ```
+   **Important**: Do NOT pass `typeof Class.name` without `as const`, because in standard TypeScript `Class.name` has type `string`, which evaluates to a generic `${string}` and breaks compile-time literal channel resolution.
+
+### How It Works:
+1. Every public method on a service class becomes a channel name (e.g. `getUser` on `UserServiceClient` with prefix `'API.USER.'` becomes `'API.USER.GETUSER'`).
+2. Input argument types become a typed tuple for `in` payload (`Parameters<Method>`).
+3. Return type becomes the `out` payload (`ReturnType<Method>`).
+4. `getMsgChannelSelector(services)` and `registerAdapters(msgBus, adapters, signal)` wire all methods to the bus automatically.
+
+### Complete Example (Class-based):
+
+```typescript
+import { createMsgBus } from '@actdim/msgmesh';
+import {
+    ToMsgChannelPrefix,
+    ToMsgStruct,
+    getMsgChannelSelector,
+    registerAdapters,
+    type MsgProviderAdapter,
+} from '@actdim/msgmesh/adapters';
+
+// 1. Any regular service class (no static properties or special base class required)
+export class UserServiceClient {
+    getUser(id: string): Promise<{ id: string; name: string }> {
+        return fetch(`/api/users/${id}`).then((r) => r.json());
+    }
+
+    updateUser(id: string, name: string): Promise<boolean> {
+        return fetch(`/api/users/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify({ name }),
+        }).then((r) => r.ok);
+    }
+}
+
+// 2. Generate prefix: 'UserServiceClient' + 'API' -> 'API.USER.' (suffix 'Client' is stripped automatically)
+type UserPrefix = ToMsgChannelPrefix<'UserServiceClient', 'API'>; // 'API.USER.'
+
+// 3. Automatically compile-time map methods to typed bus struct:
+//    - 'API.USER.GETUSER': { in: [id: string]; out: Promise<{ id: string; name: string }> }
+//    - 'API.USER.UPDATEUSER': { in: [id: string, name: string]; out: Promise<boolean> }
+type ApiMsgStruct = ToMsgStruct<UserServiceClient, UserPrefix>;
+
+// 4. Map service instances to their prefix
+const services: Record<UserPrefix, any> = {
+    'API.USER.': new UserServiceClient(),
+};
+
+// 5. Build adapters and register them on the bus
+const adapters = Object.entries(services).map(
+    (entry) =>
+        ({
+            service: entry[1],
+            channelSelector: getMsgChannelSelector(services),
+        }) as MsgProviderAdapter,
+);
+
+const msgBus = createMsgBus<ApiMsgStruct>();
+const abortController = new AbortController();
+
+registerAdapters(msgBus, adapters, abortController.signal);
+
+// 6. Invoke API methods through the bus with 100% type safety
+const user = await msgBus.request({
+    channel: 'API.USER.GETUSER',
+    payloadFn: (fn) => fn('usr-123'), // type-safe arguments tuple!
+});
+
+console.log(user.payload.name);
+```
+
+### Functional API Modules (Orval / Kubb style):
+
+If your generator outputs standalone exported functions instead of ES classes (common in Orval, Kubb, and OpenAPI-TS generators), import the module with `import * as UserApi` and pass `typeof UserApi` directly to `ToMsgStruct`:
+
+```typescript
+// 1. Module file: userApi.ts (standalone exported functions)
+// export async function getUser(id: string) { ... }
+// export async function listUsers(limit?: number) { ... }
+
+import * as UserApi from './userApi';
+import { createMsgBus } from '@actdim/msgmesh';
+import {
+    ToMsgChannelPrefix,
+    ToMsgStruct,
+    getMsgChannelSelector,
+    registerAdapters,
+    type MsgProviderAdapter,
+} from '@actdim/msgmesh/adapters';
+
+// 2. Generate prefix & bus structure from module namespace type
+type UserPrefix = ToMsgChannelPrefix<'UserApi', 'API'>; // 'API.USER.'
+type ApiMsgStruct = ToMsgStruct<typeof UserApi, UserPrefix>;
+
+// 3. Register module namespace object
+const services: Record<UserPrefix, any> = {
+    'API.USER.': UserApi,
+};
+const adapters = Object.entries(services).map(([prefix, service]) => ({
+    service,
+    channelSelector: getMsgChannelSelector(services),
+})) as MsgProviderAdapter[];
+
+const msgBus = createMsgBus<ApiMsgStruct>();
+registerAdapters(msgBus, adapters);
+
+// 4. Request via bus
+const users = await msgBus.request({
+    channel: 'API.USER.LISTUSERS',
+    payloadFn: (fn) => fn(10),
+});
+```
+
+### Combining Dynamic API Structs with Local UI Events
+
+Here is the complete, canonical recipe for merging NSwag-generated API structs with local UI event channels and `BaseAppMsgStruct`:
+
+```typescript
+import { createMsgBus } from '@actdim/msgmesh';
+import type { MsgBus, MsgStruct } from '@actdim/msgmesh/contracts';
+import {
+    type ToMsgChannelPrefix,
+    type ToMsgStruct,
+    type BaseServiceSuffix,
+    registerAdapters,
+    getMsgChannelSelector,
+    type MsgProviderAdapter,
+} from '@actdim/msgmesh/adapters';
+import { type BaseAppMsgStruct } from '@actdim/dynstruct/appDomain/appContracts';
+import { type KeysOf } from '@actdim/utico/typeCore';
+import { DashboardApiClient } from './api/client'; // NSwag generated client
+
+// 1. Dynamic API prefix: 'DashboardApiClient' + 'API' -> 'API.DASHBOARD.'
+export type ApiPrefix = 'API';
+export type DashboardApiClientName = 'DashboardApiClient';
+export type DashboardChannelPrefix = ToMsgChannelPrefix<
+    DashboardApiClientName,
+    ApiPrefix,
+    BaseServiceSuffix
+>;
+
+// 2. Dynamic API struct: compile-time generated from DashboardApiClient methods
+export type DashboardApiStruct = ToMsgStruct<
+    DashboardApiClient,
+    DashboardChannelPrefix
+>;
+
+// 3. Local UI state and event channels
+export type DashboardLocalChannels = {
+    'APP.DATA.UPDATED': { in: any; out: void };
+    'APP.TAB.SET': { in: string; out: void };
+    'APP.ENTITY.SELECT': { in: { id: string; type?: string }; out: void };
+    'APP.ENTITY.CLOSE': { in: void; out: void };
+    'APP.SSE.STATUS': { in: { connected: boolean }; out: void };
+};
+
+// 4. Combined Application Bus Struct
+export type DashboardAppMsgStruct = DashboardApiStruct &
+    MsgStruct<DashboardLocalChannels> &
+    BaseAppMsgStruct;
+
+export type DashboardMsgChannels<
+    TChannel extends keyof DashboardAppMsgStruct | Array<keyof DashboardAppMsgStruct>,
+> = KeysOf<DashboardAppMsgStruct, TChannel>;
+
+export const dashboardBus: MsgBus<any> = createMsgBus<any>();
+
+// 5. Automatic registration of all API methods
+export function setupApiAdapters(bus: MsgBus<any>) {
+    const services: Record<DashboardChannelPrefix, any> = {
+        'API.DASHBOARD.': new DashboardApiClient(),
+    };
+
+    const adapters = Object.entries(services).map(
+        ([_, service]) =>
+            ({
+                service,
+                channelSelector: getMsgChannelSelector(services),
+            }) as MsgProviderAdapter,
+    );
+
+    registerAdapters(bus, adapters);
+}
+```
+
+### Channel Name Resolution & Invocation Cheatsheet
+
+| Service Method | Prefix | Resulting Bus Channel | Invocation Example |
+|---|---|---|---|
+| `getFullData()` | `'API.DASHBOARD.'` | `'API.DASHBOARD.GETFULLDATA'` | `bus.request({ channel: 'API.DASHBOARD.GETFULLDATA' })` |
+| `searchKb(q, tag, type)` | `'API.DASHBOARD.'` | `'API.DASHBOARD.SEARCHKB'` | `bus.request({ channel: 'API.DASHBOARD.SEARCHKB', payload: [q, tag, type] })` |
+| `listIssues(status, ...)` | `'API.DASHBOARD.'` | `'API.DASHBOARD.LISTISSUES'` | `bus.request({ channel: 'API.DASHBOARD.LISTISSUES', payload: ['open'] })` |
+| `getIssue(id)` | `'API.DASHBOARD.'` | `'API.DASHBOARD.GETISSUE'` | `bus.request({ channel: 'API.DASHBOARD.GETISSUE', payload: ['iss-1'] })` |
+
+---
+
+## Comparison Matrix
+
+| Feature | `EventEmitter` | RxJS Raw | Redux / Zustand | `@actdim/msgmesh` |
+|---|---|---|---|---|
+| **Type Safety** | Low / Fake | Manual Generics | Store-centric | **100% Compile-Time** |
+| **RPC (Request/Response)** | ❌ No | Manual Subjects | ❌ No | **Native (`request/provide`)** |
+| **Cancellation (`AbortSignal`)** | ❌ No | RxJS Subscription | ❌ No | **Built-in** |
+| **Service Adapters** | ❌ No | ❌ No | ❌ No | **Automated Class Wrapping** |
+| **Stream Fan-In** | ❌ No | Complex | ❌ No | **Native (`requestStream`)** |
+| **Learning Curve** | Low | High | Medium | **Low** |
+
+---
+
+[← Back to 03. API Reference](./topic--03-api-reference.md) | [Back to Main README](../README.md)
+
+---
+
+## Document: docs/topic--architecture.md (01 Architecture)
+
+# @actdim/msgmesh Architecture
+
+## 1. System Overview
+
+`@actdim/msgmesh` is an enterprise-grade, strictly typed asynchronous message mesh and event broker designed for frontend and full-stack TypeScript applications. It serves as the decoupled messaging backbone for the `@actdim/dynstruct` component system.
+
+```
++-----------------------------------------------------------------------------------------+
+|                                    @actdim/msgmesh                                      |
++-----------------------------------------------------------------------------------------+
+|  Public Developer API (Zero-RxJS Surface)                                               |
+|  - Fire & Forget: send({ channel, group?, payload, topic?, headers? })                  |
+|  - Observer / PubSub: on(), once(), stream() (AsyncIterable)                            |
+|  - Request / Response: request() (Promise<out>), requestStream() (Fan-in streaming)     |
+|  - Provider Registration: provide() with Chain of Responsibility & Cancellation Handling|
+|  - System Diagnostics: sendError(), MSGBUS.ERROR channel, typed error symbols          |
++-----------------------------------------------------------------------------------------+
+|  Channel Pipeline Engine & Configuration                                                |
+|  - Dynamic configuration: MsgBusConfig<TStruct> (supports '*' wildcard static or func)  |
+|  - Reactive operators: ReplaySubject buffer/window, Throttle, Debounce, Delay           |
+|  - Mandatory provider validation (NoProviderError)                                      |
++-----------------------------------------------------------------------------------------+
+|  RxJS Foundation Under The Hood                                                         |
+|  - Subjects & Observables managing decoupled pub/sub queues                             |
+|  - AsyncScheduler preventing event loop blocking across components                      |
++-----------------------------------------------------------------------------------------+
+```
+
+## 2. Core Architectural Principles
+
+### 2.1. Abstraction Over RxJS
+RxJS provides battle-tested reactive stream primitives, but exposing raw Observables across application layers creates tight coupling, paradigm fragmentation, and high cognitive overhead. `@actdim/msgmesh` completely encapsulates RxJS internals behind standard TypeScript `Promise`, `AsyncIterable`, and typed callback interfaces.
+
+### 2.2. Three-Tier Message Coordinate System
+Every message in the mesh is addressed by three coordinates:
+1. **Channel (`TChannel`)**: Domain boundary or task class (e.g. `'AUTH.LOGIN'`, `'UI.DIALOG'`).
+2. **Group (`TGroup`)**: Message role within the channel:
+   - `'in'` (default) / Custom input groups (`'in1'`, `'in2'`): Input payload shapes entering the channel (Input Overloading).
+   - `'out'`: Output response payload shape.
+   - `'error'`: Error payload shape (`ErrorPayload`).
+3. **Topic (`string`, optional)**: Fine-grained subscription discriminator for targeted event routing without creating hundreds of channels.
+
+### 2.3. Dual Communication Paradigms
+
+```
+  +------------------+                    +------------------+
+  |    Publisher     | --- send() ------> |    Subscriber    |  (Fire-and-forget Pub/Sub)
+  +------------------+                    +------------------+
+
+  +------------------+ --- request() ---> +------------------+
+  |    Requester     |                    |     Provider     |  (Request/Response Contract)
+  +------------------+ <-- out payload -- +------------------+
+```
+
+1. **Fire-and-Forget (`send()`)**: Publishes to the input group without waiting for response.
+2. **Request-Response (`request()`)**: Publishes and awaits resolution from a registered `provide()` handler via the `'out'` group.
+3. **Fan-in Streaming (`requestStream()`)**: Awaits and aggregates responses from multiple distributed providers as an async iterator.
+
+### 2.4. Chain of Responsibility Provider Architecture
+Multiple providers can register on the same channel. A provider can inspect incoming messages and either process them or set `outMsg.status = 'skipped'`, passing execution to the next provider in the chain.
+
+## 3. Cross-Links
+- [[INDEX.md]] - Knowledge Base Root
+- [[02-domain-model.md]] - Domain Contracts and Type Structures
+- [[03-setup-and-workflow.md]] - Setup and Testing Instructions
+- [[04-api-reference.md]] - Complete API Specification
+- [[05-patterns-and-recipes.md]] - Advanced Messaging Recipes and Service Adapters
+
+---
+
+## Document: docs/topic--domain-model.md (02 Domain Model)
+
+# @actdim/msgmesh Domain Model & Type Hierarchy
+
+## 1. Domain Types Overview
+
+The domain model of `@actdim/msgmesh` defines strict compile-time contracts for message buses, channel structures, payload group definitions, and runtime execution headers.
+
+## 2. Core Entities & Type Schemas
+
+### 2.1. Structural Message Bus Definition (`MsgStruct`)
+The core message bus schema is defined by extending `MsgStructBase`:
+```typescript
+import { MsgStruct } from '@actdim/msgmesh/contracts';
+
+export type AppBusStruct = MsgStruct<{
+    'USER.LOGIN': {
+        in: { username: string; passwordHash: string };
+        out: { token: string; userId: string; roles: string[] };
+    };
+    'DATA.REFRESH': {
+        in: { entity: string };
+        out: void; // Confirms execution without payload
+    };
+    'MEDIA.PROCESS': {
+        inImage: { url: string; width: number; height: number };
+        inVideo: { url: string; bitrate: number };
+        out: { assetId: string };
+    };
+}>;
+```
+
+### 2.2. Reserved Constants & Channel Names
+- **`$CG_IN = 'in'`**: Standard input group.
+- **`$CG_OUT = 'out'`**: Standard output response group.
+- **`$CG_ERROR = 'error'`**: Channel-level error group.
+- **`$C_ERROR = 'MSGBUS.ERROR'`**: Global system bus error channel.
+- **`$C_ANY = '*'`**: Wildcard configuration target.
+- **`$SYSTEM_TOPIC = 'msgbus'`**: Reserved internal topic identifier.
+
+### 2.3. Message Wrapper (`Msg<TStruct, TChannel, TGroup, THeaders>`)
+Every message delivered through subscriptions or providers is wrapped in a `Msg` envelope:
+```typescript
+interface Msg<TStruct, TChannel, TGroup, THeaders> {
+    channel: TChannel;
+    group: TGroup;
+    payload: PayloadType;
+    topic?: string;
+    headers?: THeaders;
+    status?: 'success' | 'error' | 'skipped' | 'cancelled';
+    timestamp?: number;
+}
+```
+
+### 2.4. Error Domain Model
+- **`BaseError`**: Foundation error class with proper prototype link.
+- **`TimeoutError`** (`$isTimeoutError`): Thrown when `timeout` option is exceeded during `request()`, `once()`, or `lock()`.
+- **`AbortError`** (`$isAbortError`): Thrown when an `AbortSignal` is triggered.
+- **`OperationCanceledError`** (`$isOperationCanceledError`): Emitted when a provider signals operation cancellation.
+- **`NoProviderError`** (`$isNoProviderError`): Thrown when `mandatoryProvider: true` and no active handler is registered for the requested channel.
+- **`ErrorPayload`**: `{ error: any; source?: any; handled?: boolean }`.
+
+### 2.5. Channel Pipeline Configuration (`MsgBusConfig<TStruct>`)
+```typescript
+type ChannelConfig = {
+    replayBufferSize?: number;
+    replayWindowTime?: number; // ms
+    delay?: number; // ms
+    throttle?: number | {
+        duration: number; // ms
+        leading?: boolean;
+        trailing?: boolean;
+    };
+    debounce?: number; // ms
+    mandatoryProvider?: boolean;
+};
+
+type MsgBusConfig<TStruct> = {
+    '*'?: ChannelConfig | ((channel: keyof TStruct) => ChannelConfig);
+} & {
+    [C in keyof TStruct]?: ChannelConfig;
+};
+```
+
+## 3. Cross-Links
+- [[INDEX.md]] - Knowledge Base Root
+- [[01-architecture.md]] - System Architecture
+- [[03-setup-and-workflow.md]] - Setup and Workflow
+- [[04-api-reference.md]] - Exhaustive API Reference
+- [[05-patterns-and-recipes.md]] - Practical Recipes and Messaging Patterns
+
+---
+
+## Document: docs/topic--setup-and-workflow.md (03 Setup And Workflow)
+
+# @actdim/msgmesh Setup, Build & Workflow
+
+## 1. Prerequisites & Installation
+
+- **Node.js**: >= 20.0.0
+- **Package Manager**: `pnpm` (version ~10.21.0)
+- **TypeScript**: >= 5.9.3
+
+Install dependencies:
+```bash
+pnpm install
+```
+
+### Peer Dependencies
+```bash
+pnpm add @actdim/utico rxjs@^7.8.0
+```
+
+## 2. Scripts & Workflows
+
+| Command | Action | Description |
+|---|---|---|
+| `pnpm run build` | `tsc -b tsconfig.json && vite build` | Typechecks and compiles ESM distribution files to `dist/` with `.d.ts` declarations |
+| `pnpm run test` | `npx vitest --config=vitest.node.config.ts --no-cache` | Runs test suite under Node.js with Vitest |
+| `pnpm run test:w` | `npx vitest --config=vitest.node.config.ts --watch` | Interactive watch mode for test-driven development |
+| `pnpm run test:v8` | `npx vite` | Starts Vite dev server to execute browser-based test suite |
+| `pnpm run typecheck` | `tsc -b tsconfig.json` | Runs strict TypeScript verification across contracts, core, and tests |
+| `pnpm run lint` | `eslint "./**/*.{ts,tsx}"` | Lints codebase according to ESLint config |
+| `pnpm run format` | `prettier --write .` | Formats all files with Prettier |
+
+## 3. Testing Strategies
+
+- **Unit Testing Bus Streams**: `tests/msgBus.test.ts` validates concurrency, debouncing, throttling, and request cancellation.
+- **Provider Chain Testing**: Tests verify fallback behavior and skipping (`status = 'skipped'`).
+- **Timing and Replay**: Tests verify that late subscribers receive buffered events within `replayWindowTime`.
+
+## 4. Cross-Links
+- [[INDEX.md]] - Knowledge Base Root
+- [[01-architecture.md]] - System Architecture
+- [[02-domain-model.md]] - Domain Model
+- [[04-api-reference.md]] - Exhaustive API Reference
+- [[05-patterns-and-recipes.md]] - Practical Recipes and Messaging Patterns

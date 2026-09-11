@@ -70,8 +70,10 @@ Every message in the mesh is addressed by three coordinates:
 Multiple providers can register on the same channel. A provider can inspect incoming messages and either process them or set `outMsg.status = 'skipped'`, passing execution to the next provider in the chain.
 
 ## 3. Cross-Links
-- [[INDEX.md]] - Knowledge Base Root
-- [[02-[domain-model](./topic--domain-model.md).md]] - Domain Contracts and Type Structures
-- [[03-[setup-and-workflow](./topic--setup-and-workflow.md).md]] - Setup and Testing Instructions
-- [[04-api-reference.md]] - Complete API Specification
-- [[05-patterns-and-recipes.md]] - Advanced Messaging Recipes and Service Adapters
+- [Knowledge Base Index](./INDEX.md) - Knowledge Base Root
+- [Domain Model](./topic--domain-model.md) - Domain Contracts and Type Structures
+- [Setup & Workflow](./topic--setup-and-workflow.md) - Setup and Testing Instructions
+- [API Reference](./topic--03-api-reference.md) - Complete API Specification
+- [Advanced Patterns & Adapters](./topic--04-advanced-patterns.md) - Advanced Messaging Recipes and Service Adapters
+- [License](./topic--license.md) - License Information
+
