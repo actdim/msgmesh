@@ -94,8 +94,19 @@ Try `@actdim/msgmesh` instantly in StackBlitz:
 ---
 
 ## AI-Assisted Development
-
+ 
 Developed with [Along](https://github.com/actdim/along) - a provider-agnostic context and memory system for AI coding agents.
+
+### AI Coding Assistants (Cursor, Claude Code, Copilot, Antigravity)
+
+To enable AI coding agents in your project to follow MsgMesh channel structures, type-safe RPC, pub/sub, and streaming patterns, add a reference to the bundled LLM documentation in your project's `AGENTS.md`, `CLAUDE.md`, or `.cursorrules`:
+
+```markdown
+## MsgMesh Guidelines
+- Reference: `node_modules/@actdim/msgmesh/llms.txt`
+```
+
+This gives agents instant access to channel contracts and patterns in `node_modules/@actdim/msgmesh/docs/` matching your installed version.
 
 ---
 
@@ -1456,11 +1467,12 @@ Every message in the mesh is addressed by three coordinates:
 Multiple providers can register on the same channel. A provider can inspect incoming messages and either process them or set `outMsg.status = 'skipped'`, passing execution to the next provider in the chain.
 
 ## 3. Cross-Links
-- [[INDEX.md]] - Knowledge Base Root
-- [[02-[domain-model](./topic--domain-model.md).md]] - Domain Contracts and Type Structures
-- [[03-[setup-and-workflow](./topic--setup-and-workflow.md).md]] - Setup and Testing Instructions
-- [[04-api-reference.md]] - Complete API Specification
-- [[05-patterns-and-recipes.md]] - Advanced Messaging Recipes and Service Adapters
+- [Knowledge Base Index](./INDEX.md) - Knowledge Base Root
+- [Domain Model](./topic--domain-model.md) - Domain Contracts and Type Structures
+- [Setup & Workflow](./topic--setup-and-workflow.md) - Setup and Testing Instructions
+- [API Reference](./topic--03-api-reference.md) - Complete API Specification
+- [Advanced Patterns & Adapters](./topic--04-advanced-patterns.md) - Advanced Messaging Recipes and Service Adapters
+- [License](./topic--license.md) - License Information
 
 ---
 
@@ -1549,11 +1561,46 @@ type MsgBusConfig<TStruct> = {
 ```
 
 ## 3. Cross-Links
-- [[INDEX.md]] - Knowledge Base Root
-- [[01-[architecture](./topic--architecture.md).md]] - System Architecture
-- [[03-[setup-and-workflow](./topic--setup-and-workflow.md).md]] - Setup and Workflow
-- [[04-api-reference.md]] - Exhaustive [API Reference](./topic--03-api-reference.md)
-- [[05-patterns-and-recipes.md]] - Practical Recipes and Messaging Patterns
+- [Knowledge Base Index](./INDEX.md) - Knowledge Base Root
+- [01 Architecture](./topic--architecture.md) - System Architecture
+- [Setup & Workflow](./topic--setup-and-workflow.md) - Setup and Workflow
+- [API Reference](./topic--03-api-reference.md) - Exhaustive API Reference
+- [Advanced Patterns & Adapters](./topic--04-advanced-patterns.md) - Practical Recipes and Messaging Patterns
+- [License](./topic--license.md) - License Information
+
+---
+
+## Document: docs/topic--license.md (License)
+
+# License
+
+`@actdim/msgmesh` is open-source software licensed under the **MIT License**.
+
+- Repository file: [LICENSE](https://github.com/actdim/msgmesh/blob/main/LICENSE)
+
+```text
+MIT License
+
+Copyright (c) 2025-2026 Pavel Borodaev (@actdim/msgmesh)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
 
 ---
 
@@ -1594,10 +1641,11 @@ pnpm add @actdim/utico rxjs@^7.8.0
 - **Unit Testing Bus Streams**: `tests/msgBus.test.ts` validates concurrency, debouncing, throttling, and request cancellation.
 - **Provider Chain Testing**: Tests verify fallback behavior and skipping (`status = 'skipped'`).
 - **Timing and Replay**: Tests verify that late subscribers receive buffered events within `replayWindowTime`.
-
 ## 4. Cross-Links
-- [[INDEX.md]] - Knowledge Base Root
-- [[01-[architecture](./topic--architecture.md).md]] - System Architecture
-- [[02-[domain-model](./topic--domain-model.md).md]] - Domain Model
-- [[04-api-reference.md]] - Exhaustive [API Reference](./topic--03-api-reference.md)
-- [[05-patterns-and-recipes.md]] - Practical Recipes and Messaging Patterns
+
+- [Knowledge Base Index](./INDEX.md) - Knowledge Base Root
+- [01 Architecture](./topic--architecture.md) - System Architecture
+- [02 Domain Model](./topic--domain-model.md) - Domain Model
+- [API Reference](./topic--03-api-reference.md) - Exhaustive API Reference
+- [Advanced Patterns & Adapters](./topic--04-advanced-patterns.md) - Practical Recipes and Messaging Patterns
+- [License](./topic--license.md) - License Information

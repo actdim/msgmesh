@@ -4,7 +4,7 @@ slug: INDEX
 title: Knowledge Base Topic Index
 type: index
 created: 2026-09-07
-updated: 2026-09-10
+updated: 2026-09-11
 tags: [index, kb, topics, map]
 ---
 
@@ -29,6 +29,8 @@ flowchart TD
     INDEX --> T_ARCHITECTURE
     T_DOMAIN_MODEL["02 Domain Model"]
     INDEX --> T_DOMAIN_MODEL
+    T_LICENSE["License"]
+    INDEX --> T_LICENSE
     T_SETUP_AND_WORKFLOW["03 Setup And Workflow"]
     INDEX --> T_SETUP_AND_WORKFLOW
     T_01_OVERVIEW_AND_ANALYSIS -.->|references| T_02__ARCHITECTURE____ARCHITECTURE_MD__AND_TYPES
@@ -39,12 +41,19 @@ flowchart TD
     T_04_ADVANCED_PATTERNS -.->|references| T_03_API_REFERENCE
     T_ARCHITECTURE -.->|references| T_DOMAIN_MODEL
     T_ARCHITECTURE -.->|references| T_SETUP_AND_WORKFLOW
+    T_ARCHITECTURE -.->|references| T_03_API_REFERENCE
+    T_ARCHITECTURE -.->|references| T_04_ADVANCED_PATTERNS
+    T_ARCHITECTURE -.->|references| T_LICENSE
     T_DOMAIN_MODEL -.->|references| T_ARCHITECTURE
     T_DOMAIN_MODEL -.->|references| T_SETUP_AND_WORKFLOW
     T_DOMAIN_MODEL -.->|references| T_03_API_REFERENCE
+    T_DOMAIN_MODEL -.->|references| T_04_ADVANCED_PATTERNS
+    T_DOMAIN_MODEL -.->|references| T_LICENSE
     T_SETUP_AND_WORKFLOW -.->|references| T_ARCHITECTURE
     T_SETUP_AND_WORKFLOW -.->|references| T_DOMAIN_MODEL
     T_SETUP_AND_WORKFLOW -.->|references| T_03_API_REFERENCE
+    T_SETUP_AND_WORKFLOW -.->|references| T_04_ADVANCED_PATTERNS
+    T_SETUP_AND_WORKFLOW -.->|references| T_LICENSE
 ```
 
 ---
@@ -57,8 +66,8 @@ flowchart TD
 - **[Advanced Patterns & Adapters](./topic--04-advanced-patterns.md)** (topic) `04-advanced-patterns`
 - **[01 Architecture](./topic--architecture.md)** (topic) `architecture`
 - **[02 Domain Model](./topic--domain-model.md)** (topic) `domain-model`
+- **[License](./topic--license.md)** (license) `license`, `mit`
 - **[03 Setup And Workflow](./topic--setup-and-workflow.md)** (topic) `setup-and-workflow`
-- **[License](./topic--license.md)** (license) `license`
 
 ---
 
