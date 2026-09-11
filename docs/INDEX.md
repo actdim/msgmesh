@@ -1,11 +1,10 @@
 ---
 protocol: along
-protocol_version: "2.2.25"
 slug: INDEX
 title: Knowledge Base Topic Index
 type: index
 created: 2026-09-07
-updated: 2026-09-07
+updated: 2026-09-10
 tags: [index, kb, topics, map]
 ---
 
@@ -20,8 +19,8 @@ flowchart TD
     INDEX["Knowledge Base (INDEX)"]
     T_01_OVERVIEW_AND_ANALYSIS["Overview & Problem Analysis"]
     INDEX --> T_01_OVERVIEW_AND_ANALYSIS
-    T_02_ARCHITECTURE_AND_TYPES["Architecture & Types"]
-    INDEX --> T_02_ARCHITECTURE_AND_TYPES
+    T_02__ARCHITECTURE____ARCHITECTURE_MD__AND_TYPES["Architecture & Types"]
+    INDEX --> T_02__ARCHITECTURE____ARCHITECTURE_MD__AND_TYPES
     T_03_API_REFERENCE["API Reference"]
     INDEX --> T_03_API_REFERENCE
     T_04_ADVANCED_PATTERNS["Advanced Patterns & Adapters"]
@@ -32,12 +31,20 @@ flowchart TD
     INDEX --> T_DOMAIN_MODEL
     T_SETUP_AND_WORKFLOW["03 Setup And Workflow"]
     INDEX --> T_SETUP_AND_WORKFLOW
-    T_01_OVERVIEW_AND_ANALYSIS -.->|references| T_02_ARCHITECTURE_AND_TYPES
-    T_02_ARCHITECTURE_AND_TYPES -.->|references| T_01_OVERVIEW_AND_ANALYSIS
-    T_02_ARCHITECTURE_AND_TYPES -.->|references| T_03_API_REFERENCE
-    T_03_API_REFERENCE -.->|references| T_02_ARCHITECTURE_AND_TYPES
+    T_01_OVERVIEW_AND_ANALYSIS -.->|references| T_02__ARCHITECTURE____ARCHITECTURE_MD__AND_TYPES
+    T_02__ARCHITECTURE____ARCHITECTURE_MD__AND_TYPES -.->|references| T_01_OVERVIEW_AND_ANALYSIS
+    T_02__ARCHITECTURE____ARCHITECTURE_MD__AND_TYPES -.->|references| T_03_API_REFERENCE
+    T_03_API_REFERENCE -.->|references| T_02__ARCHITECTURE____ARCHITECTURE_MD__AND_TYPES
     T_03_API_REFERENCE -.->|references| T_04_ADVANCED_PATTERNS
     T_04_ADVANCED_PATTERNS -.->|references| T_03_API_REFERENCE
+    T_ARCHITECTURE -.->|references| T_DOMAIN_MODEL
+    T_ARCHITECTURE -.->|references| T_SETUP_AND_WORKFLOW
+    T_DOMAIN_MODEL -.->|references| T_ARCHITECTURE
+    T_DOMAIN_MODEL -.->|references| T_SETUP_AND_WORKFLOW
+    T_DOMAIN_MODEL -.->|references| T_03_API_REFERENCE
+    T_SETUP_AND_WORKFLOW -.->|references| T_ARCHITECTURE
+    T_SETUP_AND_WORKFLOW -.->|references| T_DOMAIN_MODEL
+    T_SETUP_AND_WORKFLOW -.->|references| T_03_API_REFERENCE
 ```
 
 ---

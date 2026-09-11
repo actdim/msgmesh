@@ -1,6 +1,5 @@
 ---
 protocol: along
-protocol_version: "2.2.5"
 slug: architecture
 title: 01 Architecture
 type: topic
@@ -72,7 +71,7 @@ Multiple providers can register on the same channel. A provider can inspect inco
 
 ## 3. Cross-Links
 - [[INDEX.md]] - Knowledge Base Root
-- [[02-domain-model.md]] - Domain Contracts and Type Structures
-- [[03-setup-and-workflow.md]] - Setup and Testing Instructions
+- [[02-[domain-model](./topic--domain-model.md).md]] - Domain Contracts and Type Structures
+- [[03-[setup-and-workflow](./topic--setup-and-workflow.md).md]] - Setup and Testing Instructions
 - [[04-api-reference.md]] - Complete API Specification
 - [[05-patterns-and-recipes.md]] - Advanced Messaging Recipes and Service Adapters

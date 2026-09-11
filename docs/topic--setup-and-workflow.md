@@ -1,6 +1,5 @@
 ---
 protocol: along
-protocol_version: "2.2.5"
 slug: setup-and-workflow
 title: 03 Setup And Workflow
 type: topic
@@ -47,7 +46,7 @@ pnpm add @actdim/utico rxjs@^7.8.0
 
 ## 4. Cross-Links
 - [[INDEX.md]] - Knowledge Base Root
-- [[01-architecture.md]] - System Architecture
-- [[02-domain-model.md]] - Domain Model
-- [[04-api-reference.md]] - Exhaustive API Reference
+- [[01-[architecture](./topic--architecture.md).md]] - System Architecture
+- [[02-[domain-model](./topic--domain-model.md).md]] - Domain Model
+- [[04-api-reference.md]] - Exhaustive [API Reference](./topic--03-api-reference.md)
 - [[05-patterns-and-recipes.md]] - Practical Recipes and Messaging Patterns

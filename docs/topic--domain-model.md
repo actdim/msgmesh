@@ -1,6 +1,5 @@
 ---
 protocol: along
-protocol_version: "2.2.5"
 slug: domain-model
 title: 02 Domain Model
 type: topic
@@ -93,7 +92,7 @@ type MsgBusConfig<TStruct> = {
 
 ## 3. Cross-Links
 - [[INDEX.md]] - Knowledge Base Root
-- [[01-architecture.md]] - System Architecture
-- [[03-setup-and-workflow.md]] - Setup and Workflow
-- [[04-api-reference.md]] - Exhaustive API Reference
+- [[01-[architecture](./topic--architecture.md).md]] - System Architecture
+- [[03-[setup-and-workflow](./topic--setup-and-workflow.md).md]] - Setup and Workflow
+- [[04-api-reference.md]] - Exhaustive [API Reference](./topic--03-api-reference.md)
 - [[05-patterns-and-recipes.md]] - Practical Recipes and Messaging Patterns

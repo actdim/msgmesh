@@ -1,7 +1,6 @@
 ---
 protocol: along
-protocol_version: "2.2.5"
-slug: 02-architecture-and-types
+slug: 02-[architecture](./topic--architecture.md)-and-types
 title: Architecture & Types
 type: topic
 created: 2026-08-31
@@ -30,7 +29,7 @@ Groups define payload roles within a channel. There are two semantic kinds:
 - **Input Groups** (`in`, `in1`, `in2`): Payload types entering the channel. Default is `"in"`. Multiple input groups enable **input type overloading** on a single channel.
 - **Output Group** (`out`): Response payload type returned by the channel handler.
   - If `out` is omitted, `out?: void` is implied (handler confirmation with no return data).
-  - Do NOT wrap `out` types in `Promise` — async resolution is handled automatically by the API.
+  - Do NOT wrap `out` types in `Promise` - async resolution is handled automatically by the API.
 
 ### 3. Message Types
 Each group declares a TypeScript type. Use `MsgStruct<...>` to wrap your channel dictionary.

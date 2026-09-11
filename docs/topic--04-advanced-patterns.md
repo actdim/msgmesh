@@ -1,6 +1,5 @@
 ---
 protocol: along
-protocol_version: "2.2.5"
 slug: 04-advanced-patterns
 title: Advanced Patterns & Adapters
 type: topic

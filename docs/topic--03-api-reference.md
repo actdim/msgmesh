@@ -1,6 +1,5 @@
 ---
 protocol: along
-protocol_version: "2.2.5"
 slug: 03-api-reference
 title: API Reference
 type: topic

@@ -86,8 +86,19 @@ Try `@actdim/msgmesh` instantly in StackBlitz:
 ---
 
 ## AI-Assisted Development
-
+ 
 Developed with [Along](https://github.com/actdim/along) - a provider-agnostic context and memory system for AI coding agents.
+
+### AI Coding Assistants (Cursor, Claude Code, Copilot, Antigravity)
+
+To enable AI coding agents in your project to follow MsgMesh channel structures, type-safe RPC, pub/sub, and streaming patterns, add a reference to the bundled LLM documentation in your project's `AGENTS.md`, `CLAUDE.md`, or `.cursorrules`:
+
+```markdown
+## MsgMesh Guidelines
+- Reference: `node_modules/@actdim/msgmesh/llms.txt`
+```
+
+This gives agents instant access to channel contracts and patterns in `node_modules/@actdim/msgmesh/docs/` matching your installed version.
 
 ---
 

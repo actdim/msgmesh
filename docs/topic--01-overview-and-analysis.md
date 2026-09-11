@@ -1,6 +1,5 @@
 ---
 protocol: along
-protocol_version: "2.2.5"
 slug: 01-overview-and-analysis
 title: Overview & Problem Analysis
 type: topic
