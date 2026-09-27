@@ -61,6 +61,7 @@ export default defineConfig({
                 const relLlms = path.relative(path.dirname(filePath), path.resolve(__dirname, 'llms.txt')).replace(/\\/g, '/');
                 const repoUrl = packageJson.repository?.url?.replace(/\.git$/, '') ?? 'https://github.com/actdim';
                 const header = `/**\n * @packageDocumentation\n * @see {@link ${relAgents}} AI Agent Guidelines (${repoUrl})\n * @see {@link ${relLlms}} LLM Summary\n */\n`;
+
                 return {
                     filePath,
                     content: header + content,

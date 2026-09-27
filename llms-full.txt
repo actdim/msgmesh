@@ -812,13 +812,21 @@ Channels organize messages by domain, service, or event type. Dot notation is re
 
 - **System Channel**: `MSGBUS.ERROR` is reserved for system-level errors.
 
-### 2. Groups
-Groups define payload roles within a channel. There are two semantic kinds:
+### 2. Groups (`in`, `out`, `ex`)
+Groups define payload roles and delivery semantics within a channel:
 
-- **Input Groups** (`in`, `in1`, `in2`): Payload types entering the channel. Default is `"in"`. Multiple input groups enable **input type overloading** on a single channel.
-- **Output Group** (`out`): Response payload type returned by the channel handler.
-  - If `out` is omitted, `out?: void` is implied (handler confirmation with no return data).
-  - Do NOT wrap `out` types in `Promise` - async resolution is handled automatically by the API.
+- **Inbound / Request Group (`in`, `in1`, `in2`)**:
+  - Payload entering the channel for request-response RPC.
+  - Used with `msgBus.request({ channel, group: 'in', payload })` and `msgBroker.provide`.
+  - Multiple input groups (`in1`, `in2`) enable **input type overloading** on a single channel.
+- **Outbound / Response / Event Group (`out`)**:
+  - The return type returned by a `provide()` callback.
+  - Also represents broadcast domain events consumed by subscribers (`msgBus.on` or `msgBroker.subscribe`).
+  - If `out` is omitted in a channel definition, `out?: void` is implied.
+  - Do NOT wrap `out` types in `Promise` - async resolution is handled automatically.
+- **Execution / Command Group (`ex`, `ex1`)**:
+  - Command payloads for direct fire-and-forget actions where callers dispatch intent rather than waiting for an RPC response.
+  - Typical examples: `APP.NAV.GOTO` with `ex: { route: string, params?: any }` dispatched via `msgBus.send({ channel: 'APP.NAV.GOTO', group: 'ex', payload })`.
 
 ### 3. Message Types
 Each group declares a TypeScript type. Use `MsgStruct<...>` to wrap your channel dictionary.
@@ -838,6 +846,10 @@ export type AppBusStruct = MsgStruct<{
     'USER.LOGOUT': {
         in: { reason: string };
         out: void;
+    };
+    'APP.NAV.GOTO': {
+        in: { path: string };
+        ex: { route: string; params?: Record<string, any> };
     };
     'MULTIPLEXER.CALCULATE': {
         in1: string;
@@ -1473,6 +1485,37 @@ Multiple providers can register on the same channel. A provider can inspect inco
 - [API Reference](./topic--03-api-reference.md) - Complete API Specification
 - [Advanced Patterns & Adapters](./topic--04-advanced-patterns.md) - Advanced Messaging Recipes and Service Adapters
 - [License](./topic--license.md) - License Information
+
+---
+
+## Document: docs/topic--dependencies.md (Dependencies & AI Documentation for @actdim/msgmesh)
+
+# Dependencies & AI Documentation for `@actdim/msgmesh`
+
+> [!NOTE]
+> This document maintains a localized registry of internal workspace dependencies and third-party libraries for `@actdim/msgmesh`.
+> Consult linked guidelines when developing, refactoring, or integrating components.
+
+## Internal Workspace Dependencies
+
+| Internal Package | Relative Path | AI Documentation & Context |
+| :--- | :--- | :--- |
+| **`@actdim/utico`** | [`../../utico`](../../utico) | [AGENTS.md](../../utico/AGENTS.md) <br> [CLAUDE.md](../../utico/CLAUDE.md) <br> [llms-full.txt](../../utico/llms-full.txt) <br> [llms.txt](../../utico/llms.txt) <br> [.along/](../../utico/.along) <br> [docs/](../../utico/docs) |
+
+## Declared External Dependencies with AI Guidelines
+
+| Package | Ecosystem | Version | AI Guidelines / Instructions |
+| :--- | :--- | :--- | :--- |
+| **`cytoscape`** | `npm` | `3.34.3` | [AGENTS.md](../node_modules/cytoscape/AGENTS.md) |
+
+## Transitive Dependency Guidelines & Invariants
+
+No exported invariants detected across current dependencies.
+
+## Usage in Agent Sessions
+When working on features involving any of the modules or external libraries above:
+1. **Internal Submodules**: Follow conventions in the linked package `AGENTS.md` or package `docs/`.
+2. **Third-Party Libraries**: Read the linked instruction files directly for framework-specific patterns and best practices.
 
 ---
 

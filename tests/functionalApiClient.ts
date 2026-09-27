@@ -11,6 +11,7 @@ export async function listUsers(limit?: number): Promise<{ id: string; name: str
     for (let i = 1; i <= count; i++) {
         users.push({ id: `${i}`, name: `User_${i}` });
     }
+
     return users;
 }
 

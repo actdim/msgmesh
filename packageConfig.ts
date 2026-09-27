@@ -14,12 +14,14 @@ const aliases = {
 
 function getSrcFiles(dir: string): string[] {
     const entries = fs.readdirSync(dir, { withFileTypes: true });
+
     return entries.flatMap((entry) => {
         const fileName = path.resolve(dir, entry.name);
         if (entry.name.startsWith('_')) return [];
         if (entry.isDirectory()) {
             return getSrcFiles(fileName);
         }
+
         return fileName.endsWith('.ts') || fileName.endsWith('.tsx') ? [fileName] : [];
     });
 }
@@ -32,9 +34,7 @@ const packages = [
 export default {
     packages,
     resolveAliases: () => {
-        return Object.fromEntries(
-            Object.entries(aliases).map(([key, value]) => [key, path.resolve(rootPath, value)]),
-        );
+        return Object.fromEntries(Object.entries(aliases).map(([key, value]) => [key, path.resolve(rootPath, value)]),);
     },
     srcFiles: () => getSrcFiles(path.resolve(__dirname, 'src')),
     externals: (id: string) => {

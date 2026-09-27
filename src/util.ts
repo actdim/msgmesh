@@ -1,4 +1,4 @@
-import { asyncScheduler, Observable, SchedulerLike, Subscriber, timer, UnaryFunction } from 'rxjs';
+import { asyncScheduler, Observable, type SchedulerLike, type Subscriber, timer, type UnaryFunction } from 'rxjs';
 
 export function identity<T>(x: T): T {
     return x;

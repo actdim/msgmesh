@@ -23,13 +23,21 @@ Channels organize messages by domain, service, or event type. Dot notation is re
 
 - **System Channel**: `MSGBUS.ERROR` is reserved for system-level errors.
 
-### 2. Groups
-Groups define payload roles within a channel. There are two semantic kinds:
+### 2. Groups (`in`, `out`, `ex`)
+Groups define payload roles and delivery semantics within a channel:
 
-- **Input Groups** (`in`, `in1`, `in2`): Payload types entering the channel. Default is `"in"`. Multiple input groups enable **input type overloading** on a single channel.
-- **Output Group** (`out`): Response payload type returned by the channel handler.
-  - If `out` is omitted, `out?: void` is implied (handler confirmation with no return data).
-  - Do NOT wrap `out` types in `Promise` - async resolution is handled automatically by the API.
+- **Inbound / Request Group (`in`, `in1`, `in2`)**:
+  - Payload entering the channel for request-response RPC.
+  - Used with `msgBus.request({ channel, group: 'in', payload })` and `msgBroker.provide`.
+  - Multiple input groups (`in1`, `in2`) enable **input type overloading** on a single channel.
+- **Outbound / Response / Event Group (`out`)**:
+  - The return type returned by a `provide()` callback.
+  - Also represents broadcast domain events consumed by subscribers (`msgBus.on` or `msgBroker.subscribe`).
+  - If `out` is omitted in a channel definition, `out?: void` is implied.
+  - Do NOT wrap `out` types in `Promise` - async resolution is handled automatically.
+- **Execution / Command Group (`ex`, `ex1`)**:
+  - Command payloads for direct fire-and-forget actions where callers dispatch intent rather than waiting for an RPC response.
+  - Typical examples: `APP.NAV.GOTO` with `ex: { route: string, params?: any }` dispatched via `msgBus.send({ channel: 'APP.NAV.GOTO', group: 'ex', payload })`.
 
 ### 3. Message Types
 Each group declares a TypeScript type. Use `MsgStruct<...>` to wrap your channel dictionary.
@@ -49,6 +57,10 @@ export type AppBusStruct = MsgStruct<{
     'USER.LOGOUT': {
         in: { reason: string };
         out: void;
+    };
+    'APP.NAV.GOTO': {
+        in: { path: string };
+        ex: { route: string; params?: Record<string, any> };
     };
     'MULTIPLEXER.CALCULATE': {
         in1: string;

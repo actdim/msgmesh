@@ -1,5 +1,5 @@
-import { HasKeys, IsTuple, MaybePromise } from '@actdim/utico/typeCore';
-import { ThrottleOptions } from '@/util';
+import { type HasKeys, type IsTuple, type MaybePromise } from '@actdim/utico/typeCore';
+import { type ThrottleOptions } from '@/util';
 
 export const $CG_IN = 'in' as const;
 

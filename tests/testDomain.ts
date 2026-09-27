@@ -1,6 +1,6 @@
-import { MsgBus, MsgBusConfig, MsgStructNormalized, MsgStruct } from '@/contracts';
+import { type MsgBus, type MsgBusConfig, type MsgStructNormalized, type MsgStruct } from '@/contracts';
 import { createMsgBus } from '@/core';
-import { KeysOf } from '@actdim/utico/typeCore';
+import { type KeysOf } from '@actdim/utico/typeCore';
 
 export type TestBusStruct = MsgStruct<{
     'Test.ComputeSum': {

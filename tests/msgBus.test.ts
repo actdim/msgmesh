@@ -1,23 +1,23 @@
 import { describe, it, expect, vi } from 'vitest';
-import { TestBusStruct, createTestMsgBus, sharedMsgBus } from './testDomain';
+import { type TestBusStruct, createTestMsgBus, sharedMsgBus } from './testDomain';
 import '@/core';
 import { delay, delayError, withTimeout } from '@actdim/utico/utils';
 import { v4 as uuid } from 'uuid';
 import {
-    MsgHeaders,
-    MsgStruct,
+    type MsgHeaders,
+    type MsgStruct,
     NoProviderError,
     OperationCanceledError,
     TimeoutError,
 } from '@/contracts';
 import { createMsgBus } from '@/core';
 import {
-    BaseServiceSuffix,
+    type BaseServiceSuffix,
     getMsgChannelSelector,
-    MsgProviderAdapter,
+    type MsgProviderAdapter,
     registerAdapters,
-    ToMsgChannelPrefix,
-    ToMsgStruct,
+    type ToMsgChannelPrefix,
+    type ToMsgStruct,
 } from '@/adapters';
 import * as FunctionalApi from './functionalApiClient';
 import { getGlobalFlags } from '@/globals';
@@ -122,7 +122,7 @@ describe('msgBus', () => {
             },
         });
 
-        let test = (async () => {
+        const test = (async () => {
             const requestId = uuid();
             const msg = await sharedMsgBus.request({
                 channel: 'Test.DoSomeWork',
@@ -157,7 +157,7 @@ describe('msgBus', () => {
             },
         });
 
-        let test = (async () => {
+        const test = (async () => {
             for (let i = 0; i < 100; i++) {
                 msgBus.send({
                     channel: 'Test.DoSomeWork',
@@ -171,11 +171,11 @@ describe('msgBus', () => {
     });
 
     it('can use timeout', async () => {
-        let c = 0;
+        const c = 0;
 
         const msgBus = createTestMsgBus();
 
-        let test = async () => {
+        const test = async () => {
             const requestId = uuid();
             await msgBus.request({
                 channel: 'Test.DoSomeWork',
@@ -202,7 +202,7 @@ describe('msgBus', () => {
         let result: number;
         let responseMsgHeaders: MsgHeaders;
         const requestId = uuid();
-        let request = (async () => {
+        const request = (async () => {
             const msg = await sharedMsgBus.request({
                 channel: 'Test.ComputeSum',
                 payload: data,
@@ -382,7 +382,7 @@ describe('msgBus', () => {
     });
 
     it("can subscribe using 'onceAsync'", async (ctx) => {
-        let data = testData[0];
+        const data = testData[0];
         const test = async () => {
             const inMsg = await sharedMsgBus.once({
                 channel: 'Test.ComputeSum',
@@ -415,7 +415,7 @@ describe('msgBus', () => {
     });
 
     it('can cancel sub', async (ctx) => {
-        let data = testData[0];
+        const data = testData[0];
         let c = 0;
         const abortController = new AbortController();
         const msgBus = createTestMsgBus();
@@ -459,7 +459,7 @@ describe('msgBus', () => {
     });
 
     it('can cancel async sub', async (ctx) => {
-        let data = testData[0];
+        const data = testData[0];
         let c = 0;
         const abortController = new AbortController();
         let err = undefined;
@@ -531,8 +531,8 @@ describe('msgBus', () => {
     it('can limit fetch count', async (ctx) => {
         const msgBus = createTestMsgBus();
         let c = 0;
-        let n = 10;
-        let fetchCount = 5;
+        const n = 10;
+        const fetchCount = 5;
         const listen = new Promise<void>((res, rej) => {
             msgBus.on({
                 channel: 'Test.TestTaskWithRepeat',
@@ -558,8 +558,8 @@ describe('msgBus', () => {
 
     it('can use topics', async (ctx) => {
         const msgBus = createTestMsgBus();
-        let i1 = Math.round(Math.random() * 100);
-        let i2 = Math.round(Math.random() * 100);
+        const i1 = Math.round(Math.random() * 100);
+        const i2 = Math.round(Math.random() * 100);
         let o1 = 0;
         let o2 = 0;
         let o = 0;
@@ -626,8 +626,8 @@ describe('msgBus', () => {
         const msgBus = createTestMsgBus();
 
         let m = 0;
-        let i1 = Math.round(Math.random() * 100);
-        let i2 = Math.round(Math.random() * 100);
+        const i1 = Math.round(Math.random() * 100);
+        const i2 = Math.round(Math.random() * 100);
         let o1 = 0;
         let o2 = 0;
 
@@ -881,6 +881,7 @@ describe('msgBus', () => {
                     if (requestId && cancelFlags.has(requestId)) {
                         cancelFlags.set(requestId, true);
                     }
+
                     return undefined;
                 }
 
@@ -895,11 +896,13 @@ describe('msgBus', () => {
                     if (cancelFlags.get(requestId)) {
                         providerWorkAborted = true;
                         cancelFlags.delete(requestId);
+
                         return undefined;
                     }
                 }
 
                 cancelFlags.delete(requestId);
+
                 return msg.payload.a + msg.payload.b;
             },
         });
@@ -950,6 +953,7 @@ describe('msgBus', () => {
                 const [a, b] = msg.payload;
                 receivedA = a;
                 receivedB = b;
+
                 return a + b;
             },
         });
@@ -973,12 +977,10 @@ describe('msgBus', () => {
             computeOnServer(a: number, b: number) {
                 return new Promise<number>((res, rej) => {
                     setTimeout(() => {
-                        res(
-                            computeSum({
-                                a,
-                                b,
-                            }),
-                        );
+                        res(computeSum({
+                            a,
+                            b,
+                        }),);
                     }, 200);
                 });
             }
@@ -1001,13 +1003,11 @@ describe('msgBus', () => {
             'API.TEST.': new TestApiClient(),
         };
 
-        const msgProviderAdapters = Object.entries(services).map(
-            (entry) =>
+        const msgProviderAdapters = Object.entries(services).map((entry) =>
                 ({
                     service: entry[1],
                     channelSelector: getMsgChannelSelector(services),
-                }) as MsgProviderAdapter,
-        );
+                }) as MsgProviderAdapter,);
 
         const msgBus = createMsgBus<ApiMsgStruct>();
 
@@ -1048,13 +1048,11 @@ describe('msgBus', () => {
         };
 
         // 4. Create adapters using getMsgChannelSelector
-        const adapters = Object.entries(services).map(
-            (entry) =>
+        const adapters = Object.entries(services).map((entry) =>
                 ({
                     service: entry[1],
                     channelSelector: getMsgChannelSelector(services),
-                }) as MsgProviderAdapter,
-        );
+                }) as MsgProviderAdapter,);
 
         const msgBus = createMsgBus<UserApiMsgStruct>();
         const abortController = new AbortController();
@@ -1090,13 +1088,11 @@ describe('msgBus', () => {
         };
 
         // 4. Create adapters using getMsgChannelSelector
-        const adapters = Object.entries(services).map(
-            (entry) =>
+        const adapters = Object.entries(services).map((entry) =>
                 ({
                     service: entry[1],
                     channelSelector: getMsgChannelSelector(services),
-                }) as MsgProviderAdapter,
-        );
+                }) as MsgProviderAdapter,);
 
         const msgBus = createMsgBus<FunctionalApiMsgStruct>();
         const abortController = new AbortController();
@@ -1132,13 +1128,11 @@ describe('msgBus', () => {
     it('throws NoProviderError when throwIfNoProvider and no provider', async () => {
         const msgBus = createTestMsgBus();
 
-        await expect(
-            msgBus.request({
-                channel: 'Test.ComputeSum',
-                payload: { a: 1, b: 2 },
-                options: { throwIfNoProvider: true },
-            }),
-        ).rejects.toBeInstanceOf(NoProviderError);
+        await expect(msgBus.request({
+            channel: 'Test.ComputeSum',
+            payload: { a: 1, b: 2 },
+            options: { throwIfNoProvider: true },
+        }),).rejects.toBeInstanceOf(NoProviderError);
     });
 
     it('throws NoProviderError when mandatoryProvider in channel config and no provider', async () => {
@@ -1149,12 +1143,10 @@ describe('msgBus', () => {
             'Test.ComputeSum': { mandatoryProvider: true },
         });
 
-        await expect(
-            msgBus.request({
-                channel: 'Test.ComputeSum',
-                payload: { a: 1, b: 2 },
-            }),
-        ).rejects.toBeInstanceOf(NoProviderError);
+        await expect(msgBus.request({
+            channel: 'Test.ComputeSum',
+            payload: { a: 1, b: 2 },
+        }),).rejects.toBeInstanceOf(NoProviderError);
     });
 
     it('does not throw NoProviderError when provider is registered', async () => {
@@ -1184,12 +1176,10 @@ describe('msgBus', () => {
             },
         });
 
-        await expect(
-            msgBus.request({
-                channel: 'Test.ComputeSum',
-                payload: { a: 1, b: 2 },
-            }),
-        ).rejects.toThrow('provider failure');
+        await expect(msgBus.request({
+            channel: 'Test.ComputeSum',
+            payload: { a: 1, b: 2 },
+        }),).rejects.toThrow('provider failure');
     });
 
     it('can requestStream from multiple providers', async () => {
@@ -1326,9 +1316,11 @@ describe('msgBus', () => {
                 const sum = msg.payload.a + msg.payload.b;
                 if (sum % 2 !== 0) {
                     outMsg.status = 'skipped';
+
                     return undefined;
                 }
                 handled.push('A');
+
                 return sum * 10;
             },
         });
@@ -1340,9 +1332,11 @@ describe('msgBus', () => {
                 const sum = msg.payload.a + msg.payload.b;
                 if (sum % 2 === 0) {
                     outMsg.status = 'skipped';
+
                     return undefined;
                 }
                 handled.push('B');
+
                 return sum * 100;
             },
         });
@@ -1412,6 +1406,7 @@ describe('msgBus', () => {
             callback: async (msg) => {
                 const d = delays[callIndex++];
                 await delay(d);
+
                 return msg.payload.a + msg.payload.b;
             },
         });
@@ -1484,12 +1479,10 @@ describe('msgBus', () => {
         const controller = new AbortController();
         controller.abort('pre-aborted');
 
-        await expect(
-            msgBus.once({
-                channel: 'Test.ComputeSum',
-                options: { abortSignal: controller.signal },
-            }),
-        ).rejects.toThrow(OperationCanceledError);
+        await expect(msgBus.once({
+            channel: 'Test.ComputeSum',
+            options: { abortSignal: controller.signal },
+        }),).rejects.toThrow(OperationCanceledError);
     });
 
     it('on() callback never fires when AbortSignal is already aborted', async () => {
@@ -1531,6 +1524,7 @@ describe('msgBus', () => {
             channel: 'Test.ComputeSum',
             callback: (msg, msgOut) => {
                 msgOut.headers = { ...msgOut.headers, sourceId: 'provider-tag' };
+
                 return msg.payload.a + msg.payload.b;
             },
         });
@@ -1562,13 +1556,12 @@ describe('msgBus', () => {
             callback: (_msg, msgOut) => {
                 msgOut.status = 'failed';
                 msgOut.headers = { ...msgOut.headers, error: 'validation failed' };
+
                 return undefined;
             },
         });
 
-        await expect(
-            msgBus.request({ channel: 'Test.ComputeSum', payload: { a: 1, b: 2 } }),
-        ).rejects.toThrow('validation failed');
+        await expect(msgBus.request({ channel: 'Test.ComputeSum', payload: { a: 1, b: 2 } }),).rejects.toThrow('validation failed');
     });
 
     it("send() with custom group delivers only to that group's subscribers", async () => {
@@ -1608,14 +1601,10 @@ describe('msgBus', () => {
         });
 
         // Api.Data requires provider - should throw NoProviderError
-        await expect(msgBus.request({ channel: 'Api.Data', payload: 'q' })).rejects.toThrow(
-            NoProviderError,
-        );
+        await expect(msgBus.request({ channel: 'Api.Data', payload: 'q' })).rejects.toThrow(NoProviderError,);
 
         // Local.Data does not require provider - should throw TimeoutError (no provider, but no mandatory check)
-        await expect(
-            msgBus.request({ channel: 'Local.Data', payload: 'q', options: { timeout: 50 } }),
-        ).rejects.toThrow(TimeoutError);
+        await expect(msgBus.request({ channel: 'Local.Data', payload: 'q', options: { timeout: 50 } }),).rejects.toThrow(TimeoutError);
     });
 
     it('channel config delay defers message delivery by specified duration', async () => {

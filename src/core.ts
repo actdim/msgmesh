@@ -1,47 +1,47 @@
 import {
-    MsgBus,
-    MsgStructBase,
-    Msg,
+    type MsgBus,
+    type MsgStructBase,
+    type Msg,
     $CG_IN,
     $CG_OUT,
-    MsgBusConfig,
-    MsgSubParams,
-    AwaitableMsgSubParams,
-    MsgProviderParams,
-    MsgStructNormalized,
+    type MsgBusConfig,
+    type MsgSubParams,
+    type AwaitableMsgSubParams,
+    type MsgProviderParams,
+    type MsgStructNormalized,
     $CG_ERROR,
     $C_ERROR,
-    MsgHeaders,
+    type MsgHeaders,
     TimeoutError,
     OperationCanceledError,
-    MsgRequestDispatcherParams,
-    ErrorPayload,
+    type MsgRequestDispatcherParams,
+    type ErrorPayload,
     $SYSTEM_TOPIC,
-    MsgStreamParams,
-    MsgStream,
-    MsgSub,
-    AwaitableMsgSub,
-    MsgProvider,
-    MsgSender,
-    MsgRequestDispatcher,
-    MsgRequestStream,
-    MsgRequestStreamParams,
-    MsgSenderParams,
-    OutChannelStruct,
+    type MsgStreamParams,
+    type MsgStream,
+    type MsgSub,
+    type AwaitableMsgSub,
+    type MsgProvider,
+    type MsgSender,
+    type MsgRequestDispatcher,
+    type MsgRequestStream,
+    type MsgRequestStreamParams,
+    type MsgSenderParams,
+    type OutChannelStruct,
     NoProviderError,
     $C_ANY,
-    MsgStatus,
-    MsgChannelConfig,
+    type MsgStatus,
+    type MsgChannelConfig,
 } from '@/contracts';
 import { v4 as uuid } from 'uuid';
 import {
-    MonoTypeOperatorFunction,
-    Observable,
+    type MonoTypeOperatorFunction,
+    type Observable,
     Subject,
     ReplaySubject,
     asyncScheduler,
-    OperatorFunction,
-    SchedulerLike,
+    type OperatorFunction,
+    type SchedulerLike,
 } from 'rxjs';
 import {
     filter as filterOp,
@@ -51,8 +51,8 @@ import {
     debounceTime as debounceOp,
 } from 'rxjs/operators';
 
-import { Skip } from '@actdim/utico/typeCore';
-import { pipeFromArray, throttleOp, ThrottleOptions } from '@/util';
+import { type Skip } from '@actdim/utico/typeCore';
+import { pipeFromArray, throttleOp, type ThrottleOptions } from '@/util';
 import { delayError } from '@actdim/utico/utils';
 import { getGlobalFlags } from '@/globals';
 
@@ -64,13 +64,14 @@ export const getMatchTest = (pattern: string) => {
     if (pattern.startsWith('/') && pattern.endsWith('/')) {
         pattern = pattern.substring(1, pattern.length - 1);
         const regexp = new RegExp(pattern);
+
         return (value: string) => regexp.test(value);
     } else {
         return (value: string) => pattern === value;
     }
 };
 
-export let defaultPromiseTimeout = 1000 * 5; // 5 seconds
+export const defaultPromiseTimeout = 1000 * 5; // 5 seconds
 
 // see also https://www.npmjs.com/package/p-queue
 // https://github.com/postaljs/postal.js
@@ -160,6 +161,7 @@ export function createMsgBus<
         if (!message) {
             message = 'The operation was canceled by the caller';
         }
+
         return new OperationCanceledError(message, cause);
     }
 
@@ -174,6 +176,7 @@ export function createMsgBus<
         const configOrResolver = config?.[$C_ANY];
         const defaults =
             typeof configOrResolver === 'function' ? configOrResolver(channel) : configOrResolver;
+
         return { ...defaults, ...config?.[channel] } as MsgChannelConfig<any>;
     }
 
@@ -202,6 +205,7 @@ export function createMsgBus<
             }
             subjects.set(routingKey, subject);
         }
+
         return subjects.get(routingKey);
     }
 
@@ -212,7 +216,7 @@ export function createMsgBus<
     ) {
         if (throttle != undefined) {
             let duration: number;
-            let options: ThrottleOptions = { leading: true, trailing: true };
+            const options: ThrottleOptions = { leading: true, trailing: true };
             if (typeof throttle === 'number') {
                 duration = throttle;
             } else {
@@ -243,12 +247,10 @@ export function createMsgBus<
 
         const match = getMatchTest(params.topic);
 
-        const fOp: MonoTypeOperatorFunction<Msg<TStructN>> = filterOp(
-            (msg) =>
-                // msg.address.channel === channel &&
-                // msg.address.group === group &&
-                match(msg.address.topic) && (!params.filter || params.filter(msg)),
-        );
+        const fOp: MonoTypeOperatorFunction<Msg<TStructN>> = filterOp((msg) =>
+        // msg.address.channel === channel &&
+        // msg.address.group === group &&
+            match(msg.address.topic) && (!params.filter || params.filter(msg)),);
 
         let observable: Observable<Msg<TStructN>>;
 
@@ -288,6 +290,7 @@ export function createMsgBus<
             next: (msg: Msg<TStructN>) => {
                 try {
                     const { payload, ...envelope } = msg;
+
                     return params.callback({ ...structuredClone(envelope), payload });
                 } catch (err) {
                     handleError(msg, err);
@@ -315,8 +318,7 @@ export function createMsgBus<
         if (abortSignal) {
             onAbort = () => {
                 if (getGlobalFlags().debug) {
-                    console.debug(
-                        `Listening aborted for channel: ${channel}, group: ${group}, topic: ${params.topic}. Reason: ${abortSignal.reason}`, // e.target
+                    console.debug(`Listening aborted for channel: ${channel}, group: ${group}, topic: ${params.topic}. Reason: ${abortSignal.reason}`, // e.target
                     );
                 }
                 sub.unsubscribe();
@@ -362,12 +364,11 @@ export function createMsgBus<
         const subject = getOrCreateSubject(channel, group);
         if (!subject.observed) {
             if (getGlobalFlags().debug) {
-                console.warn(
-                    `[msgBus] No subscribers on channel "${channel}" (group: "${group}"). Message may be lost.`,
-                );
+                console.warn(`[msgBus] No subscribers on channel "${channel}" (group: "${group}"). Message may be lost.`,);
             }
         }
         subject.next(msg);
+
         return Promise.resolve(msg);
     }
 
@@ -379,6 +380,7 @@ export function createMsgBus<
         const timeout =
             params.options?.timeout == undefined ? defaultPromiseTimeout : params.options?.timeout;
         let settled = false;
+
         return Promise.race([
             delayError(timeout, () => new TimeoutError()),
             new Promise<any>((res, rej) => {
@@ -392,6 +394,7 @@ export function createMsgBus<
 
                     if (abortSignal?.aborted) {
                         rej(createOperationCanceledError(abortSignal.reason));
+
                         return;
                     }
 
@@ -548,6 +551,7 @@ export function createMsgBus<
             },
             payload: payload,
         });
+
         return msg;
     }
 
@@ -558,9 +562,7 @@ export function createMsgBus<
         const inSubject = getOrCreateSubject(channel, inGroup);
         if (!inSubject.observed) {
             if (getGlobalFlags().debug) {
-                console.warn(
-                    `[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`,
-                );
+                console.warn(`[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`,);
             }
             if (params.options?.throwIfNoProvider || channelConfig?.mandatoryProvider) {
                 throw new NoProviderError(channel);
@@ -569,6 +571,7 @@ export function createMsgBus<
         const timeout =
             params.options?.timeout == undefined ? defaultPromiseTimeout : params.options?.timeout;
         let settled = false;
+
         return Promise.race([
             delayError(timeout, () => new TimeoutError()),
             new Promise(async (res, rej) => {
@@ -586,12 +589,11 @@ export function createMsgBus<
                                 settled = true;
                                 cleanup?.();
                                 if (msg.status === 'canceled') {
-                                    rej(
-                                        createOperationCanceledError(
-                                            msg,
-                                            'The request was canceled by the provider',
-                                        ),
-                                    );
+                                    rej(createOperationCanceledError(
+                                        msg,
+                                        'The request was canceled by the provider',
+                                    ),);
+
                                     return;
                                 } else if (msg.status === 'failed') {
                                     const errHeader = msg.headers?.error;
@@ -600,6 +602,7 @@ export function createMsgBus<
                                             ? errHeader
                                             : (errHeader?.message ?? 'Unknown error');
                                     rej(new Error(errMessage, { cause: msg }));
+
                                     return;
                                 }
                                 res(msg);
@@ -635,15 +638,14 @@ export function createMsgBus<
                                 status: 'canceled' satisfies MsgStatus,
                                 headers: { requestId: msg.headers.requestId },
                             });
-                            rej(
-                                createOperationCanceledError(
-                                    abortSignal.reason,
-                                    'The request was canceled by the caller',
-                                ),
-                            );
+                            rej(createOperationCanceledError(
+                                abortSignal.reason,
+                                'The request was canceled by the caller',
+                            ),);
                         };
                         if (abortSignal.aborted) {
                             onAbort();
+
                             return;
                         }
                         abortSignal.addEventListener('abort', onAbort);
@@ -663,9 +665,7 @@ export function createMsgBus<
 
         if (!inSubject.observed) {
             if (getGlobalFlags().debug) {
-                console.warn(
-                    `[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`,
-                );
+                console.warn(`[msgBus] No handlers on channel "${channel}" (group: "${inGroup}"). Message may be lost.`,);
             }
             if (params.options?.throwIfNoProvider || channelConfig?.mandatoryProvider) {
                 throw new NoProviderError(channel);
@@ -773,12 +773,10 @@ export function createMsgBus<
 
         try {
             while ((!fetchCount || messageCount < fetchCount) && !aborted) {
-                const msg = await new Promise<Msg<TStructN> | typeof streamEnd>(
-                    (resolve, reject) => {
-                        pendingResolve = resolve;
-                        pendingReject = reject;
-                    },
-                );
+                const msg = await new Promise<Msg<TStructN> | typeof streamEnd>((resolve, reject) => {
+                    pendingResolve = resolve;
+                    pendingReject = reject;
+                },);
 
                 if (msg === streamEnd) break;
 
@@ -880,12 +878,10 @@ export function createMsgBus<
 
         try {
             while ((!fetchCount || messageCount < fetchCount) && !aborted) {
-                const msg = await new Promise<Msg<TStructN> | typeof streamEnd>(
-                    (resolve, reject) => {
-                        pendingResolve = resolve;
-                        pendingReject = reject;
-                    },
-                );
+                const msg = await new Promise<Msg<TStructN> | typeof streamEnd>((resolve, reject) => {
+                    pendingResolve = resolve;
+                    pendingReject = reject;
+                },);
 
                 if (msg === streamEnd) {
                     break;

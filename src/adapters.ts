@@ -1,5 +1,5 @@
-import { MsgBus, MsgStruct, MsgStructBase } from '@/contracts';
-import { AddPrefix, Filter, Func, RemoveSuffix, Skip, ToUpper } from '@actdim/utico/typeCore';
+import { type MsgBus, type MsgStruct, type MsgStructBase } from '@/contracts';
+import { type AddPrefix, type Filter, type Func, type RemoveSuffix, type Skip, type ToUpper } from '@actdim/utico/typeCore';
 
 const getMethodNames = (client: any): string[] => {
     if (!client) {
@@ -113,6 +113,7 @@ export function getMsgChannelSelector<TTPrefix extends string>(services: Record<
         if (!entry) {
             return null;
         }
+
         return `${entry[0]}${methodName.toUpperCase()}`;
     };
 }

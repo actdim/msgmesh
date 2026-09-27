@@ -1,6 +1,9 @@
 # Active Issues
 
 ## Active
+<!-- No active issues -->
+
+## Backlog
 - [ ] `(debt)` [internal-debug-messages](ISSUES/debt--internal-debug-messages.md)
 - [ ] `(debt)` [package-config-alias-resolution](ISSUES/debt--package-config-alias-resolution.md)
 - [ ] `(debt)` [request-topic-matching-filter](ISSUES/debt--request-topic-matching-filter.md)
@@ -20,8 +23,5 @@
 - [ ] `(feat)` [qos-levels](ISSUES/feat--qos-levels.md)
 - [ ] `(feat)` [ttl-and-max-buffer-length](ISSUES/feat--ttl-and-max-buffer-length.md)
 
-## Backlog
-<!-- Planned or deferred issues -->
-
 ## Done (recent)
-<!-- No completed issues -->
+- [x] `(docs)` [channel-group-semantics](ISSUES/done/docs--channel-group-semantics.md)
