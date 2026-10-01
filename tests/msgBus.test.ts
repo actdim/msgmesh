@@ -1182,6 +1182,40 @@ describe('msgBus', () => {
         }),).rejects.toThrow('provider failure');
     });
 
+    it('keeps own error fields in MSGBUS.ERROR payload outside DEV', async () => {
+        vi.stubEnv('DEV', false);
+        try {
+            const msgBus = createTestMsgBus();
+            const httpError = Object.assign(new Error('Bad Request'), { status: 400, isApiError: true });
+            httpError.name = 'HTTP_STATUS_400';
+
+            const errorPayload = msgBus.once({ channel: 'MSGBUS.ERROR', topic: '/.*/' });
+            msgBus.provide({
+                channel: 'Test.ComputeSum',
+                callback: () => {
+                    throw httpError;
+                },
+            });
+
+            await expect(msgBus.request({
+                channel: 'Test.ComputeSum',
+                payload: { a: 1, b: 2 },
+            })).rejects.toThrow();
+
+            const errorMsg = await errorPayload;
+            const serialized = errorMsg.payload.error;
+            expect(serialized).not.toBe(httpError);
+            expect(serialized).toMatchObject({
+                name: 'HTTP_STATUS_400',
+                message: 'Bad Request',
+                status: 400,
+                isApiError: true,
+            });
+        } finally {
+            vi.unstubAllEnvs();
+        }
+    });
+
     it('can requestStream from multiple providers', async () => {
         const msgBus = createTestMsgBus();
         const results: number[] = [];

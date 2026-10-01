@@ -1,6 +1,5 @@
 ---
 protocol: along
-protocol_version: "4.2.0"
 slug: dependencies
 title: Dependencies & AI Documentation for @actdim/msgmesh
 type: topic

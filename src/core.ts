@@ -104,7 +104,10 @@ export function createMsgBus<
         let errInfo: unknown;
         if (!import.meta.env.DEV) {
             if (err instanceof Error) {
+                // Keep the error's own fields (e.g. HttpClientError.status, HttpNetworkError.kind):
+                // consumers classify errors by them. name/message/stack/cause are non-enumerable on Error.
                 errInfo = {
+                    ...Object.fromEntries(Object.entries(err)),
                     name: err.name,
                     message: err.message,
                     stack: err.stack,

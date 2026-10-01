@@ -24,4 +24,6 @@
 - [ ] `(feat)` [ttl-and-max-buffer-length](ISSUES/feat--ttl-and-max-buffer-length.md)
 
 ## Done (recent)
+- [x] `(task)` [release-v1-8-0](ISSUES/done/task--release-v1-8-0.md)
+- [x] `(bug)` [msgbus-error-own-fields](ISSUES/done/bug--msgbus-error-own-fields.md)
 - [x] `(docs)` [channel-group-semantics](ISSUES/done/docs--channel-group-semantics.md)
