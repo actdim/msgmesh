@@ -25,5 +25,6 @@
 
 ## Done (recent)
 - [x] `(task)` [release-v1-8-0](ISSUES/done/task--release-v1-8-0.md)
+- [x] `(task)` [along-metadata-reconciliation](ISSUES/done/task--along-metadata-reconciliation.md)
 - [x] `(bug)` [msgbus-error-own-fields](ISSUES/done/bug--msgbus-error-own-fields.md)
 - [x] `(docs)` [channel-group-semantics](ISSUES/done/docs--channel-group-semantics.md)
