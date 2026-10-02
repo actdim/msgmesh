@@ -380,8 +380,11 @@ export function createMsgBus<
     }
 
     function once(params: AwaitableMsgSubParams<TStructN>) {
+        const channelConfig = getChannelConfig(String(params.channel));
         const timeout =
-            params.options?.timeout == undefined ? defaultPromiseTimeout : params.options?.timeout;
+            params.options?.timeout == undefined
+                ? (channelConfig?.timeout ?? defaultPromiseTimeout)
+                : params.options?.timeout;
         let settled = false;
 
         return Promise.race([
@@ -572,7 +575,9 @@ export function createMsgBus<
             }
         }
         const timeout =
-            params.options?.timeout == undefined ? defaultPromiseTimeout : params.options?.timeout;
+            params.options?.timeout == undefined
+                ? (channelConfig?.timeout ?? defaultPromiseTimeout)
+                : params.options?.timeout;
         let settled = false;
 
         return Promise.race([

@@ -174,6 +174,7 @@ export type MsgChannelConfig<TChannel> = {
     replayWindowTime?: number;
 
     mandatoryProvider?: boolean;
+    timeout?: number;
 
     delay?: number;
     throttle?: number | (ThrottleOptions & { duration: number });
