@@ -24,6 +24,7 @@
 - [ ] `(feat)` [ttl-and-max-buffer-length](ISSUES/feat--ttl-and-max-buffer-length.md)
 
 ## Done (recent)
+- [x] `(docs)` [readme-version-history](ISSUES/done/docs--readme-version-history.md)
 - [x] `(task)` [release-v1-8-0](ISSUES/done/task--release-v1-8-0.md)
 - [x] `(task)` [along-metadata-reconciliation](ISSUES/done/task--along-metadata-reconciliation.md)
 - [x] `(bug)` [msgbus-error-own-fields](ISSUES/done/bug--msgbus-error-own-fields.md)

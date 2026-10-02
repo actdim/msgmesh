@@ -24,4 +24,4 @@ Commits `f197d4b`, `15b3cdc`.
 
 ## Earlier versions
 
-See the git history (`git log --oneline`).
+See the [Changelog section of README.md](./README.md#changelog).
