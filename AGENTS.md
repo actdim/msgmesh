@@ -597,6 +597,16 @@ If change affects API shape or build artifacts, also run:
 - **`requestStream()` subscribe-before-publish**: `requestId` is generated upfront so the `out` subscription filter can be set before publishing to `in`. Reversing this order would miss synchronous responses.
 - **`requestStream()` vs `request()`**: `request()` uses `fetchCount: 1` on the subscription (takes first response only). `requestStream()` has no `fetchCount` on the subscription - all provider responses arrive; `fetchCount` in options controls how many the generator yields before stopping.
 
+## Dynstruct UI Integration & Pure Event-Driven Architecture
+
+When building applications with `@actdim/dynstruct` and `@actdim/msgmesh`:
+- **MsgMesh is the Single Source of Truth for Cross-Component Events**:
+  - Never pass callback props (`onSelect*`, `onNavigate*`, `onOpen*`, `onClose*`, `onChange*`) between Dynstruct components to coordinate state.
+  - Classical React callback prop drilling causes dual sources of truth, timing races, and state desynchronization.
+  - Dynstruct `actions` are internal model mutators (MobX transactions) for component-local state, NOT cross-component event props.
+  - All feature-to-feature, cross-component, navigation, and domain state changes must flow through typed MsgMesh channels (`c.msgBus.send`, `msgBroker.subscribe`).
+  - Modular channel structures can be defined in feature-specific files and intersected into the global `AppMsgStruct` (`AppMsgStruct = BaseAppMsgStruct & VfsMsgStruct & ...`).
+
 ## Project specifics
 
 <!-- BEGIN ALONG-RULES -->

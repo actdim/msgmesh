@@ -512,7 +512,8 @@ export function createMsgBus<
     };
 
     async function dispatch(params: MsgDispatcherParams<TStructN>) {
-        let msg: Msg<TStructN> = null;
+        const requestId = params.headers?.requestId || uuid();
+        let unsub: (() => void) | null = null;
         if (params.callback) {
             const subParams: MsgSubParams<TStructN, keyof TStructN, keyof OutChannelStruct> = {
                 channel: params.channel,
@@ -525,17 +526,17 @@ export function createMsgBus<
                     },
                 },
                 callback: (outMsg) => {
-                    // sub.unsubscribe();
+                    unsub?.();
                     params.callback(outMsg);
                 },
                 filter: (outMsg) => {
                     return (
-                        outMsg.headers.inResponseToId === msg.headers.requestId &&
+                        outMsg.headers?.inResponseToId === requestId &&
                         (!params.filter || params.filter(outMsg))
                     );
                 },
             };
-            subscribe(subParams);
+            unsub = subscribe(subParams);
         }
         let payload: any;
         if (params.payloadFn) {
@@ -545,15 +546,15 @@ export function createMsgBus<
         } else {
             payload = params.payload;
         }
-        msg = await publish({
+        const msg = await publish({
             address: {
                 channel: params.channel,
                 group: params.group,
                 topic: params.topic,
             },
             headers: {
-                requestId: params.headers?.requestId || uuid(),
                 ...params.headers,
+                requestId,
             },
             payload: payload,
         });
