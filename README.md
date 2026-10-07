@@ -21,6 +21,7 @@
 ### The Output You Get
 - 🔒 **100% Compile-Time Verification**: Channels, input/output groups, and headers are checked by TypeScript with full IDE autocomplete.
 - ⚡ **RPC & Cancellation**: Built-in `request()` / `provide()` with `AbortSignal` cancellation support out-of-the-box.
+- 🎯 **Pure Event-Driven UI Architecture**: Seamless single source of truth for `@actdim/dynstruct` apps, eliminating callback prop drilling and UI timing desynchronization.
 - 🔌 **Service Adapters**: Automatically wrap NSwag / OpenAPI / gRPC API clients directly into typed message channels.
 - 🚀 **Built on RxJS**: Enterprise-grade scheduler under the hood, clean imperative API on top.
 
@@ -73,7 +74,7 @@ Explore the complete guide step-by-step from core concepts to advanced service a
 | 📖 [**01. Overview & Problem Analysis**](./docs/topic--01-overview-and-analysis.md) | Motivation, comparison with EventEmitters, RxJS, and global state managers. |
 | 🧩 [**02. Architecture & Types**](./docs/topic--02-architecture-and-types.md) | Channels, Input/Output groups, type contracts, and bus instantiation. |
 | 🛠️ [**03. API Reference**](./docs/topic--03-api-reference.md) | Complete method reference (`send`, `on`, `once`, `stream`, `provide`, `request`, `requestStream`). |
-| 🚀 [**04. Advanced Patterns & Adapters**](./docs/topic--04-advanced-patterns.md) | Message replay, debouncing, chain-of-responsibility, and automated service adapters. |
+| 🚀 [**04. Advanced Patterns & Adapters**](./docs/topic--04-advanced-patterns.md) | Message replay, debouncing, Dynstruct pure event-driven UI integration, and automated service adapters. |
 
 ---
 

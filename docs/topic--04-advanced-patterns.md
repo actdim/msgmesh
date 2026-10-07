@@ -92,6 +92,80 @@ msgBus.send({
 
 ---
 
+## Dynstruct UI Integration & Pure Event-Driven Architecture
+
+When building large-scale frontend applications with `@actdim/dynstruct` and `@actdim/msgmesh`, MsgMesh serves as the single source of truth for all cross-component, cross-view, and navigation coordination.
+
+### 1. Single Source of Truth for Cross-Component Events
+
+Classical React architectures rely heavily on callback prop drilling (`onSelect*`, `onNavigate*`, `onClose*`, `onChange*`). In non-trivial applications, passing callbacks creates dual sources of truth, timing races, and state desynchronization.
+
+In the Dynstruct + MsgMesh architecture:
+- **Zero Callback Props**: Never pass callback props between Dynstruct components to coordinate state.
+- **Strict Role Separation**:
+  - Component `props` are strictly for component configuration and reactive bindings (`bindProp`).
+  - Component `actions` are internal model mutators (atomic MobX transactions) for component-local state. They are NOT cross-component callbacks.
+  - All cross-component, cross-feature, navigation, and domain coordination MUST flow through typed MsgMesh channels (`c.msgBus.send`, `msgBroker.subscribe`).
+
+### 2. Replay Buffer Pattern for UI State Hydration
+
+In UI applications with dynamic view rendering, tabbed layouts, or lazy-loaded components (e.g. media players, document readers, detail panes), an event (such as selecting an item or navigating to a path) may be published before a lazy view is mounted.
+
+Standard event buses drop messages if no subscriber is active at the exact moment of dispatch. MsgMesh solves this with configurable message replay:
+
+```typescript
+import { createMsgBus } from '@actdim/msgmesh';
+
+export const msgBus = createMsgBus<AppMsgStruct>({
+    'APP.VFS.NAVIGATE': {
+        replayBufferSize: 1, // Keep the latest navigation event in memory
+        replayWindowTime: Infinity,
+    },
+    'APP.VFS.SELECT_FILE': {
+        replayBufferSize: 1, // Keep the latest active file selection
+        replayWindowTime: Infinity,
+    },
+});
+```
+
+When a lazy-loaded or late-mounting component registers its subscription in `msgBroker.subscribe`, MsgMesh immediately delivers the buffered message. The component hydrates its local model instantly without requiring parent prop drilling or global store sync.
+
+### 3. Modular Bus Slicing
+
+Rather than declaring all application events in a single monolithic file, domain features define their own channel slices:
+
+```typescript
+// features/vfs-explorer/vfsMsgStruct.ts
+import { type MsgStruct } from '@actdim/msgmesh/contracts';
+
+export type VfsLocalChannels = {
+    'APP.VFS.NAVIGATE': {
+        in: { driveId: string; path: string };
+        out: void;
+    };
+    'APP.VFS.SELECT_FILE': {
+        in: { fileNode: any | null };
+        out: void;
+    };
+};
+
+export type VfsMsgStruct = MsgStruct<VfsLocalChannels>;
+```
+
+The application root composes modular slices into the unified application bus contract using TypeScript intersection types:
+
+```typescript
+// config/appConfig.ts
+export type AppMsgStruct = BaseAppMsgStruct &
+    ApiMsgStruct &
+    VfsMsgStruct &
+    AuthMsgStruct;
+```
+
+This guarantees 100% compile-time autocomplete and type safety across all components while keeping feature modules completely decoupled.
+
+---
+
 ## Service Adapters (NSwag / OpenAPI / gRPC Automation)
 
 The `@actdim/msgmesh/adapters` module automatically transforms standard TypeScript service classes (such as NSwag-generated REST API clients, gRPC clients, or custom service classes) into typed message bus providers at compile-time.

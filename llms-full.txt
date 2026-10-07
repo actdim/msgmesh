@@ -29,6 +29,7 @@
 ### The Output You Get
 - 🔒 **100% Compile-Time Verification**: Channels, input/output groups, and headers are checked by TypeScript with full IDE autocomplete.
 - ⚡ **RPC & Cancellation**: Built-in `request()` / `provide()` with `AbortSignal` cancellation support out-of-the-box.
+- 🎯 **Pure Event-Driven UI Architecture**: Seamless single source of truth for `@actdim/dynstruct` apps, eliminating callback prop drilling and UI timing desynchronization.
 - 🔌 **Service Adapters**: Automatically wrap NSwag / OpenAPI / gRPC API clients directly into typed message channels.
 - 🚀 **Built on RxJS**: Enterprise-grade scheduler under the hood, clean imperative API on top.
 
@@ -81,7 +82,7 @@ Explore the complete guide step-by-step from core concepts to advanced service a
 | 📖 [**01. Overview & Problem Analysis**](./docs/topic--01-overview-and-analysis.md) | Motivation, comparison with EventEmitters, RxJS, and global state managers. |
 | 🧩 [**02. Architecture & Types**](./docs/topic--02-architecture-and-types.md) | Channels, Input/Output groups, type contracts, and bus instantiation. |
 | 🛠️ [**03. API Reference**](./docs/topic--03-api-reference.md) | Complete method reference (`send`, `on`, `once`, `stream`, `provide`, `request`, `requestStream`). |
-| 🚀 [**04. Advanced Patterns & Adapters**](./docs/topic--04-advanced-patterns.md) | Message replay, debouncing, chain-of-responsibility, and automated service adapters. |
+| 🚀 [**04. Advanced Patterns & Adapters**](./docs/topic--04-advanced-patterns.md) | Message replay, debouncing, Dynstruct pure event-driven UI integration, and automated service adapters. |
 
 ---
 
@@ -290,11 +291,105 @@ MIT License. See [LICENSE](LICENSE) for details.
 
 ## Document: AGENTS.md (Agent Conventions & Protocol)
 
-<!-- BEGIN ALONG-PROTOCOL ref=../../../AGENTS.md (managed by along-init - do not edit by hand) -->
-This folder belongs to a repository that uses the ALONG structure. The full working
-guidance + agent-context protocol live once in the nearest ancestor `AGENTS.md` (`../../../AGENTS.md`) -
-read it there. This folder keeps its OWN `.along/` state; use the nearest one.
-Only this folder's specifics follow.
+<!-- BEGIN ALONG-PROTOCOL root (managed by along-init - do not edit by hand) -->
+# ALONG-PROTOCOL v4.4.7
+
+This repo carries its own agent context, provider-agnostically. Follow it every session, whatever tool you are.
+
+## Scope, Precedence & Subproject Placement
+- **Nearest Context Boundary**: Any folder may carry its own `AGENTS.md` + `.along/`; use the NEAREST ones for the area you're working in. On conflict, the more specific wins.
+- **Subproject Localization** [gate: subproject-boundary]: In submodules, nested repos or symlinked folders: all entities (issues, sessions, ADRs, history) MUST be created in the NEAREST `.along/`. Agents are STRICTLY FORBIDDEN from dumping subproject changes into the workspace root `.along/`.
+- **Multi-Subproject Work** [gate: subproject-boundary]: A change spanning subprojects needs an issue in each touched `.along/`, or a root umbrella issue whose child issues there carry `parent: <umbrella key>`. Edits under a subproject `.along/` are checked by path.
+- **Subproject Boundary**: only a nested `.git` or a user-run `along init` makes a subproject; never init a manifest folder.
+- **Precedence**: Nearest `.along/` > higher-level `.along/` > global config (`~/.claude/CLAUDE.md`, `~/.codex/AGENTS.md`, `~/.gemini/config/GEMINI.md`).
+
+## At session start - read these yourself (they are NOT auto-loaded)
+Use the NEAREST `.along/` for the area you're working in (fall back to a higher-level one if the folder has none):
+1. `AGENTS.md` (nearest) - conventions to follow.
+2. `.along/ISSUES.md` - active issue board (or query `/along-kb-search`).
+3. `.along/CONSTRAINTS.md` - active architectural constraints (or full log in `.along/DECISIONS.md` / `.along/DECISIONS/`).
+4. Active Issue file `.along/ISSUES/<type>--<slug>.md` for your task.
+Also, when relevant: `.along/VISION.md`, `.along/GLOSSARY.md`. These reflect the state WHEN WRITTEN - verify any named file/API/flag against the real code first.
+
+## Multi-Agent & Multi-Branch Concurrency
+- **Zero-Manual-Merge Rule** [gate: projection-protection]: On merge conflicts in derived projections (`ISSUES.md`, `INDEX.md`, `DECISIONS.md`), accept either side and run `/along-issue-sync`, `/along-kb-sync`, or `/along-decision-sync` to recompile. `along git setup` registers merge drivers that do this automatically; afterwards run `along git sync`.
+- **Append-Only Merge Driver**: `.along/HISTORY.md` and legacy monolithic `.along/DECISIONS.md` are append-only. Configure `.gitattributes` with `merge=union`. Modular ADR files in `.along/DECISIONS/` are isolated per-file to eliminate merge collisions.
+- **Untracked Exports** [gate: untracked-exports]: `.along/dashboard.html`, `.along/DASHBOARD.md` and per-machine `.along/diagnostics/` stay out of Git.
+- **Context Isolation**: Context is localized to the target issue file, session-scoped blackboard (`.along/.session/<slug>/`), and completed session logs.
+- **Parallel Closeout**: `along session list`; on the user's yes `along plan approve --closeout --ready`, then `along session close --ready`.
+
+## Mandatory Issue Anchoring
+- **No Code Without Issue** [gate: require-active-issue]: Before modifying source code, agents MUST identify or create an issue in `.along/ISSUES/<type>--<slug>.md` and set `status: in-progress`.
+- **Session Binding & Plan Approval** [gate: require-plan-approval]: `along start <slug>` binds THIS agent session to the issue; parallel sessions keep their own bindings. Source edits unlock after the user approves the plan (Claude Code: `ExitPlanMode`; elsewhere `along plan approve` only after the user's explicit yes). `along plan status` shows the binding.
+- **Exemptions**: Read-only Q&A and 1-line micro-edits (typo fixes, comments) do not require issues.
+- **Commit Binding** [gate: commit-issue-binding]: Every commit via `/along-commit` MUST bind to the active issue slug.
+- **No AI Co-Authors** [gate: commit-no-ai-coauthor]: Commit messages MUST NOT carry `Co-Authored-By:` trailers naming an AI agent (GitHub lists the vendor as a contributor). `along hook install` turns runtime attribution off; opt out via `.along/config.json` `commits.allow_ai_coauthor: true`.
+
+## Entity Ecosystem
+- **Entity types**: Issues (`feat`, `bug`, `debt`, `task`, `docs`), Decisions (ADRs), Milestones, Risks, Spikes, Checklists, Sessions. Full YAML schemas: `docs/topic--domain-model.md`.
+- **Canonical keys**: `<type>--<slug>` (e.g. `feat--token-refresh`). Reference by key, NEVER by file path.
+- **ADRs**: Modular records in `.along/DECISIONS/ADR-YYYY-MM-DD--<slug>.md` (with legacy fallback to monolithic `DECISIONS.md`). Never edit past entries - mark superseded. Recompile projections (`.along/DECISIONS.md` board and `.along/CONSTRAINTS.md`) via `/along-decision-sync` or `along decision sync`.
+- **Issue lifecycle** [gate: issue-lifecycle]: Close with `along issue done <slug>` (`status: done`, `completed`, moved to `.along/ISSUES/done/`).
+- **Entity references** [gate: entity-reference-integrity]: Never delete an entity other entities reference; use `along issue rename` / `along issue supersede`.
+- **Auto-entity creation**: Agents MUST automatically detect user intent (build/fix/refactor -> Issue, blocked/rate-limit -> Risk, compare/benchmark -> Spike, release/sprint -> Milestone) and create entities without prompting the user.
+
+## Knowledge Base & Documentation
+- **Stable Entry Point** [gate: stable-entry-point]: `README.md` and `docs/` never link into `.along/`; route through `docs/INDEX.md` or `docs/topic--<slug>.md`.
+- **Portable Links** [gate: portable-links]: Relative Markdown links only.
+- **Fact Grounding**: Agents MUST extract facts from actual code, `README.md`, `docs/`, and `package.json`. Generic LLM placeholders are strictly prohibited.
+- **Fast Retrieval** [gate: fast-retrieval]: Agents MUST query `/along-kb-search` before reading whole documentation files.
+- **Doc Blast Radius**: After non-trivial code changes, agents MUST map affected symbols to `docs/topic--*.md` articles and update them before completing the task.
+- **Manual Document Lock** [gate: doc-manual-lock]: Documents marked with `write_policy: manual` (or `locked: true`) are protected from automated agent modification during blast radius sweeps. Modifications require an explicit documentation issue (`docs--<slug>`).
+- **Managed Rule Packs** [gate: rule-pack-protection]: Never edit `.along/rules/**/*.md`; `along rules attach` owns them. Project guidelines go to `docs/topic--<slug>.md` or "Project specifics"; revert with `along rules restore`. `.along/rules/gates.yaml` and `.along/scripts/` stay repo-owned.
+- **Documentation Routing Tree**:
+  - Architectural choice / trade-off -> `.along/DECISIONS/` (ADR)
+  - Public overview / pitch / landing page -> `README.md`
+  - Technical interface contract / CLI spec -> `docs/topic--<slug>.md` (`type: reference`)
+  - Conceptual explanation / comparison / philosophy -> `docs/topic--<slug>.md` (`type: explanation`, `write_policy: manual`)
+  - Procedural walkthrough / runbook -> `docs/topic--<slug>.md` (`type: guide`)
+
+## While working
+- **Decisions**: Create new ADRs via `/along-decision-sync` or `along decision create <slug> --title "..."`. Add terms to `.along/GLOSSARY.md`.
+- **Token hygiene**: Use quiet flags (`pytest -q`, `dotnet test -v q`), filter outputs, inspect targeted line ranges.
+- **Lifecycle hooks first**: Agents MUST use `/along-test`, `/along-build`, `/along-dev` (or `.along/scripts/*.py`) before raw shell commands.
+- **Post-change review**: Agents MUST inspect diffs and evaluate blast radius via `along graph-impact` (or static search fallback). Silent skips are forbidden.
+
+## Stage & Session Completion Checklist
+When a stage or session completes, agents MUST execute in this order:
+1. [ ] **Tests** [gate: test_before_stop]: Run via `/along-test` with quiet flags. Zero failures.
+2. [ ] **File Integrity**: `git status -u` - all new/modified files non-zero size, no empty placeholders.
+3. [ ] **Code Review**: Inspect diff for side effects, verify REQ-N coverage, evaluate blast radius via `along graph-impact` (or static search), verify architectural decision compliance.
+4. [ ] **Entity Reconciliation**: Close issues (`done` + move to `done/`), update milestones, resolve risks, conclude spikes.
+5. [ ] **Doc Blast Radius**: Update affected `docs/topic--*.md`, `README.md` and Project specifics; add new terms to `.along/GLOSSARY.md`; touch `.along/VISION.md` only if scope/roadmap changed; run `/along-kb-sync`.
+6. [ ] **Session Log** [gate: wrap_before_stop]: `along wrap <slug> --decisions <ADR...> | --no-decisions` writes `.along/SESSIONS/<YYYY>/<date>--<slug>.md` with the blackboard record; answer the decisions question explicitly.
+7. [ ] **Projections** [gate: projection_sync_before_stop]: Run `/along-issue-sync` and `/along-decision-sync`.
+8. [ ] **HISTORY**: Append line to `.along/HISTORY.md`.
+9. [ ] **Compaction**: Advise user to run `/compact`.
+
+## Rules
+- **Contract-First Lifecycle**:
+  - Agents MUST execute `.along/scripts/<action>.py` or `/along-test`, `/along-build`, `/along-dev` before raw shell commands.
+  - When `.along/scripts/` is missing, `along test`/`along build` auto-detects and synthesizes hooks.
+  - In submodules, execute the hook from that subproject's own `.along/scripts/`.
+- **Environment Isolation**:
+  - Agents MUST NOT install system-wide or global packages when a script fails. Fix the architecture (missing `bootstrap.ensure_deps()`, incorrect `uv` wrapper), not the environment.
+- **Workspace Containment** [gate: workspace-containment]: Read and write only inside the workspace. Writes elsewhere are limited to the temp dir and runtime artifact dirs. Other repos need `allowed_roots` (`.along/rules/gates.yaml`, issue frontmatter, `along start --allow-root`). Never touch credential stores (`~/.ssh`, `~/.aws`).
+- **Runtimes Without Along Hooks** (Claude Cowork, Cursor, OpenCode, plain shells): gates are advisory there. Agents MUST self-apply every gate-tagged rule and use the `along` CLI for tests, commits, entity changes, and wrap instead of raw tools. `along doctor` reports the enforcement level.
+- **File Modification & Anti-Deletion**:
+  - Never delete, truncate, or overwrite existing documentation, comments, or code unless explicitly instructed.
+  - After batch edits or migrations, agents MUST run `git diff --stat` and inspect unexpected size reductions.
+  - No stubs or skeletons in place of populated code [gate: anti_stub_injection].
+  - Anchor edits on minimal unique chunks. Restore unintended deletions immediately.
+- **Clean ASCII** [gate: typography]: ASCII punctuation only (no typographic dashes, quotes, ellipsis, bullets, NBSP/zero-width chars or BOM); `along sanitize --write` fixes them.
+- **Markdown** [gate: code-fence-language]: Every code fence names a language.
+- **File Content Via Tools Only** [gate: cli_safety]: Create/edit files with the agent's file tools. NEVER carry content in heredocs, `python -c`, or inline shell. Write scripts to a file first.
+- **Verify Written Files**: After writing/patching, confirm parsing (`python -m compileall -q`, `bash -n`, etc.) before moving on.
+- **Hermetic Tests**: Tests MUST target throwaway fixtures (`tempfile.mkdtemp()`), never the live repository. Read-only access to live state is allowed. Keep a meta-test that verifies `git status --porcelain -u` stays clean.
+- **Inquiry Read-Only Invariance (Zero-Mutation Rule on Questions)** [gate: require-plan-approval]: On interrogative prompts ("is X done?", "why did Y fail?"), write/modify tools are STRICTLY PROHIBITED. Return a read-only audit report and ask for confirmation before modifying anything.
+- **Mandatory Adaptive Complexity Escalation & Execution Mode Routing**: When scope touches > 3 files, crosses subsystems, or refactors core engines: single-agent execution is forbidden - route to `along-team`. Plans MUST declare `Execution Mode: Direct` or `Role-Based`. Role-based blackboards (`along scratch init`) are held to the step loop [gate: team-step-active] [gate: team-reviews-before-stop]; dropping it needs `along scratch fallback <slug> --reason "..."`.
+- Windows-safe filenames [gate: windows-safe-filenames]: dates `YYYY-MM-DD`, date first.
+- Keep `ISSUES.md` compact: `along context-budget --check` enforces the limit.
+- Never write secrets into tracked files [gate: no-tracked-secrets].
 <!-- END ALONG-PROTOCOL -->
 
 # AGENTS.md - AI Context for @actdim/msgmesh
@@ -889,6 +984,16 @@ If change affects API shape or build artifacts, also run:
 - **`requestStream()` subscribe-before-publish**: `requestId` is generated upfront so the `out` subscription filter can be set before publishing to `in`. Reversing this order would miss synchronous responses.
 - **`requestStream()` vs `request()`**: `request()` uses `fetchCount: 1` on the subscription (takes first response only). `requestStream()` has no `fetchCount` on the subscription - all provider responses arrive; `fetchCount` in options controls how many the generator yields before stopping.
 
+## Dynstruct UI Integration & Pure Event-Driven Architecture
+
+When building applications with `@actdim/dynstruct` and `@actdim/msgmesh`:
+- **MsgMesh is the Single Source of Truth for Cross-Component Events**:
+  - Never pass callback props (`onSelect*`, `onNavigate*`, `onOpen*`, `onClose*`, `onChange*`) between Dynstruct components to coordinate state.
+  - Classical React callback prop drilling causes dual sources of truth, timing races, and state desynchronization.
+  - Dynstruct `actions` are internal model mutators (MobX transactions) for component-local state, NOT cross-component event props.
+  - All feature-to-feature, cross-component, navigation, and domain state changes must flow through typed MsgMesh channels (`c.msgBus.send`, `msgBroker.subscribe`).
+  - Modular channel structures can be defined in feature-specific files and intersected into the global `AppMsgStruct` (`AppMsgStruct = BaseAppMsgStruct & VfsMsgStruct & ...`).
+
 ## Project specifics
 
 <!-- BEGIN ALONG-RULES -->
@@ -1361,6 +1466,80 @@ msgBus.send({
     },
 });
 ```
+
+---
+
+## Dynstruct UI Integration & Pure Event-Driven Architecture
+
+When building large-scale frontend applications with `@actdim/dynstruct` and `@actdim/msgmesh`, MsgMesh serves as the single source of truth for all cross-component, cross-view, and navigation coordination.
+
+### 1. Single Source of Truth for Cross-Component Events
+
+Classical React architectures rely heavily on callback prop drilling (`onSelect*`, `onNavigate*`, `onClose*`, `onChange*`). In non-trivial applications, passing callbacks creates dual sources of truth, timing races, and state desynchronization.
+
+In the Dynstruct + MsgMesh architecture:
+- **Zero Callback Props**: Never pass callback props between Dynstruct components to coordinate state.
+- **Strict Role Separation**:
+  - Component `props` are strictly for component configuration and reactive bindings (`bindProp`).
+  - Component `actions` are internal model mutators (atomic MobX transactions) for component-local state. They are NOT cross-component callbacks.
+  - All cross-component, cross-feature, navigation, and domain coordination MUST flow through typed MsgMesh channels (`c.msgBus.send`, `msgBroker.subscribe`).
+
+### 2. Replay Buffer Pattern for UI State Hydration
+
+In UI applications with dynamic view rendering, tabbed layouts, or lazy-loaded components (e.g. media players, document readers, detail panes), an event (such as selecting an item or navigating to a path) may be published before a lazy view is mounted.
+
+Standard event buses drop messages if no subscriber is active at the exact moment of dispatch. MsgMesh solves this with configurable message replay:
+
+```typescript
+import { createMsgBus } from '@actdim/msgmesh';
+
+export const msgBus = createMsgBus<AppMsgStruct>({
+    'APP.VFS.NAVIGATE': {
+        replayBufferSize: 1, // Keep the latest navigation event in memory
+        replayWindowTime: Infinity,
+    },
+    'APP.VFS.SELECT_FILE': {
+        replayBufferSize: 1, // Keep the latest active file selection
+        replayWindowTime: Infinity,
+    },
+});
+```
+
+When a lazy-loaded or late-mounting component registers its subscription in `msgBroker.subscribe`, MsgMesh immediately delivers the buffered message. The component hydrates its local model instantly without requiring parent prop drilling or global store sync.
+
+### 3. Modular Bus Slicing
+
+Rather than declaring all application events in a single monolithic file, domain features define their own channel slices:
+
+```typescript
+// features/vfs-explorer/vfsMsgStruct.ts
+import { type MsgStruct } from '@actdim/msgmesh/contracts';
+
+export type VfsLocalChannels = {
+    'APP.VFS.NAVIGATE': {
+        in: { driveId: string; path: string };
+        out: void;
+    };
+    'APP.VFS.SELECT_FILE': {
+        in: { fileNode: any | null };
+        out: void;
+    };
+};
+
+export type VfsMsgStruct = MsgStruct<VfsLocalChannels>;
+```
+
+The application root composes modular slices into the unified application bus contract using TypeScript intersection types:
+
+```typescript
+// config/appConfig.ts
+export type AppMsgStruct = BaseAppMsgStruct &
+    ApiMsgStruct &
+    VfsMsgStruct &
+    AuthMsgStruct;
+```
+
+This guarantees 100% compile-time autocomplete and type safety across all components while keeping feature modules completely decoupled.
 
 ---
 

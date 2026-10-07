@@ -9,7 +9,6 @@ created: 2026-09-27
 updated: 2026-09-27
 agent: antigravity
 tags: [docs, msgmesh, channels, groups, conventions]
-milestone: v2.0.0
 blocked_by: []
 related: []
 ---

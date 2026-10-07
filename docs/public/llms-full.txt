@@ -29,6 +29,7 @@
 ### The Output You Get
 - 🔒 **100% Compile-Time Verification**: Channels, input/output groups, and headers are checked by TypeScript with full IDE autocomplete.
 - ⚡ **RPC & Cancellation**: Built-in `request()` / `provide()` with `AbortSignal` cancellation support out-of-the-box.
+- 🎯 **Pure Event-Driven UI Architecture**: Seamless single source of truth for `@actdim/dynstruct` apps, eliminating callback prop drilling and UI timing desynchronization.
 - 🔌 **Service Adapters**: Automatically wrap NSwag / OpenAPI / gRPC API clients directly into typed message channels.
 - 🚀 **Built on RxJS**: Enterprise-grade scheduler under the hood, clean imperative API on top.
 
@@ -81,7 +82,7 @@ Explore the complete guide step-by-step from core concepts to advanced service a
 | 📖 [**01. Overview & Problem Analysis**](./docs/topic--01-overview-and-analysis.md) | Motivation, comparison with EventEmitters, RxJS, and global state managers. |
 | 🧩 [**02. Architecture & Types**](./docs/topic--02-architecture-and-types.md) | Channels, Input/Output groups, type contracts, and bus instantiation. |
 | 🛠️ [**03. API Reference**](./docs/topic--03-api-reference.md) | Complete method reference (`send`, `on`, `once`, `stream`, `provide`, `request`, `requestStream`). |
-| 🚀 [**04. Advanced Patterns & Adapters**](./docs/topic--04-advanced-patterns.md) | Message replay, debouncing, chain-of-responsibility, and automated service adapters. |
+| 🚀 [**04. Advanced Patterns & Adapters**](./docs/topic--04-advanced-patterns.md) | Message replay, debouncing, Dynstruct pure event-driven UI integration, and automated service adapters. |
 
 ---
 
@@ -94,8 +95,191 @@ Try `@actdim/msgmesh` instantly in StackBlitz:
 ---
 
 ## AI-Assisted Development
-
+ 
 Developed with [Along](https://github.com/actdim/along) - a provider-agnostic context and memory system for AI coding agents.
+
+### AI Coding Assistants (Cursor, Claude Code, Copilot, Antigravity)
+
+To enable AI coding agents in your project to follow MsgMesh channel structures, type-safe RPC, pub/sub, and streaming patterns, add a reference to the bundled LLM documentation in your project's `AGENTS.md`, `CLAUDE.md`, or `.cursorrules`:
+
+```markdown
+## MsgMesh Guidelines
+- Reference: `node_modules/@actdim/msgmesh/llms.txt`
+```
+
+This gives agents instant access to channel contracts and patterns in `node_modules/@actdim/msgmesh/docs/` matching your installed version.
+
+---
+
+## Changelog
+
+### 1.8.0 (2026-10-01)
+- `core`: outside DEV the `MSGBUS.ERROR` payload keeps the error's own enumerable fields (e.g. `status`, `kind`); `name`, `message`, `stack` and `cause` are still set explicitly
+- Along protocol 4.4.1; AI commit attribution disabled
+
+### 1.7.2 (2026-09-27)
+- Docs: channel group semantics (`in`, `out`, `ex`) in contracts, adapters and domain structures
+- Source cleanup for ESLint (type-only imports, `let` -> `const`, formatting); no API changes
+- `@actdim/utico` peer range aligned with the published npm version (`>=1.7.0`); documentation CI workflow and lockfile fixed
+
+### 1.7.1 (2026-09-11)
+- VitePress documentation portal and GitHub Pages workflow; no library changes
+
+### 1.7.0 (2026-09-11)
+- Package description and keywords updated, `@actdim/utico` peer range `>=1.7.0`; no library changes
+
+### 1.5.15 (2026-09-07)
+- `@actdim/utico` peer dependency set to `>=1.5.15` (was `workspace:*`)
+
+### 1.5.10 - 1.5.14 (2026-08-28 - 2026-09-07)
+- Docs, unit tests (`delay`, `debounce`, `throttle`) and tooling only; no library changes
+
+### 1.5.9 (2026-08-28)
+- `core`: provider callbacks may return nothing and set `outMsg.payload` directly
+- `adapters`: `registerAdapters` also discovers methods on plain objects and namespace imports (functional API modules), not only class prototypes
+
+### 1.5.7 - 1.5.8 (2026-08-27)
+- Docs split into `docs/`, Along/agent metadata and tooling only; no library changes
+
+### 1.5.6 (2026-08-27)
+- `package.json` `exports`: `types` condition listed before `import`
+- Agent skills, `AGENTS.md` and Knowledge Base added
+
+### 1.5.5 (2026-07-01)
+- New `globals` module: `getGlobalFlags()`; debug logs and "no subscribers/handlers" warnings are emitted only when `globalThis.__MSGMESH__.debug` is set
+- TypeScript config split (`tsconfig.base`, `tsconfig.build`, `tsconfig.dev`), `@/` import alias
+
+### 1.5.4 (2026-07-01)
+- Docs only; no library changes
+
+### 1.5.3 (2026-07-01)
+- `core`: an already aborted `abortSignal` is honored up front (no subscription is created; awaitable calls reject with `OperationCanceledError`)
+
+### 1.5.2 (2026-06-11)
+- **Breaking:** `Outcome` and `headers.outcome` replaced by `Msg.status` (`MsgStatus`: `handled`, `failed`, `canceled`, `skipped`, `timeout`, `pending`)
+- **Breaking:** provider callback signature is now `(inMsg, outMsg)`; setting `outMsg.status` to `skipped` lets the next provider handle the request (chain of responsibility)
+- `core`: each subscriber receives its own `structuredClone` of the message envelope (independent messages)
+
+### 1.5.1 (2026-06-08)
+- **Breaking:** `$C_INHERIT` symbol replaced by `$C_ANY` (`"*"`) channel config, which accepts a static config or a `(channel) => config` resolver
+- **Breaking:** `MsgHeaders` reworked: `status`/`ResponseStatus` replaced by `outcome` (`Outcome`), `publishedAt` renamed to `timestamp`, `auth` and `originId` removed, `spanId`, `name`, `severity` added
+- `MsgStructNormalized` drops channels without keys
+
+### 1.5.0 (2026-06-05)
+- MIT `LICENSE` text and `@actdim/utico` peer range update; no library changes
+
+### 1.4.9 (2026-06-04)
+- `contracts`: `MsgStruct` declares implicit `in`/`out` groups as `void` when a channel does not define them
+- `publishConfig.access: public`
+
+### 1.4.8 (2026-05-15)
+- License changed to MIT in `package.json`; dependency updates; no library changes
+
+### 1.4.6 (2026-05-03)
+- `core`: `requestStream()` added (publish a request and consume a stream of responses), with `MsgRequestStreamParams` and `MsgRequestStreamOptions` (`throwIfNoProvider`)
+
+### 1.4.2 - 1.4.5 (2026-04-24 - 2026-04-30)
+- `@actdim/utico` peer range updates; no library changes
+
+### 1.4.1 (2026-04-22)
+- `core`: outside DEV the `MSGBUS.ERROR` payload carries a plain `{ name, message, stack, cause }` object (or a JSON string for non-`Error` values) instead of the raw error
+
+### 1.4.0 (2026-04-18)
+- `core`: an exception thrown by a provider is answered to the requester with an `error` response, so `request()` rejects instead of waiting for a timeout
+
+### 1.3.9 (2026-04-18)
+- `NoProviderError` and `isNoProviderError()`; `mandatoryProvider` channel config and `throwIfNoProvider` request option
+- `$C_INHERIT` default channel config applied to all channels
+- Default promise timeout lowered from 2 minutes to 5 seconds, exported as `defaultPromiseTimeout`
+- Warning when a message is published to a channel without subscribers or handlers
+
+### 1.3.8 (2026-04-01)
+- `contracts`: `ErrorChannelStruct` is partial again in `MsgStruct`
+
+### 1.3.7 (2026-04-01)
+- `contracts`: `MsgStructBase` is the generic constraint across the API (`MsgBus`, `createMsgBus`, params types, `registerAdapters`); IntelliSense fixes
+- Peer dependency ranges widened to `>=` (`@actdim/utico`, `rxjs`, `uuid`)
+
+### 1.3.3 - 1.3.4 (2026-02-16 - 2026-02-21)
+- Docs and `@actdim/utico` dependency updates only; no library changes
+
+### 1.3.2 (2026-02-16)
+- `contracts`: `MsgStructBase` channel keys typed as `string` instead of `PropertyKey`
+
+### 1.3.1 (2026-02-16)
+- **Breaking:** `MsgStructFactory` removed; `MsgStruct<T>` is now the struct factory type, the former `MsgStruct` is `MsgStructBase` and the former `MsgStructBase` is `SystemMsgStruct`
+
+### 1.3.0 (2026-02-16)
+- **Breaking:** `InParam`, `OutParam`, `ErrorParam` renamed to `InChannelStruct`, `OutChannelStruct`, `ErrorChannelStruct`; `SystemChannelStruct` added
+- Group IntelliSense fixes in `contracts`
+
+### 1.2.9 (2026-02-15)
+- New `adapters` module: `registerAdapters`, `MsgProviderAdapter`, `ToMsgStruct`, `ToMsgChannelPrefix`, `getMsgChannelSelector` (expose service clients as bus providers)
+
+### 1.2.8 (2026-02-15)
+- `core`: request cancellation propagates to the provider (a `canceled` message is published, the provider skips the response); `request()` rejects on provider `error`/`canceled` responses
+- `send()` returns the published `Msg` (was `Promise<void>`); requests correlate via `headers.requestId` / `inResponseToId`; `status` and `error` headers added
+
+### 1.2.7 (2026-02-11)
+- `core`: `stream()` reimplemented as an async generator with `timeout` and abort handling
+- `OperationCanceledError`, `isTimeoutError()`, `isAbortError()`, `isOperationCanceledError()`; abort listeners are removed when a subscription ends
+
+### 1.2.6 (2026-02-10)
+- Docs only; no library changes
+
+### 1.2.5 (2026-02-07)
+- `$SYSTEM_TOPIC` (`"msgbus"`) exported; error payload typed as `ErrorPayload`; unused `replayCount` channel config removed
+
+### 1.2.4 (2026-01-21)
+- **Breaking:** `$C_ERROR` channel name changed from `"error"` to `"MSGBUS.ERROR"`
+
+### 1.2.3 (2026-01-13)
+- **Breaking:** modules renamed `msgBusCore` -> `contracts`, `msgBusFactory` -> `core`
+- **Breaking:** `onceAsync` -> `once`, `dispatch` -> `send` (returns a promise), `dispatchAsync` -> `request`; per-call `config` replaced by `options` (`MsgSubOptions`, `PromiseOptions`, `MsgRequestOptions` with `sendTimeout`/`responseTimeout`)
+- Optional `config` handled safely when channel config is missing
+
+### 1.2.1 - 1.2.2 (2026-01-06 - 2026-01-08)
+- `@actdim/utico` dependency updates only; no library changes
+
+### 1.1.7 (2026-01-02)
+- `payloadFn` passes all tuple arguments (rest args fix)
+
+### 1.1.6 (2025-12-31)
+- **Breaking:** provider callback receives `(msgIn, headers)` instead of `(msgIn, msgOut)`; provider params accept `headers` merged into the response
+- Fixed `delay` when a channel has no config
+
+### 1.1.2 (2025-12-29)
+- Fixed `throttle`/`debounce` when a channel has no config
+
+### 1.1.1 (2025-12-29)
+- **Breaking:** `MsgBus*` types renamed to `Msg*` (`MsgBusStruct` -> `MsgStruct`, `MsgBusSubscriber` -> `MsgSubscriber`, ...)
+- **Breaking:** `requestId`, `traceId`, `priority`, `persistent` moved from the message into typed `MsgHeaders`
+- `throttle` and `debounce` on channel and subscriber config; `timeout` for awaitable calls with `BaseError`, `TimeoutError`, `AbortError`
+
+### 1.1.0 (2025-12-19)
+- Dispatch param `ext` renamed to `headers`; `$TypeArgStruct` / `$TypeArgHeaders` type markers on `MsgBus`
+
+### 1.0.6 (2025-12-18)
+- Message headers support: `THeaders` type parameter, `headers`, `version`, `tags` on `Msg`; provider callback also receives the outgoing message
+
+### 1.0.5 (2025-12-16)
+- **Breaking:** abort signal moved from `params.signal` to `params.config.abortSignal`; error channel made optional in `MsgBusStruct`
+
+### 1.0.2 (2025-11-10)
+- Dependency and build config updates only; no library changes
+
+### 1.0.0 (2025-11-03)
+- Replay channels via `replayBufferSize` / `replayWindowTime` channel config (`ReplaySubject`); message `id` may be supplied by the caller
+- Test setup for Node and browser (Vitest, Mocha)
+
+### 0.9.3 (2025-10-06)
+- Dependency updates (`rxjs`, `uuid` 13, `@actdim/utico`) and build scripts; no library changes
+
+### 0.9.1 (2025-07-08)
+- `@actdim/utico` moved to peer dependencies; package description updated
+
+### 0.9.0 (2025-07-08)
+- Initial release: `createMsgBus` with `on`, `onceAsync`, `stream`, `provide`, `dispatch`, `dispatchAsync`
 
 ---
 
@@ -112,11 +296,13 @@ This folder belongs to a repository that uses the ALONG structure. The full work
 guidance + agent-context protocol live once in the nearest ancestor `AGENTS.md` (`../../../AGENTS.md`) -
 read it there. This folder keeps its OWN `.along/` state; use the nearest one.
 Only this folder's specifics follow.
-<!-- END ALONG-PROTOCOL --># AGENTS.md — AI Context for @actdim/msgmesh
+<!-- END ALONG-PROTOCOL -->
+
+# AGENTS.md - AI Context for @actdim/msgmesh
 
 ## Project
 
-Type-safe message bus for TypeScript. Built on RxJS (Subjects + pipe operators), but RxJS is an implementation detail — the public API is simple pub/sub + request/response.
+Type-safe message bus for TypeScript. Built on RxJS (Subjects + pipe operators), but RxJS is an implementation detail - the public API is simple pub/sub + request/response.
 
 Part of the @actdim/dynstruct architectural framework.
 
@@ -124,13 +310,13 @@ Part of the @actdim/dynstruct architectural framework.
 
 ```
 src/
-  contracts.ts   — All types, interfaces, error classes (MsgStruct, MsgBus, MsgHeaders, Msg, etc.)
-  core.ts        — Implementation (createMsgBus): publish, subscribe, provide, dispatch, request, requestStream, stream
-  adapters.ts    — Service adapter system: registerAdapters, ToMsgStruct, ToMsgChannelPrefix, getMsgChannelSelector
-  util.ts        — Helpers (delay, throttle options)
+  contracts.ts   - All types, interfaces, error classes (MsgStruct, MsgBus, MsgHeaders, Msg, etc.)
+  core.ts        - Implementation (createMsgBus): publish, subscribe, provide, dispatch, request, requestStream, stream
+  adapters.ts    - Service adapter system: registerAdapters, ToMsgStruct, ToMsgChannelPrefix, getMsgChannelSelector
+  util.ts        - Helpers (delay, throttle options)
 tests/
-  msgBus.test.ts — Main test suite (vitest)
-  testDomain.ts  — Test bus structure (TestBusStruct) and shared bus instance
+  msgBus.test.ts - Main test suite (vitest)
+  testDomain.ts  - Test bus structure (TestBusStruct) and shared bus instance
 ```
 
 ## Commands
@@ -147,17 +333,17 @@ pnpm format:check      # Prettier check
 
 ## TypeScript Config Layout
 
-Solution-style split — do not collapse it back into one config:
+Solution-style split - do not collapse it back into one config:
 
-- `tsconfig.base.json` — shared `compilerOptions` only. `moduleResolution: "bundler"` (this is a Vite package; do NOT switch to `"node"`/`node10` (deprecated) or `nodenext` (would force `.js` import extensions)). No `baseUrl` (deprecated in TS 6.0) — `paths` targets are relative: `"@/*": ["./src/*"]`. `extends` inherits only `compilerOptions`, not `include`/`files`/`references`.
-- `tsconfig.json` — pure orchestrator: `{ "files": [], "references": [...] }`. It compiles nothing itself; it only wires the leaf projects.
-- `tsconfig.build.json` — library build; emits `.d.ts` to `dist`. Consumed by `vite-plugin-dts` via its `tsconfigPath` (must stay a config WITHOUT `references`, else the plugin emits zero declarations).
-- `tsconfig.dev.json` — editor/dev + tests; broad `types` (node, vitest/globals, vite/client, …).
+- `tsconfig.base.json` - shared `compilerOptions` only. `moduleResolution: "bundler"` (this is a Vite package; do NOT switch to `"node"`/`node10` (deprecated) or `nodenext` (would force `.js` import extensions)). No `baseUrl` (deprecated in TS 6.0) - `paths` targets are relative: `"@/*": ["./src/*"]`. `extends` inherits only `compilerOptions`, not `include`/`files`/`references`.
+- `tsconfig.json` - pure orchestrator: `{ "files": [], "references": [...] }`. It compiles nothing itself; it only wires the leaf projects.
+- `tsconfig.build.json` - library build; emits `.d.ts` to `dist`. Consumed by `vite-plugin-dts` via its `tsconfigPath` (must stay a config WITHOUT `references`, else the plugin emits zero declarations).
+- `tsconfig.dev.json` - editor/dev + tests; broad `types` (node, vitest/globals, vite/client, ...).
 
 Rules:
 
-- Root Node files (`packageConfig.ts`, `vite.config.ts`, `vitest*.config.ts`) get node types via `types: ["node"]` in the build/dev projects — NOT by editing includes elsewhere or adding `node` to a shared `types` array (that leaks node globals into browser `src`). If the editor shows "Cannot find name 'path'/'\_\_dirname'" on such a file, it means the file isn't routed to a project — check the `references` chain, don't hack the source with `/// <reference>`.
-- Always type-check the solution with `tsc -b` (build mode), never `tsc -p` — `-p` sees `files: []` and checks nothing. Both `typecheck` and `build` scripts already use `tsc -b tsconfig.json`.
+- Root Node files (`packageConfig.ts`, `vite.config.ts`, `vitest*.config.ts`) get node types via `types: ["node"]` in the build/dev projects - NOT by editing includes elsewhere or adding `node` to a shared `types` array (that leaks node globals into browser `src`). If the editor shows "Cannot find name 'path'/'\_\_dirname'" on such a file, it means the file isn't routed to a project - check the `references` chain, don't hack the source with `/// <reference>`.
+- Always type-check the solution with `tsc -b` (build mode), never `tsc -p` - `-p` sees `files: []` and checks nothing. Both `typecheck` and `build` scripts already use `tsc -b tsconfig.json`.
 
 ## Architecture
 
@@ -165,20 +351,20 @@ Rules:
 
 Every message has an address: `{ channel, group, topic }`.
 
-- **Channel** — logical namespace (e.g. `"User.Login"`, `"Api.FetchData"`). String with dot notation.
-- **Group** — defines message role within a channel. Two semantic kinds:
-    - **Input groups** — any name except `"out"` and `"error"`. Declare the payload type coming _into_ the channel.
-        - `"in"` — conventional primary input group; used as default in `send`, `on`, `provide`, `request` when group is omitted.
-        - Custom names (`"in1"`, `"in2"`, etc.) — additional input payload types on the same channel (**input type overloading**). Each input group is an independent subscription target; a `provide()` handler must specify which group it listens to.
-    - **Output group** — always named `"out"`. Declares the payload type of the channel's response. One per channel, shared across all input groups. If omitted, `MsgStruct<>` adds `out?: void` implicitly.
-    - `"error"` — reserved; auto-published on provider throw.
-    - **`send()` vs `request()`**: `send()` publishes and returns immediately (fire-and-forget — no confirmation of handling). `request()` / `requestStream()` awaits the handler's response via `out`. Even `out: void` is meaningful: it confirms the message was _processed_, not just dispatched. A handler can set `msgOut.status = 'skipped'` to produce no `out` response and let another handler take it (chain of responsibility).
-- **Topic** — optional sub-filter. Exact match by default. Regex if wrapped in slashes: `"/^task-.*/"`.
+- **Channel** - logical namespace (e.g. `"User.Login"`, `"Api.FetchData"`). String with dot notation.
+- **Group** - defines message role within a channel. Two semantic kinds:
+    - **Input groups** - any name except `"out"` and `"error"`. Declare the payload type coming _into_ the channel.
+        - `"in"` - conventional primary input group; used as default in `send`, `on`, `provide`, `request` when group is omitted.
+        - Custom names (`"in1"`, `"in2"`, etc.) - additional input payload types on the same channel (**input type overloading**). Each input group is an independent subscription target; a `provide()` handler must specify which group it listens to.
+    - **Output group** - always named `"out"`. Declares the payload type of the channel's response. One per channel, shared across all input groups. If omitted, `MsgStruct<>` adds `out?: void` implicitly.
+    - `"error"` - reserved; auto-published on provider throw.
+    - **`send()` vs `request()`**: `send()` publishes and returns immediately (fire-and-forget - no confirmation of handling). `request()` / `requestStream()` awaits the handler's response via `out`. Even `out: void` is meaningful: it confirms the message was _processed_, not just dispatched. A handler can set `msgOut.status = 'skipped'` to produce no `out` response and let another handler take it (chain of responsibility).
+- **Topic** - optional sub-filter. Exact match by default. Regex if wrapped in slashes: `"/^task-.*/"`.
 - **Reserved**: `"MSGBUS.ERROR"` channel for system-level errors.
 
 ### Type Structure
 
-Bus should be defined via generic `MsgStruct<...>` — it augments your structure with system channel groups (for example, `error`) and is the same base type used across the API:
+Bus should be defined via generic `MsgStruct<...>` - it augments your structure with system channel groups (for example, `error`) and is the same base type used across the API:
 
 ```typescript
 type MyBus = MsgStruct<{
@@ -189,13 +375,13 @@ type MyBus = MsgStruct<{
 }>;
 ```
 
-`out` types should NOT be wrapped in `Promise` — async is handled at the API level.
+`out` types should NOT be wrapped in `Promise` - async is handled at the API level.
 
 `MsgStruct<>` adds three implicit groups to every channel if not declared explicitly:
 
-- `error?: ErrorPayload` — always added (channel-specific errors)
-- `out?: void` — added when `out` is missing; `void` enforces explicit type declaration when payload matters
-- `in?: void` — added when `in` is missing; same rationale
+- `error?: ErrorPayload` - always added (channel-specific errors)
+- `out?: void` - added when `out` is missing; `void` enforces explicit type declaration when payload matters
+- `in?: void` - added when `in` is missing; same rationale
 
 This means `group: "out"` is always a valid subscription target even if `out` is not in the channel struct.
 
@@ -211,9 +397,9 @@ Both `send()` and `request()` use internal `dispatch()`. `publish()` is a lower-
 | `stream()`        | `subscribe()` + async generator with manual Promise queue |
 | `provide()`       | `subscribe()` + auto-publish to `out`                     |
 | `request()`       | `dispatch()` + Promise.race with timeout                  |
-| `requestStream()` | `subscribe(out)` + `publish(in)` + async generator        | Generates `requestId` upfront; subscribes to `out` filtered by `requestId` before publishing; no `fetchCount: 1` on subscription — all provider responses flow through |
+| `requestStream()` | `subscribe(out)` + `publish(in)` + async generator        | Generates `requestId` upfront; subscribes to `out` filtered by `requestId` before publishing; no `fetchCount: 1` on subscription - all provider responses flow through |
 
-`publish()` is a purely internal function — not exposed in the public API. It generates `msg.id`, sets `publishedAt`, and calls `Subject.next()`. It does not set a default `status`.
+`publish()` is a purely internal function - not exposed in the public API. It generates `msg.id`, sets `publishedAt`, and calls `Subject.next()`. It does not set a default `status`.
 
 ### Internal Flow
 
@@ -236,14 +422,14 @@ createMsgBus<MyStruct>({
     'Order.Create': { mandatoryProvider: false }, // overrides for this channel
 });
 
-// Dynamic default — function receives the channel name
+// Dynamic default - function receives the channel name
 createMsgBus<MyStruct>({
     '*': (channel) => ({ mandatoryProvider: channel.startsWith('Api.') }),
     'Order.Create': { mandatoryProvider: false },
 });
 ```
 
-`"*"` is reserved — cannot be used as a channel name. Enforced at the type level via `"*"?: never` in `SystemMsgStruct`.
+`"*"` is reserved - cannot be used as a channel name. Enforced at the type level via `"*"?: never` in `SystemMsgStruct`.
 
 #### Subject Routing
 
@@ -270,7 +456,7 @@ filter(topic match + custom filter)
 
 The `asyncScheduler` ensures message delivery is always async (never synchronous in the same microtask as `publish()`).
 
-#### dispatch() — Critical Ordering
+#### dispatch() - Critical Ordering
 
 `dispatch()` (which is exposed as public `send()`):
 
@@ -278,9 +464,9 @@ The `asyncScheduler` ensures message delivery is always async (never synchronous
 2. **Then**: publishes message to `in` group via `publish()`
 3. Returns the published message (with `headers.requestId`)
 
-This order is critical — subscribing after publishing could miss the response if it arrives synchronously.
+This order is critical - subscribing after publishing could miss the response if it arrives synchronously.
 
-#### provide() — Headers Merge & Cancel Logic
+#### provide() - Headers Merge & Cancel Logic
 
 ```typescript
 const msgOut: Msg<TStructN, keyof TStructN, 'out'> = {
@@ -301,11 +487,11 @@ msgOut.payload = payload;
 publish(msgOut);
 ```
 
-Provider-initiated cancellation: set `msgOut.status = 'canceled'` inside the callback — `provide()` will skip publishing `out`, and `request()` will reject with `OperationCanceledError`.
+Provider-initiated cancellation: set `msgOut.status = 'canceled'` inside the callback - `provide()` will skip publishing `out`, and `request()` will reject with `OperationCanceledError`.
 
-Chain of responsibility: set `msgOut.status = 'skipped'` — `provide()` skips publishing, the next provider handles the message.
+Chain of responsibility: set `msgOut.status = 'skipped'` - `provide()` skips publishing, the next provider handles the message.
 
-#### request() — No-Provider Check
+#### request() - No-Provider Check
 
 Before setting up the timeout/promise, `request()` checks for a registered provider if either `options.throwIfNoProvider` is set or the channel config has `mandatoryProvider: true`:
 
@@ -315,9 +501,9 @@ if (options.throwIfNoProvider || channelConfig.mandatoryProvider) {
 }
 ```
 
-This is a synchronous snapshot check — it does not guarantee delivery. Use ack for delivery guarantees (planned).
+This is a synchronous snapshot check - it does not guarantee delivery. Use ack for delivery guarantees (planned).
 
-#### request() — Response Handling
+#### request() - Response Handling
 
 `request()` checks response `status` in this order:
 
@@ -327,7 +513,7 @@ This is a synchronous snapshot check — it does not guarantee delivery. Use ack
 
 **Default timeout**: 5 seconds (`defaultPromiseTimeout = 1000 * 5`). Override globally: `import { defaultPromiseTimeout } from '@actdim/msgmesh/core'; defaultPromiseTimeout = 10000;`
 
-#### request() — Abort Timing
+#### request() - Abort Timing
 
 Abort listener is set up AFTER `await dispatch()` completes (not before). Then checks `abortSignal.aborted` for early abort. This means: if abort fires during publish, it's caught by the `aborted` check after dispatch returns.
 
@@ -338,7 +524,7 @@ On error in `provide()` callback, errors are published to BOTH:
 1. `channel:error` group (channel-specific, topic: `"msgbus"`)
 2. `MSGBUS.ERROR:in` channel (global, topic: `"msgbus"`)
 
-AND — if the message had a `requestId` — also published to `out` with `status: 'error'` so `request()` rejects immediately instead of timing out.
+AND - if the message had a `requestId` - also published to `out` with `status: 'error'` so `request()` rejects immediately instead of timing out.
 
 On error in `subscribe()` callback, only routes to error channels (no `out` response).
 
@@ -348,8 +534,8 @@ Payload: `{ error, source: { id, address, headers } }`
 
 ### msg.id vs headers.requestId
 
-- `msg.id` — **transport ID**. Unique per published message. Generated by `publish()`. Every message gets a new one.
-- `headers.requestId` — **logical request ID**. Generated once per `dispatch()` call: `params.headers?.requestId || uuid()`. Shared between the original request and its cancel message. Used to correlate request → response.
+- `msg.id` - **transport ID**. Unique per published message. Generated by `publish()`. Every message gets a new one.
+- `headers.requestId` - **logical request ID**. Generated once per `dispatch()` call: `params.headers?.requestId || uuid()`. Shared between the original request and its cancel message. Used to correlate request → response.
 
 The cancel message has the SAME `requestId` as the original but a DIFFERENT `msg.id`.
 
@@ -360,8 +546,8 @@ Set by `provide()` on the `out` response headers: `msgOut.headers.inResponseToId
 ### Cancellation Flow
 
 1. Caller calls `request({ ..., options: { abortSignal } })`
-2. On abort: `request()` publishes a cancel message to `in` group with `{ requestId: <same>, status: 'canceled' }` — so the provider can stop in-flight work
-3. `provide()` callback receives the cancel message — provider can clean up (e.g. abort fetch)
+2. On abort: `request()` publishes a cancel message to `in` group with `{ requestId: <same>, status: 'canceled' }` - so the provider can stop in-flight work
+3. `provide()` callback receives the cancel message - provider can clean up (e.g. abort fetch)
 4. `provide()` does NOT publish `out` for cancel messages
 5. `request()` rejects with `OperationCanceledError`
 
@@ -396,16 +582,16 @@ msgBus.provide({
 
 - `publish()` sets no default status (undefined by default)
 - `request()` sends `status: 'canceled'` on abort (cancel message to provider)
-- `provide()` errors set `status: 'failed'` and publish to `out` with `inResponseToId` — so `request()` rejects with `Error` (message from `headers.error`)
-- Provider can set `msgOut.status = 'canceled'` to initiate provider-side cancellation — `provide()` will skip publishing `out`, and `request()` will reject with `OperationCanceledError`
-- Provider can set `msgOut.status = 'skipped'` to skip publishing — lets the next provider handle the message (chain of responsibility)
+- `provide()` errors set `status: 'failed'` and publish to `out` with `inResponseToId` - so `request()` rejects with `Error` (message from `headers.error`)
+- Provider can set `msgOut.status = 'canceled'` to initiate provider-side cancellation - `provide()` will skip publishing `out`, and `request()` will reject with `OperationCanceledError`
+- Provider can set `msgOut.status = 'skipped'` to skip publishing - lets the next provider handle the message (chain of responsibility)
 
 ### Error Types
 
-- `TimeoutError` — timeout exceeded (request, once). Default: 5 seconds (`defaultPromiseTimeout`).
-- `AbortError` — subscription aborted via AbortSignal (on, once, stream)
-- `OperationCanceledError` — request canceled (request with abortSignal)
-- `NoProviderError` — no provider registered on channel at time of request. Has `.channel` property.
+- `TimeoutError` - timeout exceeded (request, once). Default: 5 seconds (`defaultPromiseTimeout`).
+- `AbortError` - subscription aborted via AbortSignal (on, once, stream)
+- `OperationCanceledError` - request canceled (request with abortSignal)
+- `NoProviderError` - no provider registered on channel at time of request. Has `.channel` property.
 
 All extend `BaseError`. Use `isTimeoutError()`, `isAbortError()`, `isOperationCanceledError()`, `isNoProviderError()` type guards.
 
@@ -423,11 +609,11 @@ Fan-in pattern: one request, multiple provider responses collected as an async s
 **Critical ordering** (same invariant as `dispatch()`):
 
 1. Generate `requestId` upfront (`params.headers?.requestId ?? uuid()`)
-2. **Subscribe to `out`** with filter `inResponseToId === requestId` — no `fetchCount: 1`, all provider responses pass through
-3. **Publish to `in`** — providers receive the message and each publishes their response to `out`
+2. **Subscribe to `out`** with filter `inResponseToId === requestId` - no `fetchCount: 1`, all provider responses pass through
+3. **Publish to `in`** - providers receive the message and each publishes their response to `out`
 4. Yield each response through the async generator
 
-This subscribe-before-publish order is critical — reversing it would miss responses that arrive synchronously.
+This subscribe-before-publish order is critical - reversing it would miss responses that arrive synchronously.
 
 **Response status handling** (checked per message, unlike `request()` which checks once):
 
@@ -440,7 +626,7 @@ This subscribe-before-publish order is critical — reversing it would miss resp
 
 ### Chain of Responsibility
 
-Multiple providers on the same channel each get an independent copy of the message envelope (via `structuredClone` on the envelope — payload is shared by reference). A provider can opt out of handling by setting `msgOut.status = 'skipped'` — `provide()` will skip publishing `out` for that invocation, and the next provider handles normally.
+Multiple providers on the same channel each get an independent copy of the message envelope (via `structuredClone` on the envelope - payload is shared by reference). A provider can opt out of handling by setting `msgOut.status = 'skipped'` - `provide()` will skip publishing `out` for that invocation, and the next provider handles normally.
 
 ```typescript
 msgBus.provide({
@@ -645,7 +831,7 @@ msgBus.request({ channel: 'API.ORDER.CREATEORDER', payloadFn: (fn) => fn(items, 
 - TypeScript strict mode
 - Vitest for tests
 - Path alias `@/` → `src/`
-- RxJS is internal only — never exposed in public API
+- RxJS is internal only - never exposed in public API
 - All public API is on the `MsgBus` interface returned by `createMsgBus<TStruct>(config?)`
 - Generic type parameters: `TStruct` (bus structure), `TStructN` (normalized, Awaited), `TChannel`, `TGroup`, `THeaders`
 - Payload types are resolved from the struct: `in` group → `InStruct<TStruct, TChannel>`, `out` group → `OutStruct<TStruct, TChannel>`
@@ -666,7 +852,7 @@ type TestBusStruct = {
 
 `createTestMsgBus()` creates a fresh bus instance. `sharedMsgBus` is a shared instance used across tests.
 
-Ignore `mocha.test.ts` — it's a legacy file, fails with "describe is not defined" (Mocha globals not available in vitest). Not related to the library.
+Ignore `mocha.test.ts` - it's a legacy file, fails with "describe is not defined" (Mocha globals not available in vitest). Not related to the library.
 
 ## Change Policy
 
@@ -689,20 +875,30 @@ If change affects API shape or build artifacts, also run:
 
 ## Common Pitfalls
 
-- **`send()` uses `dispatch()` internally** but without callback — so it's effectively just a publish with `requestId` generation. The `out` subscription in `dispatch()` only activates when `request()` passes a callback.
-- **Headers spread order in `provide()`**: `{ ...inMsg.headers, ...params.headers, inResponseToId }` — provider's static headers override incoming, but `inResponseToId` always wins.
-- **`provide()` callback signature**: second parameter is `msgOut: Msg<TStruct, TChannel, "out">` — the pre-initialized outgoing message. Write `msgOut.status = 'skipped'` or `msgOut.status = 'canceled'` to control publish behavior. Cancel check is `msgIn.status === 'canceled'` (on the incoming message), not `msgOut.status`.
+- **`send()` uses `dispatch()` internally** but without callback - so it's effectively just a publish with `requestId` generation. The `out` subscription in `dispatch()` only activates when `request()` passes a callback.
+- **Headers spread order in `provide()`**: `{ ...inMsg.headers, ...params.headers, inResponseToId }` - provider's static headers override incoming, but `inResponseToId` always wins.
+- **`provide()` callback signature**: second parameter is `msgOut: Msg<TStruct, TChannel, "out">` - the pre-initialized outgoing message. Write `msgOut.status = 'skipped'` or `msgOut.status = 'canceled'` to control publish behavior. Cancel check is `msgIn.status === 'canceled'` (on the incoming message), not `msgOut.status`.
 - **Message envelope is cloned per subscriber**: `subscribe()` calls `structuredClone` on the message envelope (everything except `payload`) before delivering to each callback. Mutations to `msg.status`, `msg.headers`, `msg.address` do not leak between subscribers. `payload` is the same reference for all.
 - **Cancel message has no payload**: only `{ requestId, status: 'canceled' }` in headers. Provider must handle `msg.payload` being `undefined` for cancel messages.
-- **`throwIfNoProvider`** in `request()` options and **`mandatoryProvider`** in channel config both cause immediate `NoProviderError` if no provider is subscribed at call time. They check `subject.observed` — a snapshot, not a delivery guarantee.
+- **`throwIfNoProvider`** in `request()` options and **`mandatoryProvider`** in channel config both cause immediate `NoProviderError` if no provider is subscribed at call time. They check `subject.observed` - a snapshot, not a delivery guarantee.
 - **`dispatch()` subscribe-before-publish**: changing this order breaks request-response correlation.
 - **`request()` abort after dispatch**: abort listener is attached after `await dispatch()`, not before. Immediate abort is handled by checking `abortSignal.aborted`.
 - **`asyncScheduler` makes delivery async**: callbacks are never called synchronously within the same `publish()` call. Tests use `await delay()` to let the scheduler process messages.
 - **Conflating `msg.id` with `headers.requestId`**: `msg.id` is transport ID (unique per publish), `requestId` is logical request ID (shared between request and its cancel message).
-- **`stream()` timeout is inactivity timeout**, not total duration — resets on each received message. Same applies to `requestStream()`.
-- **Provider exceptions propagate to `request()`**: `provide()` catch publishes to `out` with `status: 'error'` when `requestId` is present, so `request()` rejects immediately instead of timing out. Same for `requestStream()` — a provider error throws from the generator and stops iteration.
+- **`stream()` timeout is inactivity timeout**, not total duration - resets on each received message. Same applies to `requestStream()`.
+- **Provider exceptions propagate to `request()`**: `provide()` catch publishes to `out` with `status: 'error'` when `requestId` is present, so `request()` rejects immediately instead of timing out. Same for `requestStream()` - a provider error throws from the generator and stops iteration.
 - **`requestStream()` subscribe-before-publish**: `requestId` is generated upfront so the `out` subscription filter can be set before publishing to `in`. Reversing this order would miss synchronous responses.
-- **`requestStream()` vs `request()`**: `request()` uses `fetchCount: 1` on the subscription (takes first response only). `requestStream()` has no `fetchCount` on the subscription — all provider responses arrive; `fetchCount` in options controls how many the generator yields before stopping.
+- **`requestStream()` vs `request()`**: `request()` uses `fetchCount: 1` on the subscription (takes first response only). `requestStream()` has no `fetchCount` on the subscription - all provider responses arrive; `fetchCount` in options controls how many the generator yields before stopping.
+
+## Dynstruct UI Integration & Pure Event-Driven Architecture
+
+When building applications with `@actdim/dynstruct` and `@actdim/msgmesh`:
+- **MsgMesh is the Single Source of Truth for Cross-Component Events**:
+  - Never pass callback props (`onSelect*`, `onNavigate*`, `onOpen*`, `onClose*`, `onChange*`) between Dynstruct components to coordinate state.
+  - Classical React callback prop drilling causes dual sources of truth, timing races, and state desynchronization.
+  - Dynstruct `actions` are internal model mutators (MobX transactions) for component-local state, NOT cross-component event props.
+  - All feature-to-feature, cross-component, navigation, and domain state changes must flow through typed MsgMesh channels (`c.msgBus.send`, `msgBroker.subscribe`).
+  - Modular channel structures can be defined in feature-specific files and intersected into the global `AppMsgStruct` (`AppMsgStruct = BaseAppMsgStruct & VfsMsgStruct & ...`).
 
 ## Project specifics
 
@@ -799,13 +995,21 @@ Channels organize messages by domain, service, or event type. Dot notation is re
 
 - **System Channel**: `MSGBUS.ERROR` is reserved for system-level errors.
 
-### 2. Groups
-Groups define payload roles within a channel. There are two semantic kinds:
+### 2. Groups (`in`, `out`, `ex`)
+Groups define payload roles and delivery semantics within a channel:
 
-- **Input Groups** (`in`, `in1`, `in2`): Payload types entering the channel. Default is `"in"`. Multiple input groups enable **input type overloading** on a single channel.
-- **Output Group** (`out`): Response payload type returned by the channel handler.
-  - If `out` is omitted, `out?: void` is implied (handler confirmation with no return data).
-  - Do NOT wrap `out` types in `Promise` — async resolution is handled automatically by the API.
+- **Inbound / Request Group (`in`, `in1`, `in2`)**:
+  - Payload entering the channel for request-response RPC.
+  - Used with `msgBus.request({ channel, group: 'in', payload })` and `msgBroker.provide`.
+  - Multiple input groups (`in1`, `in2`) enable **input type overloading** on a single channel.
+- **Outbound / Response / Event Group (`out`)**:
+  - The return type returned by a `provide()` callback.
+  - Also represents broadcast domain events consumed by subscribers (`msgBus.on` or `msgBroker.subscribe`).
+  - If `out` is omitted in a channel definition, `out?: void` is implied.
+  - Do NOT wrap `out` types in `Promise` - async resolution is handled automatically.
+- **Execution / Command Group (`ex`, `ex1`)**:
+  - Command payloads for direct fire-and-forget actions where callers dispatch intent rather than waiting for an RPC response.
+  - Typical examples: `APP.NAV.GOTO` with `ex: { route: string, params?: any }` dispatched via `msgBus.send({ channel: 'APP.NAV.GOTO', group: 'ex', payload })`.
 
 ### 3. Message Types
 Each group declares a TypeScript type. Use `MsgStruct<...>` to wrap your channel dictionary.
@@ -825,6 +1029,10 @@ export type AppBusStruct = MsgStruct<{
     'USER.LOGOUT': {
         in: { reason: string };
         out: void;
+    };
+    'APP.NAV.GOTO': {
+        in: { path: string };
+        ex: { route: string; params?: Record<string, any> };
     };
     'MULTIPLEXER.CALCULATE': {
         in1: string;
@@ -1167,6 +1375,80 @@ msgBus.send({
 
 ---
 
+## Dynstruct UI Integration & Pure Event-Driven Architecture
+
+When building large-scale frontend applications with `@actdim/dynstruct` and `@actdim/msgmesh`, MsgMesh serves as the single source of truth for all cross-component, cross-view, and navigation coordination.
+
+### 1. Single Source of Truth for Cross-Component Events
+
+Classical React architectures rely heavily on callback prop drilling (`onSelect*`, `onNavigate*`, `onClose*`, `onChange*`). In non-trivial applications, passing callbacks creates dual sources of truth, timing races, and state desynchronization.
+
+In the Dynstruct + MsgMesh architecture:
+- **Zero Callback Props**: Never pass callback props between Dynstruct components to coordinate state.
+- **Strict Role Separation**:
+  - Component `props` are strictly for component configuration and reactive bindings (`bindProp`).
+  - Component `actions` are internal model mutators (atomic MobX transactions) for component-local state. They are NOT cross-component callbacks.
+  - All cross-component, cross-feature, navigation, and domain coordination MUST flow through typed MsgMesh channels (`c.msgBus.send`, `msgBroker.subscribe`).
+
+### 2. Replay Buffer Pattern for UI State Hydration
+
+In UI applications with dynamic view rendering, tabbed layouts, or lazy-loaded components (e.g. media players, document readers, detail panes), an event (such as selecting an item or navigating to a path) may be published before a lazy view is mounted.
+
+Standard event buses drop messages if no subscriber is active at the exact moment of dispatch. MsgMesh solves this with configurable message replay:
+
+```typescript
+import { createMsgBus } from '@actdim/msgmesh';
+
+export const msgBus = createMsgBus<AppMsgStruct>({
+    'APP.VFS.NAVIGATE': {
+        replayBufferSize: 1, // Keep the latest navigation event in memory
+        replayWindowTime: Infinity,
+    },
+    'APP.VFS.SELECT_FILE': {
+        replayBufferSize: 1, // Keep the latest active file selection
+        replayWindowTime: Infinity,
+    },
+});
+```
+
+When a lazy-loaded or late-mounting component registers its subscription in `msgBroker.subscribe`, MsgMesh immediately delivers the buffered message. The component hydrates its local model instantly without requiring parent prop drilling or global store sync.
+
+### 3. Modular Bus Slicing
+
+Rather than declaring all application events in a single monolithic file, domain features define their own channel slices:
+
+```typescript
+// features/vfs-explorer/vfsMsgStruct.ts
+import { type MsgStruct } from '@actdim/msgmesh/contracts';
+
+export type VfsLocalChannels = {
+    'APP.VFS.NAVIGATE': {
+        in: { driveId: string; path: string };
+        out: void;
+    };
+    'APP.VFS.SELECT_FILE': {
+        in: { fileNode: any | null };
+        out: void;
+    };
+};
+
+export type VfsMsgStruct = MsgStruct<VfsLocalChannels>;
+```
+
+The application root composes modular slices into the unified application bus contract using TypeScript intersection types:
+
+```typescript
+// config/appConfig.ts
+export type AppMsgStruct = BaseAppMsgStruct &
+    ApiMsgStruct &
+    VfsMsgStruct &
+    AuthMsgStruct;
+```
+
+This guarantees 100% compile-time autocomplete and type safety across all components while keeping feature modules completely decoupled.
+
+---
+
 ## Service Adapters (NSwag / OpenAPI / gRPC Automation)
 
 The `@actdim/msgmesh/adapters` module automatically transforms standard TypeScript service classes (such as NSwag-generated REST API clients, gRPC clients, or custom service classes) into typed message bus providers at compile-time.
@@ -1454,11 +1736,43 @@ Every message in the mesh is addressed by three coordinates:
 Multiple providers can register on the same channel. A provider can inspect incoming messages and either process them or set `outMsg.status = 'skipped'`, passing execution to the next provider in the chain.
 
 ## 3. Cross-Links
-- [[INDEX.md]] - Knowledge Base Root
-- [[02-domain-model.md]] - Domain Contracts and Type Structures
-- [[03-setup-and-workflow.md]] - Setup and Testing Instructions
-- [[04-api-reference.md]] - Complete API Specification
-- [[05-patterns-and-recipes.md]] - Advanced Messaging Recipes and Service Adapters
+- [Knowledge Base Index](./INDEX.md) - Knowledge Base Root
+- [Domain Model](./topic--domain-model.md) - Domain Contracts and Type Structures
+- [Setup & Workflow](./topic--setup-and-workflow.md) - Setup and Testing Instructions
+- [API Reference](./topic--03-api-reference.md) - Complete API Specification
+- [Advanced Patterns & Adapters](./topic--04-advanced-patterns.md) - Advanced Messaging Recipes and Service Adapters
+- [License](./topic--license.md) - License Information
+
+---
+
+## Document: docs/topic--dependencies.md (Dependencies & AI Documentation for @actdim/msgmesh)
+
+# Dependencies & AI Documentation for `@actdim/msgmesh`
+
+> [!NOTE]
+> This document maintains a localized registry of internal workspace dependencies and third-party libraries for `@actdim/msgmesh`.
+> Consult linked guidelines when developing, refactoring, or integrating components.
+
+## Internal Workspace Dependencies
+
+| Internal Package | Relative Path | AI Documentation & Context |
+| :--- | :--- | :--- |
+| **`@actdim/utico`** | [`../../utico`](../../utico) | [AGENTS.md](../../utico/AGENTS.md) <br> [CLAUDE.md](../../utico/CLAUDE.md) <br> [llms-full.txt](../../utico/llms-full.txt) <br> [llms.txt](../../utico/llms.txt) <br> [.along/](../../utico/.along) <br> [docs/](../../utico/docs) |
+
+## Declared External Dependencies with AI Guidelines
+
+| Package | Ecosystem | Version | AI Guidelines / Instructions |
+| :--- | :--- | :--- | :--- |
+| **`cytoscape`** | `npm` | `3.34.3` | [AGENTS.md](../node_modules/cytoscape/AGENTS.md) |
+
+## Transitive Dependency Guidelines & Invariants
+
+No exported invariants detected across current dependencies.
+
+## Usage in Agent Sessions
+When working on features involving any of the modules or external libraries above:
+1. **Internal Submodules**: Follow conventions in the linked package `AGENTS.md` or package `docs/`.
+2. **Third-Party Libraries**: Read the linked instruction files directly for framework-specific patterns and best practices.
 
 ---
 
@@ -1547,11 +1861,46 @@ type MsgBusConfig<TStruct> = {
 ```
 
 ## 3. Cross-Links
-- [[INDEX.md]] - Knowledge Base Root
-- [[01-architecture.md]] - System Architecture
-- [[03-setup-and-workflow.md]] - Setup and Workflow
-- [[04-api-reference.md]] - Exhaustive API Reference
-- [[05-patterns-and-recipes.md]] - Practical Recipes and Messaging Patterns
+- [Knowledge Base Index](./INDEX.md) - Knowledge Base Root
+- [01 Architecture](./topic--architecture.md) - System Architecture
+- [Setup & Workflow](./topic--setup-and-workflow.md) - Setup and Workflow
+- [API Reference](./topic--03-api-reference.md) - Exhaustive API Reference
+- [Advanced Patterns & Adapters](./topic--04-advanced-patterns.md) - Practical Recipes and Messaging Patterns
+- [License](./topic--license.md) - License Information
+
+---
+
+## Document: docs/topic--license.md (License)
+
+# License
+
+`@actdim/msgmesh` is open-source software licensed under the **MIT License**.
+
+- Repository file: [LICENSE](https://github.com/actdim/msgmesh/blob/main/LICENSE)
+
+```text
+MIT License
+
+Copyright (c) 2025-2026 Pavel Borodaev (@actdim/msgmesh)
+
+Permission is hereby granted, free of charge, to any person obtaining a copy
+of this software and associated documentation files (the "Software"), to deal
+in the Software without restriction, including without limitation the rights
+to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+copies of the Software, and to permit persons to whom the Software is
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in
+all copies or substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+THE SOFTWARE.
+```
 
 ---
 
@@ -1592,10 +1941,11 @@ pnpm add @actdim/utico rxjs@^7.8.0
 - **Unit Testing Bus Streams**: `tests/msgBus.test.ts` validates concurrency, debouncing, throttling, and request cancellation.
 - **Provider Chain Testing**: Tests verify fallback behavior and skipping (`status = 'skipped'`).
 - **Timing and Replay**: Tests verify that late subscribers receive buffered events within `replayWindowTime`.
-
 ## 4. Cross-Links
-- [[INDEX.md]] - Knowledge Base Root
-- [[01-architecture.md]] - System Architecture
-- [[02-domain-model.md]] - Domain Model
-- [[04-api-reference.md]] - Exhaustive API Reference
-- [[05-patterns-and-recipes.md]] - Practical Recipes and Messaging Patterns
+
+- [Knowledge Base Index](./INDEX.md) - Knowledge Base Root
+- [01 Architecture](./topic--architecture.md) - System Architecture
+- [02 Domain Model](./topic--domain-model.md) - Domain Model
+- [API Reference](./topic--03-api-reference.md) - Exhaustive API Reference
+- [Advanced Patterns & Adapters](./topic--04-advanced-patterns.md) - Practical Recipes and Messaging Patterns
+- [License](./topic--license.md) - License Information

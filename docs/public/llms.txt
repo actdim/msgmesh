@@ -11,7 +11,9 @@
 - [docs/topic--03-api-reference.md](docs/topic--03-api-reference.md): API Reference.
 - [docs/topic--04-advanced-patterns.md](docs/topic--04-advanced-patterns.md): Advanced Patterns & Adapters.
 - [docs/topic--architecture.md](docs/topic--architecture.md): 01 Architecture.
+- [docs/topic--dependencies.md](docs/topic--dependencies.md): Dependencies & AI Documentation for @actdim/msgmesh.
 - [docs/topic--domain-model.md](docs/topic--domain-model.md): 02 Domain Model.
+- [docs/topic--license.md](docs/topic--license.md): License.
 - [docs/topic--setup-and-workflow.md](docs/topic--setup-and-workflow.md): 03 Setup And Workflow.
 
 ## Optional
