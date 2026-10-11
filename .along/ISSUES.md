@@ -22,12 +22,11 @@
 - [ ] `(feat)` [p2p-and-queue-groups](ISSUES/feat--p2p-and-queue-groups.md)
 - [ ] `(feat)` [qos-levels](ISSUES/feat--qos-levels.md)
 - [ ] `(feat)` [ttl-and-max-buffer-length](ISSUES/feat--ttl-and-max-buffer-length.md)
-- [ ] `(task)` [release-v1-8-2](ISSUES/task--release-v1-8-2.md)
 
 ## Done (recent)
+- [x] `(task)` [release-v1-8-2](ISSUES/done/task--release-v1-8-2.md)
 - [x] `(docs)` [dynstruct-pure-event-driven-architecture](ISSUES/done/docs--dynstruct-pure-event-driven-architecture.md)
 - [x] `(docs)` [readme-version-history](ISSUES/done/docs--readme-version-history.md)
 - [x] `(task)` [release-v1-8-0](ISSUES/done/task--release-v1-8-0.md)
 - [x] `(task)` [along-metadata-reconciliation](ISSUES/done/task--along-metadata-reconciliation.md)
-- [x] `(bug)` [msgbus-error-own-fields](ISSUES/done/bug--msgbus-error-own-fields.md)
-<!-- 1 older completed issue(s) archived in .along/ISSUES/done/ -->
+<!-- 2 older completed issue(s) archived in .along/ISSUES/done/ -->

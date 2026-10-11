@@ -3,7 +3,8 @@ protocol: along
 protocol_version: "4.4.9"
 slug: release-v1-8-2
 type: task
-status: open
+status: done
+completed: 2026-10-11
 priority: high
 created: 2026-10-11
 updated: 2026-10-11
