@@ -22,6 +22,7 @@
 - [ ] `(feat)` [p2p-and-queue-groups](ISSUES/feat--p2p-and-queue-groups.md)
 - [ ] `(feat)` [qos-levels](ISSUES/feat--qos-levels.md)
 - [ ] `(feat)` [ttl-and-max-buffer-length](ISSUES/feat--ttl-and-max-buffer-length.md)
+- [ ] `(task)` [release-v1-8-2](ISSUES/task--release-v1-8-2.md)
 
 ## Done (recent)
 - [x] `(docs)` [dynstruct-pure-event-driven-architecture](ISSUES/done/docs--dynstruct-pure-event-driven-architecture.md)

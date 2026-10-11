@@ -17,7 +17,7 @@ related: []
 
 # Release metadata for v1.8.0 / v1.7.2 (CHANGELOG, gate manifest, tags)
 
-Part of the Infomnia root issue `task--along-metadata-reconciliation`: release metadata that the v1.8.0 and v1.7.2
+Part of the Mempart root issue `task--along-metadata-reconciliation`: release metadata that the v1.8.0 and v1.7.2
 releases skipped. Metadata only, no source changes.
 
 ## Acceptance Criteria
