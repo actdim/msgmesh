@@ -1,28 +1,16 @@
-import eslint from '@eslint/js'; // js
 import js from '@eslint/js';
 import { defineConfig } from 'eslint/config';
 import tsEslint from 'typescript-eslint';
 import stylistic from '@stylistic/eslint-plugin';
 import tsPlugin from '@typescript-eslint/eslint-plugin';
 import tsParser from '@typescript-eslint/parser';
-import tsPlugin from '@typescript-eslint/eslint-plugin';
 import prettierPlugin from 'eslint-plugin-prettier';
-import path from 'node:path';
-import { fileURLToPath } from 'url';
 import globals from 'globals';
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 // cmd line: DEBUG=eslint:*
-export default defineConfig(
-    // eslint.configs.recommended,
-    // tsEslint.configs.recommended,
-    // we can't use some configs because they are in the old format
-    // prettierPlugin.configs.recommended,
+// Repaired from a broken merge (the previous object config was interleaved with this unified array config).
 export default defineConfig([
     {
-        files: ['**/*.ts', '**/*.tsx'],
         ignores: [
             '**/node_modules/**',
             '**/dist/**',
@@ -51,7 +39,6 @@ export default defineConfig([
             prettier: prettierPlugin,
             '@stylistic': stylistic,
         },
-        ignores: ['dist/**', 'node_modules/**'],
         settings: {},
         languageOptions: {
             parser: tsParser,
@@ -68,7 +55,7 @@ export default defineConfig([
             },
         },
         rules: {
-            ...eslint.configs.recommended.rules,
+            ...js.configs.recommended.rules,
             ...tsEslint.configs.recommended.rules,
             ...prettierPlugin.configs.recommended.rules,
             'prettier/prettier': 'off',
@@ -93,7 +80,6 @@ export default defineConfig([
             'no-empty': 'off',
             'no-async-promise-executor': 'warn',
             '@typescript-eslint/no-unused-vars': [
-                'error',
                 'warn',
                 {
                     argsIgnorePattern: '^_',
@@ -102,15 +88,18 @@ export default defineConfig([
                 },
             ],
             '@typescript-eslint/no-misused-promises': [
-            '@typescript-eslint/ban-ts-comment': [
                 'error',
                 {
                     checksVoidReturn: false,
+                },
+            ],
+            '@typescript-eslint/ban-ts-comment': [
+                'error',
+                {
                     'ts-nocheck': 'allow-with-description',
                     minimumDescriptionLength: 3,
                 },
             ],
-            'no-undef': 'off',
             'prefer-const': 'warn',
             'no-console': ['warn', { allow: ['warn', 'error', 'info'] }],
 
@@ -131,36 +120,12 @@ export default defineConfig([
             ],
             '@stylistic/function-paren-newline': 'off',
         },
-        languageOptions: {
-            ecmaVersion: 2022,
-            sourceType: 'module',
-            parser: tsParser,
-            parserOptions: {
-                ecmaVersion: 'latest',
-                // ecmaVersion: 2017,
-                sourceType: 'module',
-                project: ['./tsconfig.dev.json'],
-                tsconfigRootDir: __dirname,
-            },
-            globals: {
-                NodeJS: 'readonly', // or writable
-                // ...globals.browser,
-                // ...globals.node,
-            },
-        },
     },
     // File-pattern specific overrides
-    // {
-    //     files: ['src/**/*', 'test/**/*'],
-    //     rules: {
-    //         semi: ['warn', 'always'],
-    //     },
-    // },
     // {
     //     files: ['test/**/*'],
     //     rules: {
     //         'no-console': 'off',
     //     },
     // }
-);
 ]);
