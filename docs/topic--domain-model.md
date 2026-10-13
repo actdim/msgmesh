@@ -80,6 +80,7 @@ type ChannelConfig = {
         trailing?: boolean;
     };
     debounce?: number; // ms
+    timeout?: number; // ms default timeout for request() and once()
     mandatoryProvider?: boolean;
 };
 

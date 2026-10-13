@@ -25,6 +25,7 @@ const msgBus = createMsgBus<AppBusStruct>({
     // 1. Channel-specific configuration
     'USER.GET_PROFILE': {
         mandatoryProvider: true, // Throws NoProviderError if requested with no provider
+        timeout: 5000, // Channel default timeout for request() and once() in ms
         delay: 50, // Delivery delay in ms
         debounce: 200, // Debounce in ms
         throttle: 100, // Throttle duration in ms (or { duration: 100, leading: true, trailing: true })

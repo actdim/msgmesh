@@ -45,6 +45,9 @@ const msgBus = createMsgBus<AppBusStruct>({
     'AUDIT.LOG': {
         delay: 50, // Delay message delivery by 50ms
     },
+    'API.SLOW_ENDPOINT': {
+        timeout: 10000, // 10s default timeout for this channel instead of global default
+    },
 });
 
 // Subscription-level configuration (overrides/augments channel config)

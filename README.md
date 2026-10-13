@@ -105,6 +105,15 @@ This gives agents instant access to channel contracts and patterns in `node_modu
 
 ## Changelog
 
+### 1.8.2 (2026-10-11)
+- `core`: support configurable channel request timeout via `MsgChannelConfig.timeout?: number` for `request()` and `once()`
+- `core`: upfront `requestId` generation in dispatch for robust request-response correlation
+- `eslint`: unified flat ESLint config in `eslint.config.mjs`
+- Along protocol 4.4.10 metadata and workspace patch bump
+
+### 1.8.1 (2026-10-07)
+- Synchronized workspace guidelines and version alignment
+
 ### 1.8.0 (2026-10-01)
 - `core`: outside DEV the `MSGBUS.ERROR` payload keeps the error's own enumerable fields (e.g. `status`, `kind`); `name`, `message`, `stack` and `cause` are still set explicitly
 - Along protocol 4.4.1; AI commit attribution disabled
