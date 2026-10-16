@@ -22,6 +22,7 @@
 - [ ] `(feat)` [p2p-and-queue-groups](ISSUES/feat--p2p-and-queue-groups.md)
 - [ ] `(feat)` [qos-levels](ISSUES/feat--qos-levels.md)
 - [ ] `(feat)` [ttl-and-max-buffer-length](ISSUES/feat--ttl-and-max-buffer-length.md)
+- [ ] `(task)` [agent-native-metadata-and-contracts](ISSUES/task--agent-native-metadata-and-contracts.md)
 
 ## Done (recent)
 - [x] `(task)` [separate-docs-and-vitepress-build](ISSUES/done/task--separate-docs-and-vitepress-build.md)
