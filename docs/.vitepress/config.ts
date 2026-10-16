@@ -6,6 +6,8 @@ const GITHUB_REPO = 'https://github.com/actdim/msgmesh';
 export default withMermaid(
   defineConfig({
     base: '/msgmesh/',
+    outDir: '../.dist-docs',
+    cacheDir: '../node_modules/.cache/vitepress',
     title: 'Message Mesh',
     description: 'High-performance, type-safe message mesh and event bus for TypeScript',
     cleanUrls: true,

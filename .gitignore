@@ -134,6 +134,7 @@ dist
 package-lock.json
 
 # VitePress
+.dist-docs/
 docs/.vitepress/dist
 docs/.vitepress/cache
 

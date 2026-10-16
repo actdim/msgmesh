@@ -24,9 +24,9 @@
 - [ ] `(feat)` [ttl-and-max-buffer-length](ISSUES/feat--ttl-and-max-buffer-length.md)
 
 ## Done (recent)
+- [x] `(task)` [separate-docs-and-vitepress-build](ISSUES/done/task--separate-docs-and-vitepress-build.md)
 - [x] `(bug)` [pages-deploy-peer-deps](ISSUES/done/bug--pages-deploy-peer-deps.md)
 - [x] `(debt)` [eslint-config-repair](ISSUES/done/debt--eslint-config-repair.md)
 - [x] `(task)` [release-v1-8-2](ISSUES/done/task--release-v1-8-2.md)
 - [x] `(docs)` [dynstruct-pure-event-driven-architecture](ISSUES/done/docs--dynstruct-pure-event-driven-architecture.md)
-- [x] `(docs)` [readme-version-history](ISSUES/done/docs--readme-version-history.md)
-<!-- 4 older completed issue(s) archived in .along/ISSUES/done/ -->
+<!-- 5 older completed issue(s) archived in .along/ISSUES/done/ -->
