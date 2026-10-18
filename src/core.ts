@@ -386,9 +386,10 @@ export function createMsgBus<
                 ? (channelConfig?.timeout ?? defaultPromiseTimeout)
                 : params.options?.timeout;
         let settled = false;
+        const timeoutAc = new AbortController();
 
         return Promise.race([
-            delayError(timeout, () => new TimeoutError()),
+            delayError(timeout, () => new TimeoutError(), timeoutAc.signal),
             new Promise<any>((res, rej) => {
                 try {
                     const abortSignal = params.options?.abortSignal;
@@ -455,7 +456,9 @@ export function createMsgBus<
                     rej(e);
                 }
             }),
-        ]);
+        ]).finally(() => {
+            timeoutAc.abort();
+        });
     }
 
     function provide(params: MsgProviderParams<TStructN>) {
@@ -580,9 +583,10 @@ export function createMsgBus<
                 ? (channelConfig?.timeout ?? defaultPromiseTimeout)
                 : params.options?.timeout;
         let settled = false;
+        const timeoutAc = new AbortController();
 
         return Promise.race([
-            delayError(timeout, () => new TimeoutError()),
+            delayError(timeout, () => new TimeoutError(), timeoutAc.signal),
             new Promise(async (res, rej) => {
                 try {
                     const abortSignal = params.options?.abortSignal;
@@ -663,7 +667,9 @@ export function createMsgBus<
                     rej(err);
                 }
             }),
-        ]);
+        ]).finally(() => {
+            timeoutAc.abort();
+        });
     }
 
     async function* requestStream(params: MsgRequestStreamParams<TStructN>) {
