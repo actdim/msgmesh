@@ -12,3 +12,4 @@ _`<YYYY-MM-DD> - <slug> - <agent> - <summary> - <relative link>`_
 2026-10-11 - release-v1-8-2 - claude-code - Release v1.8.2: bump patch version, along metadata reconciliation and docs index - [.along/SESSIONS/2026/2026-10-11--release-v1-8-2.md](./SESSIONS/2026/2026-10-11--release-v1-8-2.md)
 2026-10-12 - eslint-config-repair - claude-code - Repair broken merge in eslint.config.mjs - [.along/SESSIONS/2026/2026-10-12--eslint-config-repair.md](./SESSIONS/2026/2026-10-12--eslint-config-repair.md)
 2026-10-15 - pages-deploy-peer-deps - antigravity - Fix GitHub Pages deploy failure by disabling auto-install-peers for docs - [Session Log](./SESSIONS/2026/2026-10-15--pages-deploy-peer-deps.md)
+2026-10-18 - request-timeout-timer-leak - antigravity - request() and once() leave the timeout timer running after settle - [Session Log](./SESSIONS/2026/2026-10-18--request-timeout-timer-leak.md)

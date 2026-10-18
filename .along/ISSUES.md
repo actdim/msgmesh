@@ -4,7 +4,6 @@
 <!-- No active issues -->
 
 ## Backlog
-- [ ] `(bug)` [request-timeout-timer-leak](ISSUES/bug--request-timeout-timer-leak.md)
 - [ ] `(debt)` [internal-debug-messages](ISSUES/debt--internal-debug-messages.md)
 - [ ] `(debt)` [package-config-alias-resolution](ISSUES/debt--package-config-alias-resolution.md)
 - [ ] `(debt)` [request-topic-matching-filter](ISSUES/debt--request-topic-matching-filter.md)
@@ -27,8 +26,8 @@
 
 ## Done (recent)
 - [x] `(task)` [standardize-lockfile](ISSUES/done/task--standardize-lockfile.md)
+- [x] `(bug)` [request-timeout-timer-leak](ISSUES/done/bug--request-timeout-timer-leak.md)
 - [x] `(task)` [separate-docs-and-vitepress-build](ISSUES/done/task--separate-docs-and-vitepress-build.md)
 - [x] `(task)` [remediate-all-stub-issues](ISSUES/done/task--remediate-all-stub-issues.md)
 - [x] `(bug)` [pages-deploy-peer-deps](ISSUES/done/bug--pages-deploy-peer-deps.md)
-- [x] `(debt)` [eslint-config-repair](ISSUES/done/debt--eslint-config-repair.md)
-<!-- 7 older completed issue(s) archived in .along/ISSUES/done/ -->
+<!-- 8 older completed issue(s) archived in .along/ISSUES/done/ -->
