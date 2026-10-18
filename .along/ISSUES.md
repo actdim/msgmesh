@@ -4,6 +4,7 @@
 <!-- No active issues -->
 
 ## Backlog
+- [ ] `(bug)` [request-timeout-timer-leak](ISSUES/bug--request-timeout-timer-leak.md)
 - [ ] `(debt)` [internal-debug-messages](ISSUES/debt--internal-debug-messages.md)
 - [ ] `(debt)` [package-config-alias-resolution](ISSUES/debt--package-config-alias-resolution.md)
 - [ ] `(debt)` [request-topic-matching-filter](ISSUES/debt--request-topic-matching-filter.md)
