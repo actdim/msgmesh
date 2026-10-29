@@ -4,7 +4,7 @@ slug: INDEX
 title: '@actdim/msgmesh - Knowledge Base Topic Index'
 type: index
 created: 2026-09-07
-updated: 2026-10-20
+updated: 2026-10-29
 tags: [index, kb, topics, map]
 ---
 
@@ -25,6 +25,8 @@ flowchart TD
     INDEX --> T_03_API_REFERENCE
     T_04_ADVANCED_PATTERNS["Advanced Patterns & Adapters"]
     INDEX --> T_04_ADVANCED_PATTERNS
+    T_ALONG_PROTOCOL["Along Protocol Reference"]
+    INDEX --> T_ALONG_PROTOCOL
     T_ARCHITECTURE["01 Architecture"]
     INDEX --> T_ARCHITECTURE
     T_DEPENDENCIES["Dependencies & Submodules AI Documentation and Rules"]
@@ -66,6 +68,7 @@ flowchart TD
 - **[Architecture & Types](./topic--02-architecture-and-types.md)** (topic) `02-architecture-and-types`
 - **[API Reference](./topic--03-api-reference.md)** (topic) `03-api-reference`
 - **[Advanced Patterns & Adapters](./topic--04-advanced-patterns.md)** (topic) `04-advanced-patterns`
+- **[Along Protocol Reference](./topic--along-protocol.md)** (reference) `protocol`, `agents-md`, `checklist`, `routing`, `concurrency`, `along-team`, `conventions`
 - **[01 Architecture](./topic--architecture.md)** (topic) `architecture`
 - **[Dependencies & Submodules AI Documentation and Rules](./topic--dependencies.md)** (topic) `dependencies`, `ai-context`, `submodules`, `vendor`, `rules`
 - **[02 Domain Model](./topic--domain-model.md)** (topic) `domain-model`
