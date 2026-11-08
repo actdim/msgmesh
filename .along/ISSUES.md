@@ -1,7 +1,7 @@
 # Active Issues
 
 ## Active
-<!-- No active issues -->
+- [ ] `(feat)` [async-publish-and-backpressure](ISSUES/feat--async-publish-and-backpressure.md) - plan ready
 
 ## Backlog
 - [ ] `(bug)` [standalone-missing-peer-devdeps](ISSUES/bug--standalone-missing-peer-devdeps.md)
@@ -11,7 +11,6 @@
 - [ ] `(debt)` [unsubscribe-alias-handle](ISSUES/debt--unsubscribe-alias-handle.md)
 - [ ] `(feat)` [ack-nack-support](ISSUES/feat--ack-nack-support.md)
 - [ ] `(feat)` [analytics-and-telemetry-product](ISSUES/feat--analytics-and-telemetry-product.md)
-- [ ] `(feat)` [async-publish-and-backpressure](ISSUES/feat--async-publish-and-backpressure.md)
 - [ ] `(feat)` [behavior-subject-support](ISSUES/feat--behavior-subject-support.md)
 - [ ] `(feat)` [cep-and-rules-engine-integration](ISSUES/feat--cep-and-rules-engine-integration.md)
 - [ ] `(feat)` [cockatiel-resilience-integration](ISSUES/feat--cockatiel-resilience-integration.md)

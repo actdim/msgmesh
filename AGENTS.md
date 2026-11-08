@@ -203,13 +203,24 @@ The `asyncScheduler` ensures message delivery is always async (never synchronous
 
 #### dispatch() - Critical Ordering
 
-`dispatch()` (which is exposed as public `send()`):
+`dispatch()` (wrapped by public `send()`, also used by `request()`):
 
 1. **First**: subscribes to `out` group with filter `outMsg.headers.inResponseToId === msg.headers.requestId`
-2. **Then**: publishes message to `in` group via `publish()`
-3. Returns the published message (with `headers.requestId`)
+2. **Flow control gate** (only if the channel has `flowControl` and the group is an input group): `acquireSlot()` - sync when a slot is free, otherwise waits (FIFO) or throws `ChannelBusyError`; on failure the `out` subscription is removed. Then `openLease(requestId)` BEFORE publishing.
+3. **Then**: publishes message to `in` group via `publish()`; if the input subject has no observers the slot is released at once
+4. Returns the published message (with `headers.requestId`)
 
 This order is critical - subscribing after publishing could miss the response if it arrives synchronously.
+
+#### Flow Control (backpressure)
+
+Per-channel state in `createMsgBus`: `flows: Map<channel, { limit, inFlight, leases: Map<requestId, { count, timer }>, waiters }>`; resolved configs are cached in `flowConfigs` so the fast path costs one `Map` lookup.
+
+- Slot release: `publish()` of an `out` message with `inResponseToId` (any status, including `failed` from `handleError(..., true)`); `provide()` when `msgOut.status === 'canceled'`; lease timeout (`flowControl.leaseTimeout ?? channel timeout ?? defaultPromiseTimeout`); no subscribers at publish.
+- `releaseSlot()` hands the slot straight to the oldest waiter (inFlight unchanged) - no barging.
+- Waiting limits: `send()` uses `options.timeout` / `options.abortSignal`; `request()` passes the internal `flowWait` = `{ timeout: sendTimeout, signals: [abortSignal, timeoutAc.signal] }`, so a settled request also removes a still-waiting dispatch; `requestStream()` uses `options.timeout` / `abortSignal` and ends quietly on abort while waiting.
+- `send()` attaches a `.catch` only for flow-controlled channels: gate errors (except `OperationCanceledError`) go to `handleError()` instead of becoming unhandled rejections.
+- `msgBus.getFlowStats(channel)` exposes `{ limit, inFlight, waiting, leases }`.
 
 #### provide() - Headers Merge & Cancel Logic
 
@@ -634,6 +645,9 @@ If change affects API shape or build artifacts, also run:
 - **Provider exceptions propagate to `request()`**: `provide()` catch publishes to `out` with `status: 'error'` when `requestId` is present, so `request()` rejects immediately instead of timing out. Same for `requestStream()` - a provider error throws from the generator and stops iteration.
 - **`requestStream()` subscribe-before-publish**: `requestId` is generated upfront so the `out` subscription filter can be set before publishing to `in`. Reversing this order would miss synchronous responses.
 - **`requestStream()` vs `request()`**: `request()` uses `fetchCount: 1` on the subscription (takes first response only). `requestStream()` has no `fetchCount` on the subscription - all provider responses arrive; `fetchCount` in options controls how many the generator yields before stopping.
+- **Flow control never gates `out`, `error` or cancel messages**: they go through `publish()` directly. Gating `out` would deadlock a provider that itself calls `request()` on a limited channel. Keep new internal publishes on `publish()`, not `dispatch()`.
+- **`skipped` and `on()`-only channels hold flow control slots until `leaseTimeout`**: no `out` answer is published for them. Auto-ack (`feat--ack-nack-support`) will close this gap.
+- **`send()` options were ignored before flow control**: `timeout` / `abortSignal` now bound slot waiting on flow-controlled channels only; they still do nothing on other channels.
 
 ## Dynstruct UI Integration & Pure Event-Driven Architecture
 

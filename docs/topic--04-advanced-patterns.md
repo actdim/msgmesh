@@ -4,7 +4,7 @@ slug: 04-advanced-patterns
 title: Advanced Patterns & Adapters
 type: topic
 created: 2026-08-31
-updated: 2026-09-02
+updated: 2026-11-08
 tags: [04-advanced-patterns]
 ---
 
@@ -92,6 +92,51 @@ msgBus.send({
     },
 });
 ```
+
+### 5. Flow Control (Backpressure)
+By default `send()` publishes and resolves at once, so a fast producer can flood a slow provider. Channel-level `flowControl` limits how many messages sent to the channel's input groups may wait for an `out` answer at the same time (credit-based flow control for the `in` / `out` pair). Opt-in per channel; channels without it keep the old code path.
+
+```typescript
+const msgBus = createMsgBus<AppBusStruct>({
+    'MEDIA.THUMBNAIL.RENDER': {
+        flowControl: {
+            maxInFlight: 4, // at most 4 unanswered messages
+            overflow: 'wait', // 'wait' (default, FIFO) or 'error' (ChannelBusyError)
+            leaseTimeout: 30000, // force-release a slot after 30 s without an answer
+        },
+    },
+    // or for a whole family of channels
+    '*': (channel) => (channel.startsWith('API.') ? { flowControl: { maxInFlight: 8 } } : {}),
+});
+
+// The producer slows down to the provider's pace: each await waits for a free slot.
+for (const id of mediaIds) {
+    await msgBus.send({ channel: 'MEDIA.THUMBNAIL.RENDER', payload: id });
+}
+```
+
+**Taking a slot**: `send()`, `request()` and `requestStream()` take a slot before publishing. With `overflow: 'wait'` the call waits in FIFO order (a released slot goes to the oldest waiter, new callers cannot overtake). With `overflow: 'error'` it rejects with `ChannelBusyError` (`isChannelBusyError()`).
+
+**Releasing a slot** (whichever comes first):
+- an `out` message with `inResponseToId === requestId`, any status (`handled`, or `failed` when the provider throws); for `requestStream()` the first response releases the slot;
+- provider-side cancel (`msgOut.status = 'canceled'`);
+- `leaseTimeout` (default: channel `timeout` ?? 5 s) - the safety net for silent providers;
+- no subscriber at publish time - released immediately.
+
+A `skipped` message does not release its slot (the next provider in the chain answers). If all providers skip, or the channel has only `on()` subscribers (they never answer in `out`), the slot is held until `leaseTimeout`. Auto-ack for these cases is planned (`feat--ack-nack-support`).
+
+**Never gated**: publishes to `out` and `error`, `MSGBUS.ERROR`, and cancel messages sent by `request()` on abort. This is what keeps a provider that itself calls `request()` on another limited channel from deadlocking.
+
+**Waiting limits**:
+- `send()`: `options.timeout` -> `TimeoutError`, `options.abortSignal` -> `OperationCanceledError`. The waiter leaves the queue and never holds a slot.
+- `request()`: `options.sendTimeout` bounds slot waiting; the overall `options.timeout` still applies, and when it fires a still-waiting request is removed from the queue (it is never published later).
+- `requestStream()`: `options.timeout` and `abortSignal`; an abort while waiting ends the stream quietly.
+
+**Fire-and-forget safety**: on a flow-controlled channel an unawaited `send()` never produces an unhandled rejection. Gate errors (except cancellation) are reported to the channel `error` group and `MSGBUS.ERROR` (topic `$SYSTEM_TOPIC`); awaiting callers still get the rejection, so they see the error twice.
+
+**Diagnostics**: `msgBus.getFlowStats(channel)` returns `{ limit, inFlight, waiting, leases }`, or `undefined` for channels without flow control.
+
+**When to use**: API adapter channels backed by a rate-sensitive backend, Web Worker and remote providers, heavy media jobs. Not needed for UI events. Transport-level buffering of `@actdim/msgmesh-remote` sockets is a separate concern (`bufferedAmount`), see that package.
 
 ---
 

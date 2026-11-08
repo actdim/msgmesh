@@ -4,7 +4,7 @@ slug: 02-[architecture](./topic--architecture.md)-and-types
 title: Architecture & Types
 type: topic
 created: 2026-08-31
-updated: 2026-09-02
+updated: 2026-11-08
 tags: [02-architecture-and-types]
 ---
 
@@ -76,6 +76,7 @@ export type AppBusStruct = MsgStruct<{
 
 - **`send()` (Fire-and-forget)**: Publishes to the input group and returns immediately. Does not wait for handlers. Use for notifications and events.
 - **`request()` (RPC Awaited Response)**: Publishes to the input group and **awaits the `out` response** from a registered provider (`provide()`). Even when `out: void`, `request()` confirms that the handler finished executing.
+- **Flow control**: the `in` / `out` pair also carries backpressure. With channel `flowControl: { maxInFlight }` (`MsgFlowControl`), `send()` and `request()` wait for a free slot before publishing, and the matching `out` answer releases it. Related types: `MsgFlowControl`, `MsgFlowStats` (`msgBus.getFlowStats()`), `ChannelBusyError`. See [Flow Control](./topic--04-advanced-patterns.md#5-flow-control-backpressure).
 
 ---
 

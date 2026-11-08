@@ -32,6 +32,10 @@ import {
     $C_ANY,
     type MsgStatus,
     type MsgChannelConfig,
+    type MsgFlowControl,
+    type MsgFlowStats,
+    ChannelBusyError,
+    isOperationCanceledError,
 } from '@/contracts';
 import { v4 as uuid } from 'uuid';
 import {
@@ -212,6 +216,188 @@ export function createMsgBus<
         return subjects.get(routingKey);
     }
 
+    // flow control: credit-based backpressure for in/out channel pairs (see MsgFlowControl)
+    type FlowLease = { count: number; timer: ReturnType<typeof setTimeout> | null };
+    type FlowWaiter = { grant: () => void };
+    type FlowState = {
+        limit: number;
+        inFlight: number;
+        leases: Map<string, FlowLease>; // key: requestId
+        waiters: FlowWaiter[]; // FIFO
+    };
+    type FlowWait = { timeout?: number; signals: (AbortSignal | undefined)[] };
+
+    const flows: Map<string, FlowState> = new Map(); // key: channel
+    // resolved flowControl per channel (null = none); keeps the fast path free of getChannelConfig() spreads
+    const flowConfigs: Map<string, MsgFlowControl | null> = new Map();
+
+    function getFlowControl(channel: string, group: string): MsgFlowControl | undefined {
+        if (group === $CG_OUT || group === $CG_ERROR) {
+            return undefined;
+        }
+        let flowControl = flowConfigs.get(channel);
+        if (flowControl === undefined) {
+            flowControl = getChannelConfig(channel).flowControl ?? null;
+            if (flowControl && !(flowControl.maxInFlight >= 1)) {
+                throw new Error(`[msgBus] flowControl.maxInFlight must be >= 1 (channel "${channel}")`,);
+            }
+            flowConfigs.set(channel, flowControl);
+        }
+
+        return flowControl ?? undefined;
+    }
+
+    function getFlowState(channel: string, flowControl: MsgFlowControl) {
+        let state = flows.get(channel);
+        if (!state) {
+            state = {
+                limit: flowControl.maxInFlight,
+                inFlight: 0,
+                leases: new Map(),
+                waiters: [],
+            };
+            flows.set(channel, state);
+        }
+
+        return state;
+    }
+
+    function getLeaseTimeout(channel: string, flowControl: MsgFlowControl) {
+        return flowControl.leaseTimeout ?? getChannelConfig(channel).timeout ?? defaultPromiseTimeout;
+    }
+
+    /** Takes a slot: returns undefined when one is free right away, a Promise when the caller must wait. */
+    function acquireSlot(
+        channel: string,
+        flowControl: MsgFlowControl,
+        wait: FlowWait,
+    ): Promise<void> | undefined {
+        const state = getFlowState(channel, flowControl);
+        if (state.inFlight < state.limit && state.waiters.length === 0) {
+            state.inFlight++;
+
+            return undefined;
+        }
+        if (flowControl.overflow === 'error') {
+            throw new ChannelBusyError(channel);
+        }
+        const signals = wait.signals.filter((s): s is AbortSignal => !!s);
+        for (const signal of signals) {
+            if (signal.aborted) {
+                throw createOperationCanceledError(signal.reason);
+            }
+        }
+
+        return new Promise<void>((resolve, reject) => {
+            let timer: ReturnType<typeof setTimeout> | null = null;
+            const listeners: [AbortSignal, () => void][] = [];
+            const dispose = () => {
+                if (timer) {
+                    clearTimeout(timer);
+                    timer = null;
+                }
+                for (const [signal, listener] of listeners) {
+                    signal.removeEventListener('abort', listener);
+                }
+                listeners.length = 0;
+            };
+            const waiter: FlowWaiter = {
+                // the released slot is handed over as is: inFlight stays unchanged
+                grant: () => {
+                    dispose();
+                    resolve();
+                },
+            };
+            const fail = (err: unknown) => {
+                const index = state.waiters.indexOf(waiter);
+                if (index < 0) {
+                    return; // already granted
+                }
+                state.waiters.splice(index, 1);
+                dispose();
+                reject(err);
+            };
+            if (wait.timeout != undefined && wait.timeout !== Infinity) {
+                timer = setTimeout(
+                    () => fail(new TimeoutError(`Timeout waiting for a free slot on channel "${channel}"`)),
+                    wait.timeout,
+                );
+            }
+            for (const signal of signals) {
+                const listener = () => fail(createOperationCanceledError(signal.reason));
+                signal.addEventListener('abort', listener);
+                listeners.push([signal, listener]);
+            }
+            state.waiters.push(waiter);
+        });
+    }
+
+    /** Registers the slot taken by acquireSlot() under the request id (before publish). */
+    function openLease(channel: string, requestId: string, timeout: number) {
+        const state = flows.get(channel);
+        if (!state) {
+            return;
+        }
+        const lease = state.leases.get(requestId);
+        if (lease) {
+            lease.count++; // caller-supplied duplicate requestId
+
+            return;
+        }
+        let timer: ReturnType<typeof setTimeout> | null = null;
+        if (timeout > 0 && timeout !== Infinity) {
+            timer = setTimeout(() => {
+                if (getGlobalFlags().debug) {
+                    console.warn(`[msgBus] Flow control lease timeout on channel "${channel}" (requestId: ${requestId}). Slot released without an "out" answer.`,);
+                }
+                releaseSlot(channel, requestId, true);
+            }, timeout);
+        }
+        state.leases.set(requestId, { count: 1, timer });
+    }
+
+    /** Releases a slot (idempotent for unknown request ids) and hands it to the oldest waiter. */
+    function releaseSlot(channel: string, requestId: string, all = false) {
+        const state = flows.get(channel);
+        if (!state) {
+            return;
+        }
+        const lease = state.leases.get(requestId);
+        if (!lease) {
+            return;
+        }
+        let count = all ? lease.count : 1;
+        lease.count -= count;
+        if (lease.count <= 0) {
+            if (lease.timer) {
+                clearTimeout(lease.timer);
+            }
+            state.leases.delete(requestId);
+        }
+        while (count-- > 0) {
+            const next = state.waiters.shift();
+            if (next) {
+                next.grant();
+            } else {
+                state.inFlight--;
+            }
+        }
+    }
+
+    function getFlowStats(channel: string): MsgFlowStats | undefined {
+        const state = flows.get(channel);
+        if (!state) {
+            return undefined;
+        }
+
+        return {
+            limit: state.limit,
+            inFlight: state.inFlight,
+            waiting: state.waiters.length,
+            leases: state.leases.size,
+        };
+    }
+
     function applyThrottle(
         ops: OperatorFunction<any, any>[],
         throttle?: number | (ThrottleOptions & { duration: number }),
@@ -370,6 +556,10 @@ export function createMsgBus<
                 console.warn(`[msgBus] No subscribers on channel "${channel}" (group: "${group}"). Message may be lost.`,);
             }
         }
+        if (group === $CG_OUT && flows.size > 0 && headers.inResponseToId) {
+            // "out" answer (any status) releases the in-flight slot of the request
+            releaseSlot(channel, headers.inResponseToId);
+        }
         subject.next(msg);
 
         return Promise.resolve(msg);
@@ -487,6 +677,16 @@ export function createMsgBus<
                             outMsg.status === 'skipped' ||
                             outMsg.status === 'canceled'
                         ) {
+                            if (
+                                outMsg.status === 'canceled' &&
+                                inMsg.status !== 'canceled' &&
+                                flows.size > 0 &&
+                                inMsg.headers?.requestId
+                            ) {
+                                // provider-side cancel publishes no "out": release the slot here
+                                releaseSlot(String(inMsg.address.channel), inMsg.headers.requestId);
+                            }
+
                             return;
                         }
                         if (payload !== undefined) {
@@ -512,10 +712,15 @@ export function createMsgBus<
         THeaders extends MsgHeaders = MsgHeaders,
     > = MsgSenderParams<TStruct, TChannel, TGroup, THeaders> & {
         callback?: (msg: Msg<TStruct, TChannel, typeof $CG_OUT, THeaders>) => void;
+        /** Internal: how long to wait for a flow control slot (default: options.timeout / options.abortSignal). */
+        flowWait?: FlowWait;
     };
 
     async function dispatch(params: MsgDispatcherParams<TStructN>) {
         const requestId = params.headers?.requestId || uuid();
+        const channel = String(params.channel);
+        const group = params.group == undefined ? $CG_IN : String(params.group);
+        const flowControl = getFlowControl(channel, group);
         let unsub: (() => void) | null = null;
         if (params.callback) {
             const subParams: MsgSubParams<TStructN, keyof TStructN, keyof OutChannelStruct> = {
@@ -549,20 +754,78 @@ export function createMsgBus<
         } else {
             payload = params.payload;
         }
-        const msg = await publish({
-            address: {
-                channel: params.channel,
-                group: params.group,
-                topic: params.topic,
-            },
-            headers: {
-                ...params.headers,
-                requestId,
-            },
-            payload: payload,
-        });
+        if (flowControl) {
+            try {
+                const wait = acquireSlot(
+                    channel,
+                    flowControl,
+                    params.flowWait ?? {
+                        timeout: params.options?.timeout,
+                        signals: [params.options?.abortSignal],
+                    },
+                );
+                if (wait !== undefined) {
+                    await wait;
+                }
+            } catch (err) {
+                unsub?.();
+                throw err;
+            }
+            openLease(channel, requestId, getLeaseTimeout(channel, flowControl));
+        }
+        let msg: Msg<TStructN>;
+        try {
+            msg = await publish({
+                address: {
+                    channel: params.channel,
+                    group: params.group,
+                    topic: params.topic,
+                },
+                headers: {
+                    ...params.headers,
+                    requestId,
+                },
+                payload: payload,
+            });
+        } catch (err) {
+            if (flowControl) {
+                releaseSlot(channel, requestId);
+            }
+            throw err;
+        }
+        if (flowControl && !getOrCreateSubject(channel, group).observed) {
+            // nobody can answer: do not hold the slot until the lease timeout
+            releaseSlot(channel, requestId);
+        }
 
         return msg;
+    }
+
+    function send(params: MsgDispatcherParams<TStructN>) {
+        const promise = dispatch(params);
+        // dispatch() resolved the channel's flow control synchronously above
+        if (flowConfigs.get(String(params.channel))) {
+            // fire-and-forget safety: unawaited send() must not raise unhandled rejections;
+            // awaiting callers still get the rejection
+            promise.catch((err) => {
+                if (isOperationCanceledError(err)) {
+                    return;
+                }
+                handleError(
+                    {
+                        address: {
+                            channel: params.channel,
+                            group: params.group == undefined ? $CG_IN : params.group,
+                            topic: params.topic,
+                        },
+                        headers: params.headers,
+                    } as Msg<TStructN>,
+                    err,
+                );
+            });
+        }
+
+        return promise;
     }
 
     async function request(params: MsgRequestDispatcherParams<TStructN>): Promise<any> {
@@ -594,6 +857,12 @@ export function createMsgBus<
                     let msg: Msg<TStructN> = null;
                     const dispatchParams: MsgDispatcherParams<TStructN> = {
                         ...params,
+                        // slot waiting: bounded by sendTimeout; the caller's abort and the settled
+                        // request (timeoutAc aborts in finally) remove a still-waiting dispatch
+                        flowWait: {
+                            timeout: params.options?.sendTimeout,
+                            signals: [abortSignal, timeoutAc.signal],
+                        },
                         callback: (msg) => {
                             try {
                                 if (settled) {
@@ -757,6 +1026,27 @@ export function createMsgBus<
 
         const unsubscribe = subscribe(subParams);
 
+        const flowControl = getFlowControl(channel, inGroup);
+        if (flowControl) {
+            try {
+                const wait = acquireSlot(channel, flowControl, {
+                    timeout,
+                    signals: [abortSignal],
+                });
+                if (wait !== undefined) {
+                    await wait;
+                }
+            } catch (err) {
+                unsubscribe();
+                if (isOperationCanceledError(err)) {
+                    return; // aborted while waiting: end the stream quietly, like an abort after publish
+                }
+                throw err;
+            }
+            // the first response releases the slot (publish() hook); later responses are no-ops
+            openLease(channel, requestId, getLeaseTimeout(channel, flowControl));
+        }
+
         await publish({
             address: {
                 channel: params.channel,
@@ -769,6 +1059,10 @@ export function createMsgBus<
             },
             payload,
         });
+
+        if (flowControl && !inSubject.observed) {
+            releaseSlot(channel, requestId);
+        }
 
         let onAbort: (() => void) | null = null;
         if (abortSignal) {
@@ -921,9 +1215,10 @@ export function createMsgBus<
         once: once as AwaitableMsgSub<TStructN, THeaders>,
         stream: stream as MsgStream<TStructN, THeaders>,
         provide: provide as MsgProvider<TStructN, THeaders>,
-        send: dispatch as MsgSender<TStructN, THeaders>,
+        send: send as MsgSender<TStructN, THeaders>,
         request: request as MsgRequestDispatcher<TStructN, THeaders>,
         requestStream: requestStream as MsgRequestStream<TStructN, THeaders>,
+        getFlowStats: getFlowStats as MsgBus<TStruct, THeaders>['getFlowStats'],
     };
 
     // msgBus[$subjects] = subjects;

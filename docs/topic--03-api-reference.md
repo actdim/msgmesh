@@ -4,7 +4,7 @@ slug: 03-api-reference
 title: API Reference
 type: topic
 created: 2026-08-31
-updated: 2026-09-02
+updated: 2026-11-08
 tags: [03-api-reference]
 ---
 
@@ -31,6 +31,7 @@ const msgBus = createMsgBus<AppBusStruct>({
         throttle: 100, // Throttle duration in ms (or { duration: 100, leading: true, trailing: true })
         replayBufferSize: 10, // Replay last N messages to new subscribers
         replayWindowTime: 60000, // Replay window in ms
+        flowControl: { maxInFlight: 4, overflow: 'wait', leaseTimeout: 30000 }, // Backpressure (see 04. Advanced Patterns)
     },
 
     // 2. Wildcard default configuration for all channels
@@ -61,6 +62,8 @@ const sentMsg = await msgBus.send({
     payload: { reason: 'User clicked logout' },
 });
 ```
+
+On a channel with `flowControl` the Promise resolves once a slot is free and the message is published, so `await` throttles the producer. `options.timeout` and `options.abortSignal` bound that wait (`TimeoutError` / `OperationCanceledError`); with `overflow: 'error'` a full channel rejects with `ChannelBusyError`. Unawaited sends never raise unhandled rejections there. `msgBus.getFlowStats(channel)` returns `{ limit, inFlight, waiting, leases }`. Details: [Flow Control](./topic--04-advanced-patterns.md#5-flow-control-backpressure).
 
 ### 2. `on()` - Subscribe to Messages
 Registers a long-running subscriber for messages matching a channel. Returns an unsubscribe closure `() => void`.
@@ -176,6 +179,7 @@ const response = await msgBus.request({
     payload: { a: 10, b: 20 },
     options: {
         timeout: 3000, // Max wait time for response
+        sendTimeout: 1000, // Max wait for a free slot on a flow-controlled channel
         throwIfNoProvider: true, // Throws NoProviderError if no provider is active
         abortSignal: controller.signal,
     },

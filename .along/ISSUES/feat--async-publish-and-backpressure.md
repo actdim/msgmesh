@@ -3,7 +3,7 @@ protocol: along
 protocol_version: "4.6.1"
 slug: async-publish-and-backpressure
 type: feat
-status: open
+status: in-progress
 priority: high
 created: 2026-11-08
 updated: 2026-11-08
@@ -12,6 +12,7 @@ tags: [async, backpressure, flow-control, send-promise]
 milestone: v2.0.0-along-transition
 blocked_by: []
 related: [feat--send-rate-limiting, feat--ack-nack-support, feat--message-persistence]
+plan_status: approved
 ---
 
 # Flow control for in/out channel pairs: real send promise with in-flight limit

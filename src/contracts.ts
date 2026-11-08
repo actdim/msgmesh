@@ -97,6 +97,26 @@ export function isNoProviderError(error: unknown): error is NoProviderError {
     return typeof error === 'object' && error !== null && $isNoProviderError in error;
 }
 
+export const CHANNEL_BUSY_ERROR_NAME = 'ChannelBusyError' as const;
+export const $isChannelBusyError = Symbol('isChannelBusyError');
+
+/** Thrown by send()/request()/requestStream() when a flow-controlled channel
+ * has no free in-flight slot and its overflow policy is 'error'. */
+export class ChannelBusyError extends BaseError {
+    readonly name: string = CHANNEL_BUSY_ERROR_NAME;
+    readonly [$isChannelBusyError] = true as const;
+    readonly channel: string;
+
+    constructor(channel: string) {
+        super(`Channel "${channel}" has no free in-flight slot`);
+        this.channel = channel;
+    }
+}
+
+export function isChannelBusyError(error: unknown): error is ChannelBusyError {
+    return typeof error === 'object' && error !== null && $isChannelBusyError in error;
+}
+
 export type InChannelStruct = {
     [$CG_IN]: any;
 };
@@ -168,7 +188,7 @@ export type MsgChannelConfig<TChannel> = {
     // requireAck: boolean;
     // noAck?: boolean; // noAutoAck
     // manualAck?: boolean;
-    // prefetchCount?: number; // for manual acknowledgment (max messages in flight without ack)
+    // prefetchCount -> see flowControl.maxInFlight
     // maxSubscribers?: number;
     replayBufferSize?: number;
     replayWindowTime?: number;
@@ -176,9 +196,38 @@ export type MsgChannelConfig<TChannel> = {
     mandatoryProvider?: boolean;
     timeout?: number;
 
+    /** Backpressure for the channel's input groups (in/out pair). Opt-in; see MsgFlowControl. */
+    flowControl?: MsgFlowControl;
+
     delay?: number;
     throttle?: number | (ThrottleOptions & { duration: number });
     debounce?: number;
+};
+
+/**
+ * Credit-based flow control for a channel (in/out pair).
+ * At most `maxInFlight` messages sent to the channel's input groups may be unanswered.
+ * A slot is taken by send()/request()/requestStream() before publishing and released by the
+ * matching "out" message (any status), by provider-side cancel (msgOut.status = 'canceled'),
+ * by the lease timeout, or immediately when nobody is subscribed at publish time.
+ * Publishes to "out"/"error" groups and cancel messages are never gated.
+ */
+export type MsgFlowControl = {
+    /** Max messages sent to the channel's input groups and not yet answered in "out" (>= 1). */
+    maxInFlight: number;
+    /** Behavior when no slot is free: wait in FIFO order (default) or reject with ChannelBusyError. */
+    overflow?: 'wait' | 'error';
+    /** A slot is force-released if no "out" arrives in time (ms).
+     * Default: channel timeout ?? defaultPromiseTimeout. */
+    leaseTimeout?: number;
+};
+
+/** Snapshot of a flow-controlled channel (see MsgBus.getFlowStats). */
+export type MsgFlowStats = {
+    limit: number;
+    inFlight: number;
+    waiting: number;
+    leases: number;
 };
 
 export type MsgSubOptions = {
@@ -395,6 +444,8 @@ export type MsgProvider<TStruct extends MsgStructBase, THeaders extends MsgHeade
     ): void;
 };
 
+/** For send(): `timeout` and `abortSignal` bound waiting for a free slot on a flow-controlled channel
+ * (TimeoutError / OperationCanceledError). They have no effect on channels without flowControl. */
 export type MsgSenderOptions = PromiseOptions;
 
 export type MsgSenderParams<
@@ -429,6 +480,7 @@ export type MsgSender<TStruct extends MsgStructBase, THeaders extends MsgHeaders
 };
 
 export type MsgRequestOptions = PromiseOptions & {
+    /** Max time (ms) to wait for a free slot on a flow-controlled channel. The overall `timeout` still applies. */
     sendTimeout?: number;
     responseTimeout?: number;
     throwIfNoProvider?: boolean;
@@ -534,6 +586,8 @@ export type MsgBus<TStruct extends MsgStructBase, THeaders extends MsgHeaders = 
     readonly request: MsgRequestDispatcher<MsgStructNormalized<TStruct>, THeaders>;
     // publish + stream of responses
     readonly requestStream: MsgRequestStream<MsgStructNormalized<TStruct>, THeaders>;
+    /** Flow control snapshot for a channel; undefined if the channel has no flowControl or was never used. */
+    readonly getFlowStats: (channel: keyof MsgStructNormalized<TStruct> & string) => MsgFlowStats | undefined;
 
     /**
      * @internal
