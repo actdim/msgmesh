@@ -1,4 +1,5 @@
 {
+    "extends": ["@actdim/dev-config/tsconfig/base.json", "@actdim/dev-config/tsconfig/loose.json"],
     "compilerOptions": {
         "declaration": false,
         "declarationMap": false,
@@ -6,21 +7,10 @@
         "sourceMap": false,
         "inlineSources": false,
         "inlineSourceMap": false,
-        "esModuleInterop": true,
-        "skipLibCheck": true,
-        "allowSyntheticDefaultImports": true,
         "allowImportingTsExtensions": true,
-        "resolveJsonModule": true,
         "traceResolution": false,
-        "useDefineForClassFields": true,
         "removeComments": true,
-        "forceConsistentCasingInFileNames": true,
-        "emitDecoratorMetadata": true,
-        "experimentalDecorators": true,
-        "moduleResolution": "bundler",
-        "target": "esnext",
-        "module": "esnext",
-        "lib": ["ESNext", "DOM"],
+        "lib": ["ESNext", "DOM", "DOM.Iterable"],
         "types": [],
         // "jsx": "react",
         // "jsx": "react-jsx", // vite-specific
@@ -30,16 +20,8 @@
         "noEmit": true,
         "noEmitOnError": true,
         // "newLine": "lf",
-        "isolatedModules": false,
-        // "isolatedModules": true,
-        /* Linting */
-        "strictNullChecks": false,
-        "noImplicitReturns": true,
-        "strict": false,
-        "noImplicitAny": false,
         // "noUnusedLocals": true,
         // "noUnusedParameters": true,
-        "noFallthroughCasesInSwitch": true,
         "rootDir": ".",
         "paths": {
             "@/*": ["./src/*"]

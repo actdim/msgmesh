@@ -1,9 +1,10 @@
 # Active Issues
 
 ## Active
-<!-- No active issues -->
+- [ ] `(task)` [adopt-dev-config](ISSUES/task--adopt-dev-config.md)
 
 ## Backlog
+- [ ] `(bug)` [standalone-missing-peer-devdeps](ISSUES/bug--standalone-missing-peer-devdeps.md)
 - [ ] `(debt)` [internal-debug-messages](ISSUES/debt--internal-debug-messages.md)
 - [ ] `(debt)` [package-config-alias-resolution](ISSUES/debt--package-config-alias-resolution.md)
 - [ ] `(debt)` [request-topic-matching-filter](ISSUES/debt--request-topic-matching-filter.md)
@@ -22,7 +23,6 @@
 - [ ] `(feat)` [p2p-and-queue-groups](ISSUES/feat--p2p-and-queue-groups.md)
 - [ ] `(feat)` [qos-levels](ISSUES/feat--qos-levels.md)
 - [ ] `(feat)` [ttl-and-max-buffer-length](ISSUES/feat--ttl-and-max-buffer-length.md)
-- [ ] `(task)` [adopt-dev-config](ISSUES/task--adopt-dev-config.md)
 - [ ] `(task)` [agent-native-metadata-and-contracts](ISSUES/task--agent-native-metadata-and-contracts.md)
 
 ## Done (recent)
