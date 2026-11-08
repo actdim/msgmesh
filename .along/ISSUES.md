@@ -1,7 +1,7 @@
 # Active Issues
 
 ## Active
-- [ ] `(feat)` [async-publish-and-backpressure](ISSUES/feat--async-publish-and-backpressure.md) - plan ready
+<!-- No active issues -->
 
 ## Backlog
 - [ ] `(bug)` [standalone-missing-peer-devdeps](ISSUES/bug--standalone-missing-peer-devdeps.md)
@@ -28,8 +28,8 @@
 
 ## Done (recent)
 - [x] `(task)` [adopt-dev-config](ISSUES/done/task--adopt-dev-config.md)
+- [x] `(feat)` [async-publish-and-backpressure](ISSUES/done/feat--async-publish-and-backpressure.md)
 - [x] `(task)` [standardize-lockfile](ISSUES/done/task--standardize-lockfile.md)
 - [x] `(bug)` [request-timeout-timer-leak](ISSUES/done/bug--request-timeout-timer-leak.md)
 - [x] `(task)` [separate-docs-and-vitepress-build](ISSUES/done/task--separate-docs-and-vitepress-build.md)
-- [x] `(task)` [remediate-all-stub-issues](ISSUES/done/task--remediate-all-stub-issues.md)
-<!-- 9 older completed issue(s) archived in .along/ISSUES/done/ -->
+<!-- 10 older completed issue(s) archived in .along/ISSUES/done/ -->

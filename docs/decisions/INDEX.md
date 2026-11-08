@@ -13,6 +13,9 @@ tags: [adr, architecture, decisions, index]
 This directory contains the project's Architectural Decision Records.
 Decisions are authored and maintained in `.along/DECISIONS/` and published here as first-class documentation.
 
-## Active Decisions (0)
+## Active Decisions (1)
+
+- **[no-agent-vendor-dev-tooling](./ADR-2026-11-08--no-agent-vendor-dev-tooling.md)** - Dev servers, Storybook and browser checks run through project scripts, not agent-vendor config
 
 ## Superseded & Retired Decisions (0)
+

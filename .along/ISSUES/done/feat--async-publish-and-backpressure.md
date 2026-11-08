@@ -3,7 +3,8 @@ protocol: along
 protocol_version: "4.6.1"
 slug: async-publish-and-backpressure
 type: feat
-status: in-progress
+status: done
+completed: 2026-11-08
 priority: high
 created: 2026-11-08
 updated: 2026-11-08
@@ -167,19 +168,19 @@ Note: the work touches more than three files (`contracts.ts`, `core.ts`, tests, 
 
 ## Acceptance Criteria
 
-- [ ] `MsgFlowControl` and `MsgChannelConfig.flowControl` added in `src/contracts.ts`; commented `prefetchCount` replaced.
-- [ ] `ChannelBusyError` + `isChannelBusyError()` exported.
-- [ ] Channels without `flowControl`: existing test suite passes unchanged; micro-benchmark (100k `send()` calls) shows no regression versus HEAD.
-- [ ] `maxInFlight: N` with a slow provider: the (N+1)-th `send()` stays pending until the first `out` arrives.
-- [ ] FIFO: the oldest waiter gets the released slot first.
-- [ ] `overflow: 'error'` rejects with `ChannelBusyError`.
-- [ ] `timeout` / `abortSignal` on a waiting `send()` reject with `TimeoutError` / `OperationCanceledError`; the waiter is removed and no slot leaks.
-- [ ] Slots are released by `out` with `failed` (provider threw) and by provider-side `canceled`.
-- [ ] `leaseTimeout` releases a slot when the provider never answers.
-- [ ] No subscribers at publish: slot released immediately.
-- [ ] `out`, `error` and cancel messages are never gated; no deadlock when a provider on channel A requests channel B, both with `maxInFlight: 1`.
-- [ ] `request()` honors `sendTimeout` while waiting for a slot.
-- [ ] `requestStream()` acquires a slot and releases it on the first response.
-- [ ] Unawaited `send()` with a gate error: no unhandled rejection; error appears on `MSGBUS.ERROR`.
-- [ ] No leaks: after a burst of requests `flows` holds no leases and all timers are cleared (pattern of `tests/timeoutTimerLeak.test.ts`).
-- [ ] Docs updated: `docs/topic--02-architecture-and-types.md`, `docs/topic--04-advanced-patterns.md`, package `AGENTS.md` (Internal Flow, Common Pitfalls).
+- [x] `MsgFlowControl` and `MsgChannelConfig.flowControl` added in `src/contracts.ts`; commented `prefetchCount` replaced.
+- [x] `ChannelBusyError` + `isChannelBusyError()` exported.
+- [x] Channels without `flowControl`: existing test suite passes unchanged; micro-benchmark (100k `send()` calls) shows no regression versus HEAD.
+- [x] `maxInFlight: N` with a slow provider: the (N+1)-th `send()` stays pending until the first `out` arrives.
+- [x] FIFO: the oldest waiter gets the released slot first.
+- [x] `overflow: 'error'` rejects with `ChannelBusyError`.
+- [x] `timeout` / `abortSignal` on a waiting `send()` reject with `TimeoutError` / `OperationCanceledError`; the waiter is removed and no slot leaks.
+- [x] Slots are released by `out` with `failed` (provider threw) and by provider-side `canceled`.
+- [x] `leaseTimeout` releases a slot when the provider never answers.
+- [x] No subscribers at publish: slot released immediately.
+- [x] `out`, `error` and cancel messages are never gated; no deadlock when a provider on channel A requests channel B, both with `maxInFlight: 1`.
+- [x] `request()` honors `sendTimeout` while waiting for a slot.
+- [x] `requestStream()` acquires a slot and releases it on the first response.
+- [x] Unawaited `send()` with a gate error: no unhandled rejection; error appears on `MSGBUS.ERROR`.
+- [x] No leaks: after a burst of requests `flows` holds no leases and all timers are cleared (pattern of `tests/timeoutTimerLeak.test.ts`).
+- [x] Docs updated: `docs/topic--02-architecture-and-types.md`, `docs/topic--04-advanced-patterns.md`, package `AGENTS.md` (Internal Flow, Common Pitfalls).
