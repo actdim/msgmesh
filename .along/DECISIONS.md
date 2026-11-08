@@ -1,12 +1,9 @@
-# Decisions (ADR - append-only)
+<!-- Generated projection from .along/DECISIONS/*.md. Do not edit by hand. Run: along decision sync -->
+# Decisions (ADR Projection Board)
 
-_One dated entry per architectural decision. Never edit past entries; mark a replaced one "Superseded by #N"._
+## Active Decisions (1)
 
-<!-- Template:
-## #001 - <title>
-- Date: YYYY-MM-DD
-- Status: accepted            (or: superseded by #NNN)
-- Context: <why this came up>
-- Decision: <what was decided>
-- Consequences: <trade-offs / follow-ups>
--->
+- [Dev servers, Storybook and browser checks run through project scripts, not agent-vendor config](DECISIONS/ADR-2026-11-08--no-agent-vendor-dev-tooling.md)
+
+## Superseded & Retired Decisions (0)
+
