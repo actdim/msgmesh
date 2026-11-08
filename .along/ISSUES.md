@@ -1,7 +1,7 @@
 # Active Issues
 
 ## Active
-- [ ] `(task)` [adopt-dev-config](ISSUES/task--adopt-dev-config.md)
+<!-- No active issues -->
 
 ## Backlog
 - [ ] `(bug)` [standalone-missing-peer-devdeps](ISSUES/bug--standalone-missing-peer-devdeps.md)
@@ -26,9 +26,9 @@
 - [ ] `(task)` [agent-native-metadata-and-contracts](ISSUES/task--agent-native-metadata-and-contracts.md)
 
 ## Done (recent)
+- [x] `(task)` [adopt-dev-config](ISSUES/done/task--adopt-dev-config.md)
 - [x] `(task)` [standardize-lockfile](ISSUES/done/task--standardize-lockfile.md)
 - [x] `(bug)` [request-timeout-timer-leak](ISSUES/done/bug--request-timeout-timer-leak.md)
 - [x] `(task)` [separate-docs-and-vitepress-build](ISSUES/done/task--separate-docs-and-vitepress-build.md)
 - [x] `(task)` [remediate-all-stub-issues](ISSUES/done/task--remediate-all-stub-issues.md)
-- [x] `(bug)` [pages-deploy-peer-deps](ISSUES/done/bug--pages-deploy-peer-deps.md)
-<!-- 8 older completed issue(s) archived in .along/ISSUES/done/ -->
+<!-- 9 older completed issue(s) archived in .along/ISSUES/done/ -->
