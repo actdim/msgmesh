@@ -113,6 +113,12 @@ This gives agents instant access to channel contracts and patterns in `node_modu
 
 ## Changelog
 
+### 1.14.0 (2026-11-08)
+- `core`: credit-based backpressure and flow control for in/out channel pairs (`flowControl { maxInFlight, overflow, leaseTimeout }`, `ChannelBusyError`, `getFlowStats`)
+- `core`: FIFO waiter queue with send timeout and AbortSignal cancellation
+- `tooling`: adopted `@actdim/dev-config` presets for ESLint, Prettier, and TypeScript configuration
+- Synchronized workspace dependencies to `>=1.14.0`
+
 ### 1.8.2 (2026-10-11)
 - `core`: support configurable channel request timeout via `MsgChannelConfig.timeout?: number` for `request()` and `once()`
 - `core`: upfront `requestId` generation in dispatch for robust request-response correlation
