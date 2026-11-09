@@ -4,7 +4,7 @@ slug: INDEX
 title: '@actdim/msgmesh - Knowledge Base Topic Index'
 type: index
 created: 2026-09-07
-updated: 2026-11-08
+updated: 2026-11-09
 tags: [index, kb, topics, map]
 ---
 
