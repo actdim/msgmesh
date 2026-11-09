@@ -587,7 +587,7 @@ export type MsgBus<TStruct extends MsgStructBase, THeaders extends MsgHeaders = 
     // publish + stream of responses
     readonly requestStream: MsgRequestStream<MsgStructNormalized<TStruct>, THeaders>;
     /** Flow control snapshot for a channel; undefined if the channel has no flowControl or was never used. */
-    readonly getFlowStats: (channel: keyof MsgStructNormalized<TStruct> & string) => MsgFlowStats | undefined;
+    readonly getFlowStats: (channel: (keyof MsgStructNormalized<TStruct> & string) | (string & {})) => MsgFlowStats | undefined;
 
     /**
      * @internal
