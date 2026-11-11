@@ -27,7 +27,7 @@ flowchart TD
     INDEX --> T_04_ADVANCED_PATTERNS
     T_ARCHITECTURE["01 Architecture"]
     INDEX --> T_ARCHITECTURE
-    T_DEPENDENCIES["Dependencies & Submodules AI Documentation and Rules"]
+    T_DEPENDENCIES["Dependencies & AI Documentation for @actdim/msgmesh"]
     INDEX --> T_DEPENDENCIES
     T_DOMAIN_MODEL["02 Domain Model"]
     INDEX --> T_DOMAIN_MODEL
@@ -68,7 +68,7 @@ flowchart TD
 - **[API Reference](./topic--03-api-reference.md)** (topic) `03-api-reference`
 - **[Advanced Patterns & Adapters](./topic--04-advanced-patterns.md)** (topic) `04-advanced-patterns`
 - **[01 Architecture](./topic--architecture.md)** (topic) `architecture`
-- **[Dependencies & Submodules AI Documentation and Rules](./topic--dependencies.md)** (topic) `dependencies`, `ai-context`, `submodules`, `vendor`, `rules`
+- **[Dependencies & AI Documentation for @actdim/msgmesh](./topic--dependencies.md)** (topic) `dependencies`, `subproject`, `ai-context`, `rules`
 - **[02 Domain Model](./topic--domain-model.md)** (topic) `domain-model`
 - **[License](./topic--license.md)** (license) `license`, `mit`
 - **[03 Setup And Workflow](./topic--setup-and-workflow.md)** (topic) `setup-and-workflow`
