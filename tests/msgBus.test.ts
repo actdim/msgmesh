@@ -1182,6 +1182,38 @@ describe('msgBus', () => {
         }),).rejects.toThrow('provider failure');
     });
 
+    it('request preserves thrown error properties on rejection', async () => {
+        const msgBus = createTestMsgBus();
+        const customError = Object.assign(new Error('custom error text'), {
+            status: 404,
+            code: 'ITEM_NOT_FOUND',
+            isApiError: true,
+        });
+
+        msgBus.provide({
+            channel: 'Test.ComputeSum',
+            callback: () => {
+                throw customError;
+            },
+        });
+
+        let caught: unknown = null;
+        try {
+            await msgBus.request({
+                channel: 'Test.ComputeSum',
+                payload: { a: 1, b: 2 },
+            });
+        } catch (err) {
+            caught = err;
+        }
+
+        expect(caught).toBeInstanceOf(Error);
+        expect((caught as Error).message).toBe('custom error text');
+        expect((caught as { status?: number }).status).toBe(404);
+        expect((caught as { code?: string }).code).toBe('ITEM_NOT_FOUND');
+        expect((caught as { isApiError?: boolean }).isApiError).toBe(true);
+    });
+
     it('keeps own error fields in MSGBUS.ERROR payload outside DEV', async () => {
         vi.stubEnv('DEV', false);
         try {

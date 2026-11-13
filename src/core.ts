@@ -157,11 +157,43 @@ export function createMsgBus<
                 headers: {
                     ...srcMsg.headers,
                     inResponseToId: srcMsg.headers.requestId,
-                    error: err?.message ?? String(err),
+                    error: err?.code !== undefined
+                        ? { code: err.code, message: err?.message ?? String(err) }
+                        : (err?.message ?? String(err)),
                 },
+                payload: errPayload,
             });
         }
         // + nack?
+    }
+
+    function createRequestFailedError(msg: Msg<TStructN>): Error {
+        const errHeader = msg.headers?.error;
+        const errMessage =
+            typeof errHeader === 'string'
+                ? errHeader
+                : (errHeader?.message ?? 'Unknown error');
+        const rejectedErr = new Error(errMessage, { cause: msg });
+        if (typeof errHeader === 'object' && errHeader?.code !== undefined) {
+            (rejectedErr as any).code = errHeader.code;
+        }
+        const payloadErr = (msg.payload as any)?.error;
+        if (payloadErr && typeof payloadErr === 'object') {
+            for (const key of Object.getOwnPropertyNames(payloadErr)) {
+                if (key !== 'message' && key !== 'stack' && key !== 'cause') {
+                    try {
+                        (rejectedErr as any)[key] = (payloadErr as any)[key];
+                    } catch {
+                        // ignore read-only properties
+                    }
+                }
+            }
+            if (payloadErr.name && payloadErr.name !== 'Error') {
+                rejectedErr.name = payloadErr.name;
+            }
+        }
+
+        return rejectedErr;
     }
 
     function createOperationCanceledError(cause?: unknown, message?: string) {
@@ -878,12 +910,7 @@ export function createMsgBus<
 
                                     return;
                                 } else if (msg.status === 'failed') {
-                                    const errHeader = msg.headers?.error;
-                                    const errMessage =
-                                        typeof errHeader === 'string'
-                                            ? errHeader
-                                            : (errHeader?.message ?? 'Unknown error');
-                                    rej(new Error(errMessage, { cause: msg }));
+                                    rej(createRequestFailedError(msg));
 
                                     return;
                                 }
@@ -1095,12 +1122,7 @@ export function createMsgBus<
                         'The request was canceled by the provider',
                     );
                 } else if (msg.status === 'failed') {
-                    const errHeader = msg.headers?.error;
-                    const errMessage =
-                        typeof errHeader === 'string'
-                            ? errHeader
-                            : (errHeader?.message ?? 'Unknown error');
-                    throw new Error(errMessage, { cause: msg });
+                    throw createRequestFailedError(msg);
                 }
 
                 messageCount++;
